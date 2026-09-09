@@ -14,6 +14,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # O lockfile veio defasado da base remixada. `npm install` resolve a árvore
+      # antes da validação sem depender de alterações no ambiente do Lovable.
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run lint
