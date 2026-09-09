@@ -1,11 +1,34 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { Heart, LockKeyhole, Mail } from "lucide-react";
+import { Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
-import { toast } from "sonner";
 
-export const Route = createFileRoute("/login")({ validateSearch: (search) => ({ redirect: (search.redirect as string) || "/dashboard" }), beforeLoad: ({ context, search }) => { if (context.auth.isAuthenticated) throw redirect({ to: search.redirect as any }); }, component: LoginPage });
-function LoginPage(){const search=Route.useSearch();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[loading,setLoading]=useState(false);const[googleLoading,setGoogleLoading]=useState(false);async function handleSubmit(event:React.FormEvent){event.preventDefault();setLoading(true);const{error}=await supabase.auth.signInWithPassword({email,password});setLoading(false);if(error)toast.error("Não foi possível entrar. Confira seu e-mail e sua senha.")}async function handleGoogle(){setGoogleLoading(true);const redirectTo=(search.redirect as string)||"/dashboard";const{error}=await lovable.auth.signInWithOAuth("google",{redirect_uri:window.location.origin+"/login?redirect="+encodeURIComponent(redirectTo)});if(error){setGoogleLoading(false);toast.error("Não foi possível entrar com o Google.")}}return <main className="nat-paper flex min-h-screen items-center justify-center bg-[#F8EEE9] px-4 py-10"><div className="w-full max-w-md rounded-[32px] border border-[#E7CFC5] bg-[#FFF9F6]/95 p-6 shadow-[0_25px_70px_rgba(53,21,10,0.12)] sm:p-8"><div className="mb-8 text-center"><Link to="/" className="mx-auto flex w-fit flex-col items-center"><div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-[#EAAC93] bg-[#35150A]"><span className="font-display text-2xl text-[#F2C5B5]">NAT</span><Heart className="absolute -bottom-1 h-3 w-3 fill-[#EAAC93] text-[#EAAC93]"/></div><span className="mt-4 font-display text-3xl text-[#35150A]">Bem-vinda de volta.</span></Link><p className="mt-2 text-sm text-[#956454]">Entre para acompanhar a NAT.</p></div><button type="button" onClick={handleGoogle} disabled={googleLoading} className="mb-5 flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl border border-[#E7CFC5] bg-white px-4 text-sm font-black text-[#55281B] transition hover:bg-[#F8EEE9] disabled:opacity-50"><GoogleIcon/>{googleLoading?"Entrando...":"Continuar com Google"}</button><div className="mb-5 flex items-center gap-3"><div className="h-px flex-1 bg-[#E7CFC5]"/><span className="text-xs font-bold text-[#956454]">ou</span><div className="h-px flex-1 bg-[#E7CFC5]"/></div><form onSubmit={handleSubmit} className="space-y-4"><Field icon={<Mail/>} label="E-mail"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="voce@exemplo.com" className="w-full bg-transparent outline-none"/></Field><Field icon={<LockKeyhole/>} label="Senha"><input type="password" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} placeholder="••••••••" className="w-full bg-transparent outline-none"/></Field><button type="submit" disabled={loading} className="min-h-12 w-full rounded-2xl bg-[#35150A] px-4 text-sm font-black text-white transition hover:bg-[#55281B] disabled:opacity-50">{loading?"Entrando...":"Entrar"}</button></form><p className="mt-6 text-center text-sm text-[#956454]">Primeiro acesso? <Link to="/signup" className="font-black text-[#55281B] hover:underline">Criar conta</Link></p></div></main>}
-function Field({icon,label,children}:{icon:React.ReactNode;label:string;children:React.ReactNode}){return <label className="block"><span className="mb-1.5 block text-sm font-black text-[#55281B]">{label}</span><span className="flex min-h-12 items-center gap-3 rounded-2xl border border-[#E7CFC5] bg-white px-4 text-sm text-[#35150A] focus-within:border-[#EAAC93] focus-within:ring-4 focus-within:ring-[#EAAC93]/15 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:text-[#956454]">{icon}{children}</span></label>}
-function GoogleIcon(){return <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>}
+export const Route = createFileRoute("/login")({
+  beforeLoad: ({ context }) => {
+    if (context.auth.isAuthenticated) throw redirect({ to: "/dashboard" });
+  },
+  component: LoginPage,
+});
+
+function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (authError) { setError("Não foi possível entrar. Confira seu e-mail e senha."); return; }
+    window.location.href = "/dashboard";
+  }
+
+  return <AuthLayout title="Bem-vinda de volta" text="Entre para cuidar das vendas, custos e preços da NAT."><form className="space-y-4" onSubmit={submit}><div><label className="field-label">E-mail</label><input className="nat-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></div><div><label className="field-label">Senha</label><input className="nat-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="current-password" /></div>{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}<button className="primary-button w-full" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button><p className="text-center text-sm text-caramel">Ainda não tem acesso? <Link to="/signup" className="font-bold text-chocolate underline">Criar conta</Link></p></form></AuthLayout>;
+}
+
+function AuthLayout({ title, text, children }: { title: string; text: string; children: React.ReactNode }) {
+  return <main className="grid min-h-screen place-items-center bg-cream px-4 py-10"><div className="w-full max-w-md rounded-[32px] border border-nat bg-white p-6 shadow-xl sm:p-8"><Link to="/" className="mx-auto grid h-20 w-20 place-items-center rounded-full border-2 border-chocolate p-1"><div className="grid h-full w-full place-items-center rounded-full border border-chocolate font-display text-2xl">NAT</div></Link><div className="mt-6 text-center"><p className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[.18em] text-caramel"><Heart size={13} /> NAT Gestão</p><h1 className="mt-2 font-display text-4xl">{title}</h1><p className="mt-2 text-sm leading-6 text-caramel">{text}</p></div><div className="mt-7">{children}</div></div></main>;
+}

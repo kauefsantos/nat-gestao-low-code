@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,8 +14,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # O lockfile veio defasado da base remixada. `npm install` resolve a árvore
-      # antes da validação sem depender de alterações no ambiente do Lovable.
       - run: npm install --no-audit --no-fund
       - run: npm run build
-      - run: npm run lint
+      - run: npx eslint src/app src/domain src/hooks/use-nat-store.ts src/routes

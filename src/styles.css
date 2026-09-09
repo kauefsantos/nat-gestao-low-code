@@ -1,135 +1,68 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-
-@custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-ring-offset-background: var(--background);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --font-sans: var(--font-sans);
+  --color-cream: #F8EEE9;
+  --color-chocolate: #35150A;
+  --color-cocoa: #55281B;
+  --color-rose: #EAAC93;
+  --color-rose-soft: #F2C5B5;
+  --color-caramel: #956454;
+  --color-soft: #FFF9F6;
 }
 
 :root {
-  --radius: 1rem;
-  --font-sans: "Lato", ui-sans-serif, system-ui, sans-serif;
-  --background: #F8EEE9;
-  --foreground: #35150A;
-  --card: #FFF9F6;
-  --card-foreground: #35150A;
-  --popover: #FFF9F6;
-  --popover-foreground: #35150A;
-  --primary: #35150A;
-  --primary-foreground: #FFF9F6;
-  --secondary: #F2C5B5;
-  --secondary-foreground: #35150A;
-  --muted: #F3E5DF;
-  --muted-foreground: #956454;
-  --accent: #EAAC93;
-  --accent-foreground: #35150A;
-  --destructive: #B34135;
-  --destructive-foreground: #FFF9F6;
-  --border: #E7CFC5;
-  --input: #E7CFC5;
-  --ring: #EAAC93;
-  --chart-1: #55281B;
-  --chart-2: #EAAC93;
-  --chart-3: #956454;
-  --chart-4: #F2C5B5;
-  --chart-5: #35150A;
-  --sidebar: #FFF9F6;
-  --sidebar-foreground: #35150A;
-  --sidebar-primary: #35150A;
-  --sidebar-primary-foreground: #FFF9F6;
-  --sidebar-accent: #F2C5B5;
-  --sidebar-accent-foreground: #35150A;
-  --sidebar-border: #E7CFC5;
-  --sidebar-ring: #EAAC93;
+  font-family: "Lato", ui-sans-serif, system-ui, sans-serif;
+  color: #35150A;
+  background: #F8EEE9;
+  font-synthesis: none;
 }
 
-@layer base {
-  * {
-    border-color: var(--color-border);
-  }
+* { box-sizing: border-box; }
+html { background: #F8EEE9; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #F8EEE9; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+::selection { background: #F2C5B5; color: #35150A; }
 
-  html {
-    background: #F8EEE9;
-  }
+.font-display { font-family: "GFS Didot", Georgia, serif; font-weight: 400; }
+.border-nat { border-color: #E8D5CD; }
+.bg-soft { background: #FFF9F6; }
+.bg-rose-soft { background: #F2C5B5; }
+.bg-chocolate { background: #35150A; }
+.bg-cream { background: #F8EEE9; }
+.text-chocolate { color: #35150A; }
+.text-caramel { color: #956454; }
+.text-rose { color: #EAAC93; }
 
-  body {
-    margin: 0;
-    min-width: 320px;
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+.eyebrow { color: #956454; font-size: 11px; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
+.section-title { margin-top: 4px; font-family: "GFS Didot", Georgia, serif; font-size: 30px; line-height: 1.1; }
+.nat-card { border: 1px solid #E8D5CD; border-radius: 28px; background: #FFF9F6; padding: 20px; box-shadow: 0 10px 30px rgba(53,21,10,.04); }
+.metric-card { border: 1px solid #E8D5CD; border-radius: 24px; background: #FFF9F6; padding: 18px; }
+.metric-card.attention { background: #FCEDE9; }
 
-  button,
-  input,
-  select,
-  textarea {
-    font: inherit;
-  }
+.primary-button, .secondary-button, .text-button, .icon-button, .side-button, .mobile-nav-button, .tab-button, .choice-button { transition: .18s ease; }
+.primary-button { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 16px; background: #35150A; color: #FFF9F6; padding: 0 18px; font-size: 14px; font-weight: 900; text-decoration: none; }
+.primary-button:hover { background: #55281B; transform: translateY(-1px); }
+.secondary-button { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; gap: 8px; border: 1px solid #E8D5CD; border-radius: 16px; background: #FFF; color: #35150A; padding: 0 18px; font-size: 14px; font-weight: 900; text-decoration: none; }
+.secondary-button:hover { border-color: #EAAC93; background: #FFF9F6; }
+.text-button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 0; background: transparent; color: #55281B; font-size: 13px; font-weight: 900; }
+.icon-button { display: grid; height: 42px; width: 42px; place-items: center; border: 0; border-radius: 14px; background: transparent; color: #55281B; }
+.icon-button:hover { background: #F2C5B5; }
+.side-button { display: flex; width: 100%; align-items: center; gap: 10px; border: 0; border-radius: 14px; background: transparent; color: #956454; padding: 12px 14px; font-size: 14px; font-weight: 900; }
+.side-button:hover, .side-button.active { background: #FFF9F6; color: #35150A; box-shadow: 0 5px 16px rgba(53,21,10,.04); }
+.mobile-nav-button { display: flex; min-width: 58px; flex-direction: column; align-items: center; gap: 4px; border: 0; background: transparent; color: #956454; padding: 5px 4px; font-size: 10px; font-weight: 900; }
+.mobile-nav-button.active { color: #35150A; }
+.tab-button { border: 0; border-radius: 13px; background: transparent; color: #956454; padding: 9px 13px; font-size: 13px; font-weight: 900; }
+.tab-button.active { background: #35150A; color: white; }
+.choice-button { min-height: 46px; border: 1px solid #E8D5CD; border-radius: 14px; background: white; color: #956454; padding: 0 10px; font-size: 13px; font-weight: 900; }
+.choice-button.active { border-color: #EAAC93; background: #F2C5B5; color: #35150A; }
 
-  button {
-    cursor: pointer;
-  }
+.field-label { display: block; margin-bottom: 7px; color: #55281B; font-size: 13px; font-weight: 900; }
+.field-help { margin-top: 6px; color: #956454; font-size: 12px; line-height: 1.5; }
+.nat-input { width: 100%; min-height: 48px; border: 1px solid #E8D5CD; border-radius: 15px; outline: none; background: white; color: #35150A; padding: 10px 13px; font-size: 14px; }
+.nat-input:focus { border-color: #EAAC93; box-shadow: 0 0 0 4px rgba(234,172,147,.18); }
 
-  ::selection {
-    background: #F2C5B5;
-    color: #35150A;
-  }
-}
-
-@layer utilities {
-  .font-display {
-    font-family: "GFS Didot", "Times New Roman", serif;
-    font-weight: 400;
-  }
-
-  .nat-paper {
-    background-image:
-      radial-gradient(circle at 12% 18%, rgba(234, 172, 147, 0.13) 0 1px, transparent 1.5px),
-      radial-gradient(circle at 82% 72%, rgba(85, 40, 27, 0.08) 0 1px, transparent 1.5px);
-    background-size: 34px 34px, 42px 42px;
-  }
+@media (min-width: 640px) {
+  .nat-card { padding: 24px; }
 }
