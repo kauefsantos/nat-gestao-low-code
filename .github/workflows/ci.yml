@@ -13,7 +13,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm install --no-audit --no-fund
       - run: npm run build
-      - run: npx eslint src/app src/domain src/hooks/use-nat-store.ts src/routes
+      - run: npm run lint
