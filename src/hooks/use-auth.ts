@@ -1,41 +1,17 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User, Session } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
+import type { Session, User } from "@supabase/supabase-js";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 
-export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  session: Session | null;
-  isLoading: boolean;
-}
-
+export interface AuthState { isAuthenticated: boolean; user: User | null; session: Session | null; isLoading: boolean; configured: boolean }
 export function useAuth(): AuthState {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
+  const configured = isSupabaseConfigured();
+  const [user,setUser] = useState<User | null>(null); const [session,setSession] = useState<Session | null>(null); const [isLoading,setIsLoading] = useState(configured);
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  return {
-    isAuthenticated: !!session,
-    user,
-    session,
-    isLoading,
-  };
+    if (!configured) { setIsLoading(false); return; }
+    let active = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event,nextSession) => { if (!active) return; setSession(nextSession); setUser(nextSession?.user ?? null); setIsLoading(false); });
+    void supabase.auth.getSession().then(({ data: { session: nextSession } }) => { if (!active) return; setSession(nextSession); setUser(nextSession?.user ?? null); setIsLoading(false); }).catch(() => { if (active) setIsLoading(false); });
+    return () => { active = false; subscription.unsubscribe(); };
+  },[configured]);
+  return { isAuthenticated: Boolean(session), user, session, isLoading, configured };
 }
