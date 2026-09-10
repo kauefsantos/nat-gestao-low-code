@@ -1,4 +1,4 @@
-import { id, preferredUsageUnit, type RecipeItem, type Supply, type Unit } from "./nat";
+import { id, preferredUsageUnit, type RecipeItem, type Supply, type Unit } from "./nat.js";
 
 export type RecipeCsvResult = { items: RecipeItem[]; errors: string[] };
 
@@ -60,7 +60,7 @@ export function parseRecipeCsv(text: string, supplies: Supply[]): RecipeCsvResul
     if (!Number.isFinite(quantity) || quantity <= 0) { errors.push(`Linha ${lineNumber}: quantidade precisa ser maior que zero.`); return; }
     const unit = parseUnit(cells[2] ?? "", preferredUsageUnit(supply.packageUnit));
     if (!unit) { errors.push(`Linha ${lineNumber}: unidade “${cells[2]}” não é reconhecida.`); return; }
-    const allowed = supply.packageUnit === "kg" || supply.packageUnit === "g" ? ["g","kg"] : supply.packageUnit === "l" || supply.packageUnit === "ml" ? ["ml","l"] : ["unit"];
+    const allowed: Unit[] = supply.packageUnit === "kg" || supply.packageUnit === "g" ? ["g","kg"] : supply.packageUnit === "l" || supply.packageUnit === "ml" ? ["ml","l"] : ["unit"];
     if (!allowed.includes(unit)) { errors.push(`Linha ${lineNumber}: unidade incompatível com ${supply.name}.`); return; }
     const key = `${supply.id}:${unit}`;
     const existing = merged.get(key);
