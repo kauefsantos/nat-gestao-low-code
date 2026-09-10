@@ -4,12 +4,13 @@ export type PaymentMethod = "pix" | "cash" | "card" | "other";
 
 export type Supply = { id: string; name: string; category: SupplyCategory; packageQuantity: number; packageUnit: Unit; packagePrice: number; purchasedAt: string };
 export type RecipeItem = { id: string; supplyId: string; quantity: number; unit: Unit };
-export type Product = { id: string; name: string; batchYield: number; sellingPrice: number; lossPercent: number; productionCostPerBatch: number; minimumMarginPercent: number; targetMarginPercent: number; recipe: RecipeItem[] };
-export type Sale = { id: string; productId: string; productName: string; quantity: number; totalReceived: number; paymentMethod: PaymentMethod; soldAt: string; unitCostSnapshot: number; variableFeeSnapshot: number; contributionSnapshot: number };
+export type Product = { id: string; name: string; portfolioKey?: string | null; batchYield: number; sellingPrice: number; lossPercent: number; productionCostPerBatch: number; minimumMarginPercent: number; targetMarginPercent: number; recipe: RecipeItem[] };
+export type Sale = { id: string; productId: string; productName: string; portfolioKey?: string | null; quantity: number; totalReceived: number; paymentMethod: PaymentMethod; soldAt: string; unitCostSnapshot: number; variableFeeSnapshot: number; contributionSnapshot: number };
+export type SporadicExpense = { id: string; name: string; amount: number; spentAt: string };
 export type Settings = { ownerName: string; monthlyFixedCosts: number; paymentFeePercent: number; defaultMinimumMarginPercent: number; defaultTargetMarginPercent: number };
-export type NatState = { version: 2; supplies: Supply[]; products: Product[]; sales: Sale[]; settings: Settings };
+export type NatState = { version: 3; supplies: Supply[]; products: Product[]; sales: Sale[]; expenses: SporadicExpense[]; settings: Settings };
 
-export const initialState: NatState = { version: 2, supplies: [], products: [], sales: [], settings: { ownerName: "Natalia", monthlyFixedCosts: 0, paymentFeePercent: 0, defaultMinimumMarginPercent: 35, defaultTargetMarginPercent: 50 } };
+export const initialState: NatState = { version: 3, supplies: [], products: [], sales: [], expenses: [], settings: { ownerName: "Natalia", monthlyFixedCosts: 0, paymentFeePercent: 0, defaultMinimumMarginPercent: 35, defaultTargetMarginPercent: 50 } };
 export const unitLabel: Record<Unit, string> = { g: "g", kg: "kg", ml: "ml", l: "L", unit: "un" };
 export const paymentLabel: Record<PaymentMethod, string> = { pix: "Pix", cash: "Dinheiro", card: "Cartão", other: "Outro" };
 
@@ -90,16 +91,21 @@ export function productCost(product: Product, supplies: Supply[], paymentFeePerc
 export function monthSales(sales: Sale[], now = new Date()) {
   return sales.filter((sale) => { const date = new Date(sale.soldAt); return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth(); });
 }
+export function monthExpenses(expenses: SporadicExpense[], now = new Date()) {
+  return expenses.filter((expense) => { const date = new Date(`${expense.spentAt.slice(0,10)}T12:00:00`); return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth(); });
+}
 export function dashboardNumbers(state: NatState) {
   const sales = monthSales(state.sales);
+  const expenses = monthExpenses(state.expenses);
   const revenue = sales.reduce((sum, sale) => sum + sale.totalReceived, 0);
   const units = sales.reduce((sum, sale) => sum + sale.quantity, 0);
   const contribution = sales.reduce((sum, sale) => sum + sale.contributionSnapshot, 0);
-  const estimatedResult = contribution - state.settings.monthlyFixedCosts;
+  const sporadicExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const estimatedResult = contribution - state.settings.monthlyFixedCosts - sporadicExpenses;
   const byProduct = new Map<string, { name: string; quantity: number }>();
   for (const sale of sales) { const current = byProduct.get(sale.productId) ?? { name: sale.productName, quantity: 0 }; current.quantity += sale.quantity; byProduct.set(sale.productId, current); }
   const topProduct = [...byProduct.values()].sort((a,b) => b.quantity - a.quantity)[0] ?? null;
-  return { sales, revenue, units, contribution, estimatedResult, topProduct };
+  return { sales, expenses, revenue, units, contribution, sporadicExpenses, estimatedResult, topProduct };
 }
 
 export function buildSale(args: { product: Product; supplies: Supply[]; paymentFeePercent: number; quantity: number; totalReceived: number; paymentMethod: PaymentMethod; soldAt: string }): Sale {
@@ -107,5 +113,5 @@ export function buildSale(args: { product: Product; supplies: Supply[]; paymentF
   if (!metrics.recipeValid || !Number.isFinite(metrics.unitCost)) throw new Error("Não foi possível calcular o custo desta venda.");
   const variableFeeSnapshot = args.totalReceived * Math.max(0,args.paymentFeePercent) / 100;
   const contributionSnapshot = args.totalReceived - metrics.unitCost * args.quantity - variableFeeSnapshot;
-  return { id: id("sale"), productId: args.product.id, productName: args.product.name, quantity: args.quantity, totalReceived: args.totalReceived, paymentMethod: args.paymentMethod, soldAt: args.soldAt, unitCostSnapshot: metrics.unitCost, variableFeeSnapshot, contributionSnapshot };
+  return { id: id("sale"), productId: args.product.id, productName: args.product.name, portfolioKey: args.product.portfolioKey ?? null, quantity: args.quantity, totalReceived: args.totalReceived, paymentMethod: args.paymentMethod, soldAt: args.soldAt, unitCostSnapshot: metrics.unitCost, variableFeeSnapshot, contributionSnapshot };
 }
