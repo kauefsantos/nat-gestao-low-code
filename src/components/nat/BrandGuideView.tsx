@@ -1,4 +1,5 @@
 import { Camera, Heart, Instagram, MessageCircle, PackageCheck, Palette, Shapes, Type } from "lucide-react";
+import { ContentStudio } from "@/components/nat/ContentStudio";
 
 const colors=[
   { name:"Chocolate NAT",hex:"#35150A",use:"Base / premium" },
@@ -16,6 +17,8 @@ function SectionTitle({ icon,title,text }: { icon:React.ReactNode; title:string;
 export function BrandGuideView() {
   return <section className="space-y-5">
     <div><p className="eyebrow">Manual rápido da marca</p><h1 className="mt-2 font-display text-4xl sm:text-5xl">Identidade visual</h1><p className="mt-2 max-w-3xl text-caramel">Consulta prática para manter posts, embalagens, fotos, cardápios e materiais da NAT coerentes com a identidade da marca.</p></div>
+
+    <ContentStudio/>
 
     <div className="rounded-[28px] bg-chocolate p-6 text-white sm:p-8"><p className="text-xs font-bold uppercase tracking-[.18em] text-rose">Essência da NAT</p><p className="mt-3 max-w-3xl font-display text-3xl sm:text-4xl">Afetiva, elegante e artesanal — feita para transformar doces em presentes, lembranças e momentos.</p><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
       ["Afeto","O produto deve parecer feito para alguém."],
