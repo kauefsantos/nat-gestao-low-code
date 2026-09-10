@@ -9,9 +9,11 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "lint": "eslint src vite.config.ts",
+    "lint": "eslint src vite.config.ts tests",
+    "typecheck": "tsc --noEmit",
     "security:static": "node scripts/security-static.mjs",
-    "check": "npm run lint && npm run security:static && npm run build"
+    "test:domain": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/tests/domain.test.js",
+    "check": "npm run lint && npm run typecheck && npm run security:static && npm run test:domain && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.99.2",

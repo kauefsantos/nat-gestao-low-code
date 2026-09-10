@@ -1,49 +1,37 @@
 # NAT Gestão
 
-Aplicação de gestão simples para a NAT Brownies e Brigadeiros Gourmet.
+Aplicação privada de gestão para a NAT Brownies e Brigadeiros Gourmet.
 
-A ferramenta foi desenhada para responder quatro perguntas do dia a dia:
-
-1. Quanto custa fazer?
-2. Por quanto devo vender?
-3. Quanto vendi?
-4. Quanto realmente sobrou?
+Ela responde quatro perguntas do dia a dia: quanto custa fazer, por quanto vender, quanto foi vendido e quanto realmente sobrou.
 
 ## Funcionalidades
-
-- Cadastro de ingredientes e embalagens.
+- Ingredientes e embalagens com histórico de compras.
+- Receita manual ou por CSV (`Ingrediente;Quantidade;Unidade`).
 - Conversão automática entre kg/g, L/ml e unidades.
-- Montagem de receitas e rendimento por lote.
-- Cálculo de custo unitário.
-- Preço mínimo e preço recomendado por margem.
-- Simulação de preço de venda.
+- Custo unitário, perdas, produção e embalagem.
+- Preço mínimo, preço recomendado e simulação.
 - Registro rápido de vendas.
+- Snapshots financeiros recalculados no PostgreSQL no momento da venda.
 - Visão mensal de faturamento, unidades e resultado estimado.
 - Interface mobile-first.
+- Dois ou mais usuários na mesma empresa via membership.
+- MFA obrigatório e RLS por `business_id`.
 
 ## Stack
-
-- React 19
-- TanStack Start / Router
-- TypeScript
-- Tailwind CSS
-- Supabase Auth
-- Cloudflare build
+React 19, TanStack Start/Router, TypeScript, Tailwind CSS, Supabase/PostgreSQL e Cloudflare build.
 
 ## Desenvolvimento
-
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Validação:
-
+Validação completa:
 ```bash
-npm run build
-npm run lint
+npm run check
 ```
 
-## Estado do projeto
+Os testes de RLS são executados no GitHub Actions usando uma instância Supabase descartável.
 
-Consulte `PROJECT_STATE.md` antes de alterações estruturais.
+## Segurança
+Leia `SECURITY.md` e `PROJECT_STATE.md` antes de alterações estruturais. Nunca coloque `service_role`, `sb_secret_` ou credenciais administrativas no frontend.
