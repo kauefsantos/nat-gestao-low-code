@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { CalendarEvent, CalendarEventKind, CalendarEventStatus } from "@/domain/calendar";
+import type { Database } from "@/integrations/supabase/types";
+import type { CalendarEvent } from "@/domain/calendar";
 
-type CalendarRow = {
-  id:string; event_date:string; event_time:string|null; kind:CalendarEventKind; title:string; details:string|null;
-  channel:string|null; objective:string|null; status:CalendarEventStatus; source:"manual"|"editorial_seed";
-};
+type CalendarRow = Database["public"]["Tables"]["calendar_events"]["Row"];
 
 const toEvent=(row:CalendarRow):CalendarEvent=>({
   id:row.id,eventDate:row.event_date,eventTime:row.event_time,kind:row.kind,title:row.title,details:row.details,
@@ -26,9 +24,9 @@ export function useCalendar() {
       const id=membership.data?.business_id;
       if(!id) throw new Error("Empresa não encontrada.");
       setBusinessId(id);
-      const seed=await supabase.rpc("seed_nat_editorial_calendar" as never,{p_business_id:id} as never);
+      const seed=await supabase.rpc("seed_nat_editorial_calendar",{p_business_id:id});
       if(seed.error) throw seed.error;
-      const result=await (supabase.from("calendar_events" as never) as any).select("id,event_date,event_time,kind,title,details,channel,objective,status,source").eq("business_id",id).order("event_date",{ascending:true}).order("event_time",{ascending:true});
+      const result=await supabase.from("calendar_events").select("*").eq("business_id",id).order("event_date",{ascending:true}).order("event_time",{ascending:true});
       if(result.error) throw result.error;
       setEvents((result.data??[]).map(toEvent));
     } catch (cause) {
@@ -40,17 +38,17 @@ export function useCalendar() {
 
   const save=useCallback(async(event:CalendarEvent)=>{
     if(!businessId) throw new Error("Empresa não carregada.");
-    const result=await supabase.rpc("save_calendar_event" as never,{
+    const result=await supabase.rpc("save_calendar_event",{
       p_business_id:businessId,p_id:event.id,p_event_date:event.eventDate,p_event_time:event.eventTime,
       p_kind:event.kind,p_title:event.title,p_details:event.details,p_channel:event.channel,p_objective:event.objective,p_status:event.status,
-    } as never);
+    });
     if(result.error) throw result.error;
     await load();
   },[businessId,load]);
 
   const remove=useCallback(async(id:string)=>{
     if(!businessId) throw new Error("Empresa não carregada.");
-    const result=await supabase.rpc("delete_calendar_event" as never,{p_business_id:businessId,p_id:id} as never);
+    const result=await supabase.rpc("delete_calendar_event",{p_business_id:businessId,p_id:id});
     if(result.error) throw result.error;
     await load();
   },[businessId,load]);
