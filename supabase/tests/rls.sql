@@ -1,7 +1,7 @@
 -- NAT Gestão security regression tests (pgTAP).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(36);
 
 insert into public.businesses(id,name) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Tenant A'),
@@ -50,6 +50,8 @@ select ok(not has_table_privilege('authenticated','public.sporadic_expenses','in
 select ok(not has_table_privilege('authenticated','public.sporadic_expenses','update'), 'sporadic expenses cannot be updated directly');
 select ok(not has_table_privilege('authenticated','public.sporadic_expenses','delete'), 'sporadic expenses cannot be deleted directly');
 select ok(to_regprocedure('public.save_sale(uuid,uuid,uuid,text,numeric,numeric,text,timestamp with time zone,numeric,numeric,numeric)') is null, 'legacy client-snapshot sale RPC is removed');
+select ok(not has_table_privilege('authenticated','public.push_subscriptions','select'), 'push subscriptions cannot be read directly');
+select ok(not has_table_privilege('authenticated','public.push_subscriptions','insert'), 'push subscriptions cannot be inserted directly');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
@@ -98,6 +100,22 @@ select is(
 select lives_ok(
   $$select public.save_sporadic_expense('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-0000-4000-8000-000000000030','Forma para airfryer',50,current_date)$$,
   'sporadic expense RPC remains usable'
+);
+select lives_ok(
+  $$select public.configure_content_ai('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',repeat('x',32))$$,
+  'business admin can store AI key in Vault'
+);
+select ok(
+  public.content_ai_status('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+  'AI status reports configured without exposing the key'
+);
+select lives_ok(
+  $$select public.save_push_subscription('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','https://push.example.invalid/subscription/123','abcdefghijklmnopqrstuvwxyz0123456789','abcdefghijklmno')$$,
+  'validated push subscription RPC remains usable'
+);
+select throws_ok(
+  $$select public.get_content_ai_key('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')$$,
+  '42501', null, 'authenticated clients cannot read the AI key'
 );
 
 reset role;

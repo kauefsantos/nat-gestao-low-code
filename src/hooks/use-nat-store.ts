@@ -40,5 +40,5 @@ export function useNatStore() {
   },[applyState,reloadFromCloud]);
 
   const refresh = useCallback(() => { setReady(false); void reloadFromCloud().catch((error) => { devError("[NAT] Falha ao atualizar",error); setReady(true); }); },[reloadFromCloud]);
-  return { state, update, refresh, ready };
+  return { state, update, refresh, ready, businessId: businessIdRef.current };
 }

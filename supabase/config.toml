@@ -1,1 +1,7 @@
 project_id = "qkqxzgvctusxybvfsxiu"
+
+[functions.nat-content-ai]
+verify_jwt = true
+
+[functions.nat-push-dispatch]
+verify_jwt = false

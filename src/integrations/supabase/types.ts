@@ -18,6 +18,8 @@ type Sale = { id: string; business_id: string; sold_at: string; total_received: 
 type SaleItem = { id: string; business_id: string; sale_id: string; product_id: string; product_name_snapshot: string; portfolio_key_snapshot: string | null; quantity: number; unit_cost_snapshot: number; unit_price_snapshot: number; created_at: string };
 type SporadicExpense = { id: string; business_id: string; name: string; amount: number; spent_at: string; created_at: string; updated_at: string };
 type CalendarEvent = { id:string; business_id:string; event_date:string; event_time:string|null; kind:"content"|"delivery"|"production"|"purchase"; title:string; details:string|null; channel:string|null; objective:string|null; status:"planned"|"done"|"cancelled"; source:"manual"|"editorial_seed"; created_at:string; updated_at:string };
+type PushSubscription = { id:string; business_id:string; user_id:string; endpoint:string; p256dh:string; auth:string; enabled:boolean; created_at:string; updated_at:string };
+type NotificationDeliveryLog = { id:string; business_id:string; subscription_id:string; user_id:string; local_date:string; slot:9|12|16|21; event_count:number; created_at:string };
 type AuditLog = { id: number; business_id: string | null; actor_user_id: string | null; action: "INSERT" | "UPDATE" | "DELETE"; entity_table: string; entity_id: string | null; before_data: Json | null; after_data: Json | null; created_at: string };
 
 export type Database = {
@@ -34,6 +36,8 @@ export type Database = {
       sale_items: Table<SaleItem>;
       sporadic_expenses: Table<SporadicExpense>;
       calendar_events: Table<CalendarEvent>;
+      push_subscriptions: Table<PushSubscription>;
+      notification_delivery_log: Table<NotificationDeliveryLog>;
       audit_log: Table<AuditLog>;
     };
     Views: Record<string, never>;
@@ -50,6 +54,14 @@ export type Database = {
       save_calendar_event: { Args: { p_business_id:string; p_id:string; p_event_date:string; p_event_time:string|null; p_kind:string; p_title:string; p_details:string|null; p_channel:string|null; p_objective:string|null; p_status:string }; Returns: undefined };
       delete_calendar_event: { Args: { p_business_id:string; p_id:string }; Returns: undefined };
       seed_nat_editorial_calendar: { Args: { p_business_id:string }; Returns: undefined };
+      get_push_public_key: { Args: { p_business_id:string }; Returns: string };
+      save_push_subscription: { Args: { p_business_id:string; p_endpoint:string; p_p256dh:string; p_auth:string }; Returns: undefined };
+      delete_push_subscription: { Args: { p_business_id:string; p_endpoint:string }; Returns: undefined };
+      content_ai_status: { Args: { p_business_id:string }; Returns: boolean };
+      configure_content_ai: { Args: { p_business_id:string; p_api_key:string }; Returns: undefined };
+      disconnect_content_ai: { Args: { p_business_id:string }; Returns: undefined };
+      get_content_ai_key: { Args: { p_business_id:string }; Returns: string | null };
+      get_push_backend_config: { Args: Record<string, never>; Returns: Json };
       save_business_settings: { Args: { p_business_id: string; p_owner_name: string; p_monthly_fixed_costs: number; p_payment_fee_percent: number; p_default_minimum_margin_percent: number; p_default_target_margin_percent: number }; Returns: undefined };
     };
     Enums: Record<string, never>;

@@ -1,7 +1,10 @@
-import { Download, Image as ImageIcon, Sparkles } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Copy, Download, Image as ImageIcon, KeyRound, LoaderCircle, Sparkles, Unplug } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 type FormatKey="feed"|"story"|"square";
+type AiCopy={headline:string;subheadline:string;caption:string;cta:string;visual_direction:string};
+
 const formats:Record<FormatKey,{label:string;width:number;height:number}>={
   feed:{label:"Feed 1080 × 1350",width:1080,height:1350},
   story:{label:"Story 1080 × 1920",width:1080,height:1920},
@@ -22,9 +25,28 @@ function wrapText(ctx:CanvasRenderingContext2D,text:string,maxWidth:number){
 }
 
 export function ContentStudio(){
-  const [prompt,setPrompt]=useState(""); const [format,setFormat]=useState<FormatKey>("feed"); const [generated,setGenerated]=useState(false); const canvasRef=useRef<HTMLCanvasElement|null>(null);
-  const selected=useMemo(()=>formats[format],[format]);
-  function render(){
+  const [prompt,setPrompt]=useState(""); const [format,setFormat]=useState<FormatKey>("feed"); const [generated,setGenerated]=useState(false);
+  const [aiConnected,setAiConnected]=useState<boolean|null>(null); const [aiCopy,setAiCopy]=useState<AiCopy|null>(null); const [aiBusy,setAiBusy]=useState(false);
+  const [showKey,setShowKey]=useState(false); const [apiKey,setApiKey]=useState(""); const [message,setMessage]=useState<string|null>(null);
+  const canvasRef=useRef<HTMLCanvasElement|null>(null); const selected=useMemo(()=>formats[format],[format]);
+  const [businessId,setBusinessId]=useState<string|null>(null);
+
+  useEffect(()=>{
+    let cancelled=false;
+    async function load(){
+      const membership=await supabase.from("business_members").select("business_id").order("created_at",{ascending:true}).limit(1).maybeSingle();
+      if(cancelled)return;
+      const id=membership.data?.business_id??null;
+      setBusinessId(id);
+      if(!id||membership.error){setAiConnected(false);return;}
+      const result=await supabase.rpc("content_ai_status",{p_business_id:id});
+      if(!cancelled)setAiConnected(!result.error&&Boolean(result.data));
+    }
+    void load();
+    return()=>{cancelled=true;};
+  },[]);
+
+  function render(copy:AiCopy|null=aiCopy){
     const canvas=canvasRef.current;if(!canvas)return;canvas.width=selected.width;canvas.height=selected.height;const ctx=canvas.getContext("2d");if(!ctx)return;
     const w=canvas.width,h=canvas.height;ctx.fillStyle="#F8EEE9";ctx.fillRect(0,0,w,h);
     ctx.fillStyle="#EAAC93";ctx.beginPath();ctx.ellipse(w*.1,h*.1,w*.26,h*.13,-.4,0,Math.PI*2);ctx.fill();
@@ -33,12 +55,80 @@ export function ContentStudio(){
     ctx.strokeStyle="#F8EEE9";ctx.lineWidth=4;ctx.beginPath();ctx.arc(w/2,h*.2,Math.min(w,h)*.103,0,Math.PI*2);ctx.stroke();
     ctx.fillStyle="#F8EEE9";ctx.textAlign="center";ctx.font=`${Math.round(w*.12)}px Georgia, serif`;ctx.fillText("NAT",w/2,h*.215);
     ctx.font=`700 ${Math.round(w*.022)}px Arial, sans-serif`;ctx.fillText("BROWNIES E BRIGADEIROS GOURMET",w/2,h*.255);
-    ctx.fillStyle="#35150A";ctx.font=`${Math.round(w*.075)}px Georgia, serif`;const title=headlineFromPrompt(prompt);const lines=wrapText(ctx,title,w*.72).slice(0,4);const start=h*.46-(lines.length-1)*w*.045;lines.forEach((line,index)=>ctx.fillText(line,w/2,start+index*w*.095));
-    ctx.strokeStyle="#EAAC93";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(w*.28,h*.72);ctx.quadraticCurveTo(w*.5,h*.67,w*.72,h*.72);ctx.stroke();
-    ctx.fillStyle="#956454";ctx.font=`600 ${Math.round(w*.026)}px Arial, sans-serif`;ctx.fillText("Mais que doces: bons momentos em cada mordida.",w/2,h*.79);
-    ctx.font=`700 ${Math.round(w*.024)}px Arial, sans-serif`;ctx.fillText("@natgourmet.doces",w/2,h*.88);
+
+    ctx.fillStyle="#35150A";ctx.font=`${Math.round(w*.072)}px Georgia, serif`;
+    const title=copy?.headline||headlineFromPrompt(prompt);const lines=wrapText(ctx,title,w*.74).slice(0,4);const start=h*.46-(lines.length-1)*w*.043;
+    lines.forEach((line,index)=>ctx.fillText(line,w/2,start+index*w*.09));
+
+    const subheadline=copy?.subheadline||"Mais que doces: bons momentos em cada mordida.";
+    ctx.fillStyle="#956454";ctx.font=`600 ${Math.round(w*.025)}px Arial, sans-serif`;
+    const subLines=wrapText(ctx,subheadline,w*.7).slice(0,3);
+    subLines.forEach((line,index)=>ctx.fillText(line,w/2,h*.69+index*w*.038));
+
+    ctx.strokeStyle="#EAAC93";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(w*.28,h*.79);ctx.quadraticCurveTo(w*.5,h*.75,w*.72,h*.79);ctx.stroke();
+    ctx.fillStyle="#35150A";ctx.font=`700 ${Math.round(w*.024)}px Arial, sans-serif`;ctx.fillText(copy?.cta||"Peça pelo direct",w/2,h*.85);
+    ctx.fillStyle="#956454";ctx.font=`700 ${Math.round(w*.022)}px Arial, sans-serif`;ctx.fillText("@natgourmet.doces",w/2,h*.91);
     setGenerated(true);
   }
+
+  async function connectAi(){
+    if(!businessId||!apiKey.trim())return;
+    setAiBusy(true);setMessage(null);
+    try{
+      const result=await supabase.rpc("configure_content_ai",{p_business_id:businessId,p_api_key:apiKey.trim()});
+      if(result.error)throw result.error;
+      setApiKey("");setShowKey(false);setAiConnected(true);setMessage("IA conectada com segurança.");
+    }catch(error){setMessage(error instanceof Error?error.message:"Não foi possível conectar a IA.");}
+    finally{setAiBusy(false);}
+  }
+
+  async function disconnectAi(){
+    if(!businessId||!window.confirm("Desconectar a IA da NAT? A chave armazenada será removida."))return;
+    setAiBusy(true);setMessage(null);
+    try{
+      const result=await supabase.rpc("disconnect_content_ai",{p_business_id:businessId});
+      if(result.error)throw result.error;
+      setAiConnected(false);setAiCopy(null);setMessage("IA desconectada.");
+    }catch(error){setMessage(error instanceof Error?error.message:"Não foi possível desconectar a IA.");}
+    finally{setAiBusy(false);}
+  }
+
+  async function generateWithAi(){
+    if(!businessId||!prompt.trim())return;
+    setAiBusy(true);setMessage(null);
+    try{
+      const result=await supabase.functions.invoke<AiCopy>("nat-content-ai",{body:{businessId,prompt:prompt.trim(),format}});
+      if(result.error)throw result.error;
+      if(!result.data?.headline||!result.data.caption)throw new Error("A IA não retornou um conteúdo válido.");
+      setAiCopy(result.data);render(result.data);setMessage("Conteúdo criado com IA e aplicado ao layout da NAT.");
+    }catch(error){setMessage(error instanceof Error?error.message:"Não foi possível gerar o conteúdo com IA.");}
+    finally{setAiBusy(false);}
+  }
+
+  function generateTemplate(){setAiCopy(null);render(null);setMessage("Modelo NAT gerado sem usar IA.");}
   function download(){const canvas=canvasRef.current;if(!canvas||!generated)return;const link=document.createElement("a");link.download=`nat-${format}-${new Date().toISOString().slice(0,10)}.png`;link.href=canvas.toDataURL("image/png");link.click();}
-  return <div className="nat-card"><div className="flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-rose-soft"><Sparkles size={19}/></div><div><p className="eyebrow">Criar conteúdo</p><h2 className="font-display text-3xl">Conte o que você quer postar</h2><p className="mt-1 text-sm leading-6 text-caramel">Nesta primeira etapa o NAT monta um rascunho visual seguindo a identidade da marca. A camada de IA generativa será conectada pelo backend, sem expor chave no iPhone.</p></div></div><label className="field-label mt-5">O que você quer comunicar?<textarea className="nat-input mt-1 min-h-28 resize-y" placeholder="Ex.: Quero avisar que amanhã teremos brownie de Ninho com Nutella e encomendas até as 18h." value={prompt} onChange={e=>setPrompt(e.target.value)}/></label><div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]"><label className="field-label">Formato<select className="nat-input mt-1" value={format} onChange={e=>{setFormat(e.target.value as FormatKey);setGenerated(false);}}>{Object.entries(formats).map(([key,value])=><option key={key} value={key}>{value.label}</option>)}</select></label><button type="button" className="primary-button self-end justify-center" onClick={render}><ImageIcon size={18}/> Gerar rascunho</button></div><div className="mt-5 overflow-hidden rounded-[24px] border border-nat bg-white"><canvas ref={canvasRef} className={`block h-auto w-full ${generated?"":"hidden"}`} />{!generated&&<div className="grid min-h-64 place-items-center p-8 text-center text-sm text-caramel">A prévia da arte aparece aqui.</div>}</div><button type="button" className="secondary-button mt-4 w-full justify-center" disabled={!generated} onClick={download}><Download size={18}/> Baixar PNG</button></div>;
+  async function copyCaption(){if(aiCopy?.caption&&navigator.clipboard)await navigator.clipboard.writeText(aiCopy.caption);}
+
+  return <div className="nat-card">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-rose-soft"><Sparkles size={19}/></div><div><p className="eyebrow">Criar conteúdo</p><h2 className="font-display text-3xl">Conte o que você quer postar</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-caramel">A IA pode escrever a chamada e a legenda seguindo o tom da NAT. A arte final continua dentro do layout da marca, pronta para baixar em PNG.</p></div></div>
+      {aiConnected?<button type="button" className="secondary-button shrink-0" onClick={()=>void disconnectAi()} disabled={aiBusy}><Unplug size={16}/> Desconectar IA</button>:<button type="button" className="secondary-button shrink-0" onClick={()=>setShowKey((value)=>!value)}><KeyRound size={16}/> Conectar IA</button>}
+    </div>
+
+    {showKey&&!aiConnected&&<div className="mt-5 rounded-2xl border border-nat bg-soft p-4"><p className="text-sm font-bold">Conectar OpenAI</p><p className="mt-1 text-xs leading-5 text-caramel">Cole uma chave da API da OpenAI. Ela é enviada diretamente ao backend e armazenada criptografada no Supabase Vault; o app não consegue lê-la de volta.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input type="password" autoComplete="off" className="nat-input flex-1" placeholder="Chave da API" value={apiKey} onChange={e=>setApiKey(e.target.value)}/><button type="button" className="primary-button justify-center" onClick={()=>void connectAi()} disabled={aiBusy||apiKey.trim().length<20}>{aiBusy?<LoaderCircle className="animate-spin" size={17}/>:<KeyRound size={17}/>} Salvar conexão</button></div></div>}
+
+    <label className="field-label mt-5">O que você quer comunicar?<textarea className="nat-input mt-1 min-h-28 resize-y" maxLength={1500} placeholder="Ex.: Quero avisar que amanhã teremos brownie de Ninho com Nutella e encomendas até as 18h." value={prompt} onChange={e=>setPrompt(e.target.value)}/></label>
+    <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]"><label className="field-label">Formato<select className="nat-input mt-1" value={format} onChange={e=>{setFormat(e.target.value as FormatKey);setGenerated(false);setAiCopy(null);}}>{Object.entries(formats).map(([key,value])=><option key={key} value={key}>{value.label}</option>)}</select></label>
+      <button type="button" className="secondary-button self-end justify-center" onClick={generateTemplate}><ImageIcon size={18}/> Modelo NAT</button>
+      <button type="button" className="primary-button self-end justify-center" onClick={()=>void generateWithAi()} disabled={!aiConnected||aiBusy||!prompt.trim()}>{aiBusy?<LoaderCircle className="animate-spin" size={18}/>:<Sparkles size={18}/>} Gerar com IA</button>
+    </div>
+
+    {aiConnected===false&&<p className="mt-3 text-xs leading-5 text-caramel">O modelo visual continua funcionando sem IA. Para receber chamada, legenda e CTA sugeridos automaticamente, conecte uma chave da API.</p>}
+    {message&&<p className="mt-3 rounded-xl bg-rose-soft p-3 text-sm text-caramel" role="status">{message}</p>}
+
+    <div className="mt-5 overflow-hidden rounded-[24px] border border-nat bg-white"><canvas ref={canvasRef} className={`block h-auto w-full ${generated?"":"hidden"}`} />{!generated&&<div className="grid min-h-64 place-items-center p-8 text-center text-sm text-caramel">A prévia da arte aparece aqui.</div>}</div>
+    <button type="button" className="secondary-button mt-4 w-full justify-center" disabled={!generated} onClick={download}><Download size={18}/> Baixar PNG</button>
+
+    {aiCopy&&<div className="mt-5 grid gap-3 lg:grid-cols-[1fr_.7fr]"><div className="rounded-2xl bg-soft p-4"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold">Legenda sugerida</p><button type="button" className="icon-button" aria-label="Copiar legenda" onClick={()=>void copyCaption()}><Copy size={16}/></button></div><p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-caramel">{aiCopy.caption}</p></div><div className="rounded-2xl bg-rose-soft p-4"><p className="text-sm font-bold">Direção visual sugerida</p><p className="mt-2 text-sm leading-6 text-caramel">{aiCopy.visual_direction}</p><p className="mt-3 text-xs text-caramel">A direção visual é uma sugestão criativa; nesta etapa a foto não é gerada automaticamente.</p></div></div>}
+  </div>;
 }

@@ -53,5 +53,5 @@ export function useCalendar() {
     await load();
   },[businessId,load]);
 
-  return {events,loading,error,save,remove,reload:load};
+  return {events,loading,error,businessId,save,remove,reload:load};
 }
