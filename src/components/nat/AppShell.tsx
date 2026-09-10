@@ -1,7 +1,7 @@
-import { Calculator, Home, LayoutGrid, LogOut, Package, Plus, ReceiptText, Settings as SettingsIcon } from "lucide-react";
+import { Calculator, Home, LayoutGrid, LogOut, Package, Palette, Plus, ReceiptText, Settings as SettingsIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type NatView = "home" | "sales" | "portfolio" | "products" | "pricing";
+export type NatView = "home" | "sales" | "portfolio" | "products" | "pricing" | "identity";
 
 type Props = {
   view: NatView;
@@ -20,16 +20,17 @@ function SideButton({ icon,label,active,onClick }: { icon: ReactNode; label: str
   return <button type="button" onClick={onClick} className={`side-button ${active ? "active" : ""}`}>{icon}<span>{label}</span></button>;
 }
 
-const navItems: { view: NatView; label: string; icon: ReactNode }[] = [
+const navItems: { view: NatView; label: string; mobileLabel?: string; icon: ReactNode }[] = [
   { view:"home",label:"Início",icon:<Home size={18}/> },
   { view:"sales",label:"Vendas",icon:<ReceiptText size={18}/> },
   { view:"portfolio",label:"Portfólio",icon:<LayoutGrid size={18}/> },
   { view:"products",label:"Produtos",icon:<Package size={18}/> },
   { view:"pricing",label:"Preços",icon:<Calculator size={18}/> },
+  { view:"identity",label:"Identidade visual",mobileLabel:"Identidade",icon:<Palette size={18}/> },
 ];
 
 function MobileNav({ view,onView,onSale }: { view: NatView; onView: (view: NatView) => void; onSale: () => void }) {
-  return <><nav aria-label="Navegação principal" className="fixed inset-x-0 bottom-0 z-30 border-t border-nat bg-white/95 px-[max(8px,env(safe-area-inset-left))] pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden"><div className="mx-auto grid max-w-lg grid-cols-5 items-end">{navItems.map((item)=><button type="button" key={item.view} className={`mobile-nav-button min-w-0 ${view===item.view?"active":""}`} aria-current={view===item.view?"page":undefined} onClick={() => onView(item.view)}>{item.icon}<span className="max-w-full truncate">{item.label}</span></button>)}</div></nav><button type="button" className="fixed right-4 z-40 grid h-12 w-12 place-items-center rounded-full bg-chocolate text-white shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-chocolate lg:hidden" style={{bottom:"calc(env(safe-area-inset-bottom) + 72px)"}} onClick={onSale} aria-label="Registrar nova venda"><Plus size={22}/></button></>;
+  return <><nav aria-label="Navegação principal" className="fixed inset-x-0 bottom-0 z-30 border-t border-nat bg-white/95 px-[max(8px,env(safe-area-inset-left))] pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden"><div className="mx-auto grid max-w-lg grid-cols-6 items-end">{navItems.map((item)=><button type="button" key={item.view} className={`mobile-nav-button min-w-0 ${view===item.view?"active":""}`} aria-current={view===item.view?"page":undefined} onClick={() => onView(item.view)}>{item.icon}<span className="max-w-full truncate">{item.mobileLabel??item.label}</span></button>)}</div></nav><button type="button" className="fixed right-4 z-40 grid h-12 w-12 place-items-center rounded-full bg-chocolate text-white shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-chocolate lg:hidden" style={{bottom:"calc(env(safe-area-inset-bottom) + 72px)"}} onClick={onSale} aria-label="Registrar nova venda"><Plus size={22}/></button></>;
 }
 
 export function AppShell({ view,onView,onSale,onSettings,onLogout,children }: Props) {
