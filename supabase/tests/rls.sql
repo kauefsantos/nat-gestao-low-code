@@ -1,7 +1,7 @@
 -- NAT Gestão security regression tests (pgTAP).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(30);
 
 insert into public.businesses(id,name) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Tenant A'),
@@ -46,6 +46,10 @@ select ok(not has_table_privilege('authenticated','public.supply_purchases','ins
 select ok(not has_table_privilege('authenticated','public.products','insert'), 'products cannot be inserted directly');
 select ok(not has_table_privilege('authenticated','public.products','update'), 'products cannot be updated directly');
 select ok(not has_table_privilege('authenticated','public.recipe_items','insert'), 'recipe items cannot be inserted directly');
+select ok(not has_table_privilege('authenticated','public.sporadic_expenses','insert'), 'sporadic expenses cannot be inserted directly');
+select ok(not has_table_privilege('authenticated','public.sporadic_expenses','update'), 'sporadic expenses cannot be updated directly');
+select ok(not has_table_privilege('authenticated','public.sporadic_expenses','delete'), 'sporadic expenses cannot be deleted directly');
+select ok(to_regprocedure('public.save_sale(uuid,uuid,uuid,text,numeric,numeric,text,timestamp with time zone,numeric,numeric,numeric)') is null, 'legacy client-snapshot sale RPC is removed');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
@@ -90,6 +94,10 @@ select is(
   (select round(s.contribution_snapshot,2) from public.sales s where id='aaaaaaaa-0000-4000-8000-000000000010'),
   8.70::numeric,
   'server computes contribution snapshot (R$ 8.70)'
+);
+select lives_ok(
+  $$select public.save_sporadic_expense('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-0000-4000-8000-000000000030','Forma para airfryer',50,current_date)$$,
+  'sporadic expense RPC remains usable'
 );
 
 reset role;
