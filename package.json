@@ -1,7 +1,7 @@
 {
   "name": "nat-gestao",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.2.0",
   "sideEffects": false,
   "type": "module",
   "scripts": {
