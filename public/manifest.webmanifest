@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "NAT Gestão",
+  "short_name": "NAT",
+  "description": "Vendas, custos e precificação da NAT Brownies e Brigadeiros Gourmet.",
+  "lang": "pt-BR",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F8EEE9",
+  "theme_color": "#35150A",
+  "icons": [
+    {
+      "src": "/icons/nat-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/nat-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
