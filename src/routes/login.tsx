@@ -1,34 +1,98 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useState } from "react";
-import { Heart } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Heart, KeyRound, LogOut, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/login")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isAuthenticated) throw redirect({ to: "/dashboard" });
-  },
-  component: LoginPage,
-});
+export const Route = createFileRoute("/login")({ component: LoginPage });
+type Mode = "login" | "checking" | "enroll" | "challenge";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<Mode>("login");
+  const [factorId, setFactorId] = useState("");
+  const [qrCode, setQrCode] = useState("");
+  const [secret, setSecret] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const preparing = useRef(false);
+
+  async function prepareMfa() {
+    if (preparing.current) return;
+    preparing.current = true;
+    setMode("checking");
+    setError("");
+    try {
+      const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (assurance.error) throw assurance.error;
+      if (assurance.data.currentLevel === "aal2") { window.location.replace("/dashboard"); return; }
+      const factors = await supabase.auth.mfa.listFactors();
+      if (factors.error) throw factors.error;
+      const verified = factors.data.totp.find((factor) => factor.status === "verified");
+      if (verified) { setFactorId(verified.id); setMode("challenge"); return; }
+      for (const pending of factors.data.totp) await supabase.auth.mfa.unenroll({ factorId: pending.id });
+      const enrollment = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "NAT Gestão" });
+      if (enrollment.error) throw enrollment.error;
+      setFactorId(enrollment.data.id);
+      setQrCode(enrollment.data.totp.qr_code);
+      setSecret(enrollment.data.totp.secret ?? "");
+      setMode("enroll");
+    } catch (caught) {
+      console.error("[NAT] Falha ao preparar MFA", caught);
+      setError("Não foi possível preparar a verificação em duas etapas. Tente novamente.");
+      setMode("login");
+    } finally { preparing.current = false; }
+  }
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => { if (active && data.session) void prepareMfa(); });
+    return () => { active = false; };
+  }, []);
 
   async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
+    event.preventDefault(); setLoading(true); setError("");
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (authError) { setError("Não foi possível entrar. Confira seu e-mail e senha."); return; }
-    window.location.href = "/dashboard";
+    await prepareMfa();
   }
 
-  return <AuthLayout title="Bem-vinda de volta" text="Entre para cuidar das vendas, custos e preços da NAT."><form className="space-y-4" onSubmit={submit}><div><label className="field-label">E-mail</label><input className="nat-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></div><div><label className="field-label">Senha</label><input className="nat-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="current-password" /></div>{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}<button className="primary-button w-full" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button><p className="text-center text-sm text-caramel">Ainda não tem acesso? <Link to="/signup" className="font-bold text-chocolate underline">Criar conta</Link></p></form></AuthLayout>;
+  async function verifyMfa(event: React.FormEvent) {
+    event.preventDefault();
+    if (!factorId || verificationCode.trim().length !== 6) return;
+    setLoading(true); setError("");
+    try {
+      const challenge = await supabase.auth.mfa.challenge({ factorId });
+      if (challenge.error) throw challenge.error;
+      const verification = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.data.id, code: verificationCode.trim() });
+      if (verification.error) throw verification.error;
+      window.location.replace("/dashboard");
+    } catch (caught) {
+      console.error("[NAT] Falha na verificação MFA", caught);
+      setError("Código inválido ou expirado. Confira o aplicativo e tente novamente.");
+      setVerificationCode("");
+    } finally { setLoading(false); }
+  }
+
+  async function changeAccount() {
+    await supabase.auth.signOut(); setMode("login"); setFactorId(""); setQrCode(""); setSecret(""); setVerificationCode(""); setError("");
+  }
+
+  if (mode === "checking") return <AuthLayout title="Protegendo seu acesso" text="Estamos verificando a segurança da sua sessão."><div className="rounded-2xl bg-rose-soft p-5 text-center text-sm text-caramel">Verificando autenticação em duas etapas...</div></AuthLayout>;
+
+  if (mode === "enroll") return <AuthLayout title="Ative a proteção extra" text="A NAT exige autenticação em duas etapas para liberar dados de vendas, custos e preços."><form className="space-y-5" onSubmit={verifyMfa}><div className="rounded-2xl border border-nat bg-soft p-4"><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 shrink-0 text-chocolate" size={20} /><div className="text-sm leading-6 text-caramel"><strong className="text-chocolate">1.</strong> Abra um aplicativo autenticador no celular e leia o QR Code.</div></div></div>{qrCode && <div className="mx-auto w-fit rounded-2xl border border-nat bg-white p-4"><img src={qrCode} alt="QR Code para configurar autenticação em duas etapas" className="h-48 w-48" /></div>}{secret && <div><p className="field-label">Não consegue ler o QR Code?</p><p className="break-all rounded-xl bg-soft p-3 font-mono text-xs text-chocolate">{secret}</p></div>}<MfaCodeField value={verificationCode} onChange={setVerificationCode} />{error && <ErrorMessage>{error}</ErrorMessage>}<button className="primary-button w-full" disabled={loading || verificationCode.trim().length !== 6}><KeyRound size={18} />{loading ? "Verificando..." : "Ativar e entrar"}</button><button type="button" className="text-button mx-auto" onClick={() => void changeAccount()}><LogOut size={16} /> Usar outra conta</button></form></AuthLayout>;
+
+  if (mode === "challenge") return <AuthLayout title="Confirme que é você" text="Digite o código de 6 dígitos do seu aplicativo autenticador."><form className="space-y-5" onSubmit={verifyMfa}><MfaCodeField value={verificationCode} onChange={setVerificationCode} />{error && <ErrorMessage>{error}</ErrorMessage>}<button className="primary-button w-full" disabled={loading || verificationCode.trim().length !== 6}><ShieldCheck size={18} />{loading ? "Verificando..." : "Confirmar acesso"}</button><button type="button" className="text-button mx-auto" onClick={() => void changeAccount()}><LogOut size={16} /> Usar outra conta</button></form></AuthLayout>;
+
+  return <AuthLayout title="Bem-vinda de volta" text="Entre para cuidar das vendas, custos e preços da NAT."><form className="space-y-4" onSubmit={submit}><div><label className="field-label">E-mail</label><input className="nat-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></div><div><label className="field-label">Senha</label><input className="nat-input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></div>{error && <ErrorMessage>{error}</ErrorMessage>}<button className="primary-button w-full" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button><p className="text-center text-sm text-caramel">Primeiro acesso autorizado? <Link to="/signup" className="font-bold text-chocolate underline">Criar senha de acesso</Link></p></form></AuthLayout>;
 }
 
+function MfaCodeField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return <div><label className="field-label">Código de segurança</label><input className="nat-input text-center text-2xl font-bold tracking-[0.35em]" value={value} onChange={(event) => onChange(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required /></div>;
+}
+function ErrorMessage({ children }: { children: React.ReactNode }) { return <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{children}</p>; }
 function AuthLayout({ title, text, children }: { title: string; text: string; children: React.ReactNode }) {
   return <main className="grid min-h-screen place-items-center bg-cream px-4 py-10"><div className="w-full max-w-md rounded-[32px] border border-nat bg-white p-6 shadow-xl sm:p-8"><Link to="/" className="mx-auto grid h-20 w-20 place-items-center rounded-full border-2 border-chocolate p-1"><div className="grid h-full w-full place-items-center rounded-full border border-chocolate font-display text-2xl">NAT</div></Link><div className="mt-6 text-center"><p className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[.18em] text-caramel"><Heart size={13} /> NAT Gestão</p><h1 className="mt-2 font-display text-4xl">{title}</h1><p className="mt-2 text-sm leading-6 text-caramel">{text}</p></div><div className="mt-7">{children}</div></div></main>;
 }
