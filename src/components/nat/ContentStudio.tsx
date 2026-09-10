@@ -32,7 +32,7 @@ export function ContentStudio(){
     ctx.fillStyle="#35150A";ctx.beginPath();ctx.arc(w/2,h*.2,Math.min(w,h)*.115,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle="#F8EEE9";ctx.lineWidth=4;ctx.beginPath();ctx.arc(w/2,h*.2,Math.min(w,h)*.103,0,Math.PI*2);ctx.stroke();
     ctx.fillStyle="#F8EEE9";ctx.textAlign="center";ctx.font=`${Math.round(w*.12)}px Georgia, serif`;ctx.fillText("NAT",w/2,h*.215);
-    ctx.font=`700 ${Math.round(w*.022)}px Arial, sans-serif`;ctx.letterSpacing="5px";ctx.fillText("BROWNIES E BRIGADEIROS GOURMET",w/2,h*.255);
+    ctx.font=`700 ${Math.round(w*.022)}px Arial, sans-serif`;ctx.fillText("BROWNIES E BRIGADEIROS GOURMET",w/2,h*.255);
     ctx.fillStyle="#35150A";ctx.font=`${Math.round(w*.075)}px Georgia, serif`;const title=headlineFromPrompt(prompt);const lines=wrapText(ctx,title,w*.72).slice(0,4);const start=h*.46-(lines.length-1)*w*.045;lines.forEach((line,index)=>ctx.fillText(line,w/2,start+index*w*.095));
     ctx.strokeStyle="#EAAC93";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(w*.28,h*.72);ctx.quadraticCurveTo(w*.5,h*.67,w*.72,h*.72);ctx.stroke();
     ctx.fillStyle="#956454";ctx.font=`600 ${Math.round(w*.026)}px Arial, sans-serif`;ctx.fillText("Mais que doces: bons momentos em cada mordida.",w/2,h*.79);
