@@ -1,7 +1,7 @@
 -- NAT Gestão security regression tests (pgTAP).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(17);
 
 insert into public.businesses(id,name) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Tenant A'),
