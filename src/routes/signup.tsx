@@ -1,30 +1,22 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useState } from "react";
+import { ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/signup")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isAuthenticated) throw redirect({ to: "/dashboard" });
-  },
+  beforeLoad: ({ context }) => { if (context.auth.isAuthenticated) throw redirect({ to: "/login" }); },
   component: SignupPage,
 });
 
 function SignupPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [loading, setLoading] = useState(false); const [message, setMessage] = useState(""); const [isError, setIsError] = useState(false);
   async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setMessage("");
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
-    if (error) { setMessage("Não foi possível criar o acesso. Tente outro e-mail ou uma senha maior."); return; }
-    if (data.session) window.location.href = "/dashboard";
-    else setMessage("Conta criada. Confira seu e-mail para confirmar o acesso.");
+    event.preventDefault(); setLoading(true); setMessage(""); setIsError(false);
+    if (password.length < 12) { setLoading(false); setIsError(true); setMessage("Use uma senha com pelo menos 12 caracteres."); return; }
+    const { data, error } = await supabase.auth.signUp({ email, password }); setLoading(false);
+    if (error) { setIsError(true); setMessage("Não foi possível criar o acesso. Confira se este e-mail foi autorizado para a NAT."); return; }
+    if (data.session) { window.location.replace("/login?mfa=1"); return; }
+    setMessage("Acesso criado. Confirme o e-mail e depois entre para ativar a verificação em duas etapas.");
   }
-
-  return <main className="grid min-h-screen place-items-center bg-cream px-4 py-10"><div className="w-full max-w-md rounded-[32px] border border-nat bg-white p-6 shadow-xl sm:p-8"><Link to="/" className="mx-auto grid h-20 w-20 place-items-center rounded-full border-2 border-chocolate p-1"><div className="grid h-full w-full place-items-center rounded-full border border-chocolate font-display text-2xl">NAT</div></Link><div className="mt-6 text-center"><p className="eyebrow">Primeiro acesso</p><h1 className="mt-2 font-display text-4xl">Criar conta</h1><p className="mt-2 text-sm leading-6 text-caramel">Um acesso simples para manter a gestão da NAT protegida.</p></div><form className="mt-7 space-y-4" onSubmit={submit}><div><label className="field-label">E-mail</label><input className="nat-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></div><div><label className="field-label">Senha</label><input className="nat-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" /><p className="field-help">Use pelo menos 6 caracteres.</p></div>{message && <p className="rounded-xl bg-rose-soft p-3 text-sm text-chocolate">{message}</p>}<button className="primary-button w-full" disabled={loading}>{loading ? "Criando..." : "Criar acesso"}</button><p className="text-center text-sm text-caramel">Já tem conta? <Link to="/login" className="font-bold text-chocolate underline">Entrar</Link></p></form></div></main>;
+  return <main className="grid min-h-screen place-items-center bg-cream px-4 py-10"><div className="w-full max-w-md rounded-[32px] border border-nat bg-white p-6 shadow-xl sm:p-8"><Link to="/" className="mx-auto grid h-20 w-20 place-items-center rounded-full border-2 border-chocolate p-1"><div className="grid h-full w-full place-items-center rounded-full border border-chocolate font-display text-2xl">NAT</div></Link><div className="mt-6 text-center"><p className="eyebrow">Primeiro acesso autorizado</p><h1 className="mt-2 font-display text-4xl">Criar senha</h1><p className="mt-2 text-sm leading-6 text-caramel">Por segurança, somente e-mails previamente autorizados podem criar uma conta na NAT Gestão.</p></div><div className="mt-5 flex gap-3 rounded-2xl bg-rose-soft p-4 text-sm leading-6 text-caramel"><ShieldCheck className="mt-0.5 shrink-0 text-chocolate" size={20} /><p>Depois da confirmação do e-mail, o sistema também pedirá um aplicativo autenticador no primeiro login.</p></div><form className="mt-7 space-y-4" onSubmit={submit}><div><label className="field-label">E-mail autorizado</label><input className="nat-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></div><div><label className="field-label">Senha</label><input className="nat-input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={12} autoComplete="new-password" /><p className="field-help">Use pelo menos 12 caracteres. Uma frase longa costuma ser mais fácil de lembrar.</p></div>{message && <p role={isError ? "alert" : "status"} className={`rounded-xl p-3 text-sm ${isError ? "bg-red-50 text-red-700" : "bg-rose-soft text-chocolate"}`}>{message}</p>}<button className="primary-button w-full" disabled={loading}>{loading ? "Criando..." : "Criar acesso"}</button><p className="text-center text-sm text-caramel">Já tem acesso? <Link to="/login" className="font-bold text-chocolate underline">Entrar</Link></p></form></div></main>;
 }
