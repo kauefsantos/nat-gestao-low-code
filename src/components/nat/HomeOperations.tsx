@@ -52,7 +52,7 @@ export function HomeOperations({
   onCalendar: () => void;
   onInventory: () => void;
 }) {
-  const activeSales = state.sales.filter((sale) => sale.status !== "cancelled");
+  const activeSales = state.sales.filter((sale) => sale.status !== "cancelled" && (sale.transactionType ?? "sale") === "sale");
   const onboarding = [
     { done: state.supplies.length > 0, title: "1. Cadastre uma compra", text: "Informe o que comprou, quanto veio e quanto pagou.", action: onSupplies },
     { done: state.products.some((product) => product.recipe.length > 0), title: "2. Monte uma receita", text: "Escolha os ingredientes e o rendimento do lote.", action: onProducts },
