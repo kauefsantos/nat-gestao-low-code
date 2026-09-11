@@ -36,7 +36,7 @@ test("gasto esporádico reduz o resultado do mês sem alterar contribuição da 
 test("pedido com vários produtos distribui itens e soma unidades", () => {
   const p1:Product={id:"p1",name:"Brownie • Tradicional",portfolioKey:"brownie-tradicional",batchYield:10,sellingPrice:5,lossPercent:0,productionCostPerBatch:1,minimumMarginPercent:35,targetMarginPercent:50,recipe:[{id:"r1",supplyId:chocolate.id,quantity:100,unit:"g"}]};
   const p2:Product={id:"p2",name:"Brownie • Ninho",portfolioKey:"brownie-ninho",batchYield:10,sellingPrice:8,lossPercent:0,productionCostPerBatch:0,minimumMarginPercent:35,targetMarginPercent:50,recipe:[{id:"r2",supplyId:chocolate.id,quantity:200,unit:"g"}]};
-  const sale=buildSaleOrder({items:[{product:p1,quantity:2},{product:p2,quantity:3}],supplies:[chocolate],paymentFeePercent:5,totalReceived:30,paymentMethod:"pix",soldAt:"2026-09-10T12:00:00Z"});
+  const sale=buildSaleOrder({items:[{product:p1,quantity:2},{product:p2,quantity:3}],supplies:[chocolate],paymentFeePercent:5,totalReceived:30,paymentMethod:"pix",soldAt:"2026-09-10T12:00:00Z",discountReason:"Promoção de teste"});
   assert.equal(sale.items.length,2); assert.equal(sale.quantity,5); assert.equal(Number(sale.contributionSnapshot.toFixed(2)),25.9);
 });
 test("venda cancelada permanece no histórico mas sai dos indicadores", () => {
