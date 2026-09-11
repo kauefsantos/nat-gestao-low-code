@@ -1,0 +1,45 @@
+<svg width="1200" height="440" viewBox="0 0 1200 440" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="440" rx="32" fill="#F8EEE9"/>
+  <rect x="0" y="0" width="1200" height="18" rx="9" fill="#35150A"/>
+  <circle cx="1060" cy="84" r="150" fill="#EAAC93" fill-opacity="0.34"/>
+  <circle cx="1120" cy="392" r="190" fill="#55281B" fill-opacity="0.08"/>
+
+  <rect x="72" y="66" width="150" height="34" rx="17" fill="#35150A"/>
+  <text x="147" y="88" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="1.4" fill="#F8EEE9">LOW-CODE CASE</text>
+
+  <text x="72" y="166" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800" fill="#35150A">NAT Gestão</text>
+  <text x="72" y="208" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600" fill="#55281B">Operação simples para uma confeitaria real</text>
+  <text x="72" y="248" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#55281B">Lovable + React + PostgreSQL + automações + segurança</text>
+
+  <rect x="72" y="296" width="128" height="44" rx="22" fill="#FFFFFF" stroke="#EAAC93"/>
+  <text x="136" y="323" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#35150A">Custos</text>
+  <rect x="212" y="296" width="128" height="44" rx="22" fill="#FFFFFF" stroke="#EAAC93"/>
+  <text x="276" y="323" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#35150A">Vendas</text>
+  <rect x="352" y="296" width="128" height="44" rx="22" fill="#FFFFFF" stroke="#EAAC93"/>
+  <text x="416" y="323" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#35150A">Estoque</text>
+  <rect x="492" y="296" width="128" height="44" rx="22" fill="#FFFFFF" stroke="#EAAC93"/>
+  <text x="556" y="323" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#35150A">Agenda</text>
+
+  <g transform="translate(760 82)">
+    <rect width="340" height="276" rx="28" fill="#FFFFFF" stroke="#E8D4CB" stroke-width="2"/>
+    <rect x="28" y="26" width="88" height="88" rx="24" fill="#35150A"/>
+    <text x="72" y="82" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="#F8EEE9">NAT</text>
+    <text x="136" y="51" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="1.2" fill="#A16954">PRODUTO REAL</text>
+    <text x="136" y="80" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" fill="#35150A">Mobile-first</text>
+    <text x="136" y="105" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#55281B">para uso diário</text>
+
+    <line x1="28" y1="142" x2="312" y2="142" stroke="#F0DED6"/>
+
+    <text x="28" y="178" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#35150A">LOW-CODE COMO ACELERADOR</text>
+    <text x="28" y="202" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#55281B">Protótipo rápido + engenharia onde importa</text>
+
+    <rect x="28" y="226" width="86" height="26" rx="13" fill="#F8EEE9"/>
+    <text x="71" y="244" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#35150A">RLS</text>
+    <rect x="124" y="226" width="86" height="26" rx="13" fill="#F8EEE9"/>
+    <text x="167" y="244" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#35150A">PWA</text>
+    <rect x="220" y="226" width="92" height="26" rx="13" fill="#F8EEE9"/>
+    <text x="266" y="244" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#35150A">CI / TESTES</text>
+  </g>
+
+  <text x="72" y="394" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#8B5E4D">Produto • UX • Dados • Automação • Segurança</text>
+</svg>

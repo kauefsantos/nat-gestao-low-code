@@ -1,0 +1,46 @@
+{
+  "name": "nat-gestao",
+  "private": true,
+  "version": "0.2.0",
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "build:dev": "vite build --mode development",
+    "preview": "vite preview",
+    "lint": "eslint src vite.config.ts tests",
+    "typecheck": "tsc --noEmit",
+    "security:static": "node scripts/security-static.mjs",
+    "test:domain": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/tests/domain.test.js",
+    "check": "npm run lint && npm run typecheck && npm run security:static && npm run test:domain && npm run build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.99.2",
+    "@tanstack/react-query": "5.83.0",
+    "@tanstack/react-router": "1.170.33",
+    "@tanstack/react-start": "1.168.51",
+    "lucide-react": "0.575.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.54.6",
+    "@eslint/js": "9.32.0",
+    "@tailwindcss/vite": "4.2.1",
+    "@tanstack/router-plugin": "1.168.36",
+    "@types/node": "22.16.5",
+    "@types/react": "19.2.0",
+    "@types/react-dom": "19.2.0",
+    "@vitejs/plugin-react": "5.0.4",
+    "eslint": "9.32.0",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "eslint-plugin-react-refresh": "0.4.20",
+    "globals": "15.15.0",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.56.1",
+    "vite": "7.3.6",
+    "vite-tsconfig-paths": "6.0.2"
+  }
+}

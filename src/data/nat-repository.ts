@@ -1,0 +1,134 @@
+import { supabase } from "@/integrations/supabase/client";
+import type { Database, Json } from "@/integrations/supabase/types";
+import { initialState, type NatState, type PaymentMethod, type Product, type RecipeItem, type Sale, type SaleLine, type SaleStatus, type Settings, type SporadicExpense, type Supply, type SupplyCategory, type Unit } from "@/domain/nat";
+
+type MembershipRow = Database["public"]["Tables"]["business_members"]["Row"];
+type SettingsRow = Database["public"]["Tables"]["business_settings"]["Row"];
+type SupplyRow = Database["public"]["Tables"]["supplies"]["Row"];
+type PurchaseRow = Database["public"]["Tables"]["supply_purchases"]["Row"];
+type ProductRow = Database["public"]["Tables"]["products"]["Row"];
+type RecipeRow = Database["public"]["Tables"]["recipe_items"]["Row"];
+type SaleRow = Database["public"]["Tables"]["sales"]["Row"];
+type SaleItemRow = Database["public"]["Tables"]["sale_items"]["Row"];
+type ExpenseRow = Database["public"]["Tables"]["sporadic_expenses"]["Row"];
+type ProductRowWithAvailability = ProductRow & { available?: boolean };
+
+export type NatVersions = {
+  settings: string | null;
+  supplies: Record<string,string>;
+  products: Record<string,string>;
+  sales: Record<string,string>;
+  expenses: Record<string,string>;
+};
+export const emptyNatVersions = (): NatVersions => ({ settings:null,supplies:{},products:{},sales:{},expenses:{} });
+
+const numberValue = (value: number | string | null | undefined) => Number.isFinite(Number(value)) ? Number(value) : 0;
+const rows = <T>(value: unknown): T[] => Array.isArray(value) ? value as T[] : [];
+function failure(context: string, error: { message: string } | null) { if (error) throw new Error(`${context}: ${error.message}`); }
+
+async function ensureBusiness(): Promise<string> {
+  const membership = await supabase.from("business_members").select("business_id").order("created_at",{ ascending: true }).limit(1).maybeSingle();
+  failure("Não foi possível localizar a empresa",membership.error);
+  const existing = (membership.data as Pick<MembershipRow,"business_id"> | null)?.business_id;
+  if (existing) return existing;
+  const created = await supabase.rpc("bootstrap_nat_business",{ p_name: "NAT", p_owner_name: "NAT" });
+  failure("Não foi possível preparar a NAT",created.error);
+  if (!created.data) throw new Error("A empresa não foi criada.");
+  return String(created.data);
+}
+
+export async function loadNatCloudState(): Promise<{ businessId: string; state: NatState; versions: NatVersions }> {
+  const businessId = await ensureBusiness();
+  const [settingsResult,suppliesResult,purchasesResult,productsResult,recipeResult,salesResult,saleItemsResult,expensesResult] = await Promise.all([
+    supabase.from("business_settings").select("*").eq("business_id",businessId).maybeSingle(),
+    supabase.from("supplies").select("*").eq("business_id",businessId).order("name",{ ascending: true }),
+    supabase.from("supply_purchases").select("*").eq("business_id",businessId).order("purchased_at",{ ascending: false }).order("created_at",{ ascending: false }),
+    supabase.from("products").select("*").eq("business_id",businessId).order("name",{ ascending: true }),
+    supabase.from("recipe_items").select("*").eq("business_id",businessId),
+    supabase.from("sales").select("*").eq("business_id",businessId).order("sold_at",{ ascending: false }),
+    supabase.from("sale_items").select("*").eq("business_id",businessId),
+    supabase.from("sporadic_expenses").select("*").eq("business_id",businessId).order("spent_at",{ ascending: false }).order("created_at",{ ascending: false }),
+  ]);
+  failure("Não foi possível carregar as configurações",settingsResult.error); failure("Não foi possível carregar os ingredientes",suppliesResult.error); failure("Não foi possível carregar as compras",purchasesResult.error); failure("Não foi possível carregar os produtos",productsResult.error); failure("Não foi possível carregar as receitas",recipeResult.error); failure("Não foi possível carregar as vendas",salesResult.error); failure("Não foi possível carregar os itens das vendas",saleItemsResult.error); failure("Não foi possível carregar os gastos esporádicos",expensesResult.error);
+
+  const purchaseRows = rows<PurchaseRow>(purchasesResult.data);
+  const latestPurchase = new Map<string,PurchaseRow>(); for (const purchase of purchaseRows) if (!latestPurchase.has(purchase.supply_id)) latestPurchase.set(purchase.supply_id,purchase);
+  const allSupplies = rows<SupplyRow>(suppliesResult.data);
+  const recipeRows = rows<RecipeRow>(recipeResult.data);
+  const allProductRows = rows<ProductRow>(productsResult.data);
+  const activeProductRows = allProductRows.filter((row) => row.active);
+  const referencedSupplyIds = new Set(recipeRows.filter((row) => activeProductRows.some((product) => product.id === row.product_id)).map((row) => row.supply_id));
+  const supplies: Supply[] = allSupplies.filter((row) => row.active || referencedSupplyIds.has(row.id)).map((row) => {
+    const purchase = latestPurchase.get(row.id);
+    return { id: row.id, name: row.name, category: row.category as SupplyCategory, packageQuantity: numberValue(purchase?.package_quantity ?? 1), packageUnit: (purchase?.package_unit ?? "unit") as Unit, packagePrice: numberValue(purchase?.package_price), purchasedAt: purchase?.purchased_at ?? new Date().toISOString().slice(0,10) };
+  });
+  const products: Product[] = activeProductRows.map((row) => ({ id: row.id, name: row.name, portfolioKey: row.portfolio_key ?? null, available: (row as ProductRowWithAvailability).available ?? true, batchYield: numberValue(row.batch_yield), sellingPrice: numberValue(row.selling_price), lossPercent: numberValue(row.loss_percent), productionCostPerBatch: numberValue(row.production_cost_per_batch), minimumMarginPercent: numberValue(row.minimum_margin_percent), targetMarginPercent: numberValue(row.target_margin_percent), recipe: recipeRows.filter((item) => item.product_id === row.id).map((item): RecipeItem => ({ id: item.id, supplyId: item.supply_id, quantity: numberValue(item.quantity), unit: item.unit as Unit })) }));
+
+  const saleRows = rows<SaleRow>(salesResult.data);
+  const saleItemsBySale = new Map<string,SaleItemRow[]>();
+  for (const item of rows<SaleItemRow>(saleItemsResult.data)) { const list = saleItemsBySale.get(item.sale_id) ?? []; list.push(item); saleItemsBySale.set(item.sale_id,list); }
+  const sales = saleRows.map((row): Sale | null => {
+    const rawItems = saleItemsBySale.get(row.id) ?? []; if (!rawItems.length) return null;
+    const items: SaleLine[] = rawItems.map((item) => ({ id:item.id,productId:item.product_id,productName:item.product_name_snapshot,portfolioKey:item.portfolio_key_snapshot ?? null,quantity:numberValue(item.quantity),unitCostSnapshot:numberValue(item.unit_cost_snapshot),unitPriceSnapshot:numberValue(item.unit_price_snapshot) }));
+    const quantity = items.reduce((sum,item)=>sum+item.quantity,0); const totalCost = items.reduce((sum,item)=>sum+item.unitCostSnapshot*item.quantity,0); const first = items[0];
+    return { id:row.id,productId:first.productId,productName:items.length===1?first.productName:`${items.length} produtos`,portfolioKey:items.length===1?first.portfolioKey ?? null:null,quantity,totalReceived:numberValue(row.total_received),paymentMethod:row.payment_method as PaymentMethod,soldAt:row.sold_at,unitCostSnapshot:quantity>0?totalCost/quantity:0,variableFeeSnapshot:numberValue(row.variable_fee_snapshot),contributionSnapshot:numberValue(row.contribution_snapshot),items,status:row.status as SaleStatus,cancelledAt:row.cancelled_at,cancelReason:row.cancel_reason };
+  }).filter((sale): sale is Sale => sale !== null);
+
+  const expenseRows = rows<ExpenseRow>(expensesResult.data);
+  const expenses: SporadicExpense[] = expenseRows.map((row) => ({ id: row.id, name: row.name, amount: numberValue(row.amount), spentAt: row.spent_at }));
+  const settingsRow = settingsResult.data as SettingsRow | null;
+  const settings: Settings = settingsRow ? { ownerName: settingsRow.owner_name, monthlyFixedCosts: numberValue(settingsRow.monthly_fixed_costs), paymentFeePercent: numberValue(settingsRow.payment_fee_percent), defaultMinimumMarginPercent: numberValue(settingsRow.default_minimum_margin_percent), defaultTargetMarginPercent: numberValue(settingsRow.default_target_margin_percent) } : initialState.settings;
+  const versions: NatVersions = {
+    settings: settingsRow?.updated_at ?? null,
+    supplies: Object.fromEntries(allSupplies.map((row)=>[row.id,row.updated_at])),
+    products: Object.fromEntries(allProductRows.map((row)=>[row.id,row.updated_at])),
+    sales: Object.fromEntries(saleRows.map((row)=>[row.id,row.updated_at])),
+    expenses: Object.fromEntries(expenseRows.map((row)=>[row.id,row.updated_at])),
+  };
+  return { businessId, state: { version: 3, supplies, products, sales, expenses, settings }, versions };
+}
+
+export async function setProductAvailabilityCloud(businessId:string,productId:string,expectedUpdatedAt:string|null,available:boolean) {
+  const result = await supabase.rpc("set_product_availability" as never,{ p_business_id:businessId,p_id:productId,p_expected_updated_at:expectedUpdatedAt,p_available:available } as never);
+  failure("Não foi possível alterar a disponibilidade do produto",result.error);
+}
+
+const canonicalState = (state: NatState) => JSON.stringify({ ...state,supplies:[...state.supplies].sort((a,b)=>a.id.localeCompare(b.id)),products:[...state.products].map((product)=>({...product,recipe:[...product.recipe].sort((a,b)=>a.id.localeCompare(b.id))})).sort((a,b)=>a.id.localeCompare(b.id)),sales:[...state.sales].map((sale)=>({...sale,items:[...sale.items].sort((a,b)=>a.productId.localeCompare(b.productId))})).sort((a,b)=>a.id.localeCompare(b.id)),expenses:[...state.expenses].sort((a,b)=>a.id.localeCompare(b.id)) });
+export function sameNatState(left: NatState, right: NatState) { return canonicalState(left) === canonicalState(right); }
+const same = (left: unknown,right: unknown) => JSON.stringify(left) === JSON.stringify(right);
+
+type Operation = { type:string; expectedUpdatedAt:string|null; payload:Record<string,unknown> };
+export async function persistNatTransition(businessId: string, previous: NatState, next: NatState, versions: NatVersions) {
+  const operations: Operation[] = [];
+  const previousSales = new Map(previous.sales.map((item)=>[item.id,item])); const nextSales = new Map(next.sales.map((item)=>[item.id,item]));
+  for (const sale of previous.sales) if (!nextSales.has(sale.id) && sale.status!=="cancelled") operations.push({type:"cancel_sale",expectedUpdatedAt:versions.sales[sale.id] ?? null,payload:{id:sale.id,reason:"Cancelada pelo usuário"}});
+  for (const sale of next.sales) { const old=previousSales.get(sale.id); if (old && old.status!=="cancelled" && sale.status==="cancelled") operations.push({type:"cancel_sale",expectedUpdatedAt:versions.sales[sale.id] ?? null,payload:{id:sale.id,reason:sale.cancelReason ?? "Cancelada pelo usuário"}}); }
+
+  const previousProducts=new Map(previous.products.map((item)=>[item.id,item])); const nextProducts=new Map(next.products.map((item)=>[item.id,item]));
+  for (const product of previous.products) if (!nextProducts.has(product.id)) operations.push({type:"archive_product",expectedUpdatedAt:versions.products[product.id] ?? null,payload:{id:product.id}});
+  const previousSupplies=new Map(previous.supplies.map((item)=>[item.id,item])); const nextSupplies=new Map(next.supplies.map((item)=>[item.id,item]));
+  for (const supply of previous.supplies) if (!nextSupplies.has(supply.id)) operations.push({type:"delete_supply",expectedUpdatedAt:versions.supplies[supply.id] ?? null,payload:{id:supply.id}});
+  const previousExpenses=new Map(previous.expenses.map((item)=>[item.id,item])); const nextExpenses=new Map(next.expenses.map((item)=>[item.id,item]));
+  for (const expense of previous.expenses) if (!nextExpenses.has(expense.id)) operations.push({type:"delete_sporadic_expense",expectedUpdatedAt:versions.expenses[expense.id] ?? null,payload:{id:expense.id}});
+
+  for (const supply of next.supplies) { const old=previousSupplies.get(supply.id); if (!old || !same(old,supply)) operations.push({type:"save_supply",expectedUpdatedAt:old ? versions.supplies[supply.id] ?? null : null,payload:{id:supply.id,name:supply.name,category:supply.category,packageQuantity:supply.packageQuantity,packageUnit:supply.packageUnit,packagePrice:supply.packagePrice,purchasedAt:supply.purchasedAt.slice(0,10)}}); }
+  for (const product of next.products) { const old=previousProducts.get(product.id); if (!old || !same(old,product)) operations.push({type:"save_product",expectedUpdatedAt:old ? versions.products[product.id] ?? null : null,payload:{id:product.id,name:product.name,batchYield:product.batchYield,sellingPrice:product.sellingPrice,lossPercent:product.lossPercent,productionCostPerBatch:product.productionCostPerBatch,minimumMarginPercent:product.minimumMarginPercent,targetMarginPercent:product.targetMarginPercent,recipe:product.recipe,portfolioKey:product.portfolioKey ?? null}}); }
+  for (const sale of next.sales) if (!previousSales.has(sale.id)) operations.push({type:"save_sale_items",expectedUpdatedAt:null,payload:{id:sale.id,items:sale.items.map((item)=>({productId:item.productId,quantity:item.quantity})),totalReceived:sale.totalReceived,paymentMethod:sale.paymentMethod,soldAt:sale.soldAt}});
+  for (const expense of next.expenses) { const old=previousExpenses.get(expense.id); if (!old || !same(old,expense)) operations.push({type:"save_sporadic_expense",expectedUpdatedAt:old ? versions.expenses[expense.id] ?? null : null,payload:{id:expense.id,name:expense.name,amount:expense.amount,spentAt:expense.spentAt.slice(0,10)}}); }
+  if (!same(previous.settings,next.settings)) operations.push({type:"save_business_settings",expectedUpdatedAt:versions.settings,payload:{ownerName:next.settings.ownerName,monthlyFixedCosts:next.settings.monthlyFixedCosts,paymentFeePercent:next.settings.paymentFeePercent,defaultMinimumMarginPercent:next.settings.defaultMinimumMarginPercent,defaultTargetMarginPercent:next.settings.defaultTargetMarginPercent}});
+  if (!operations.length) return;
+  // Um único request id por transição: se a mesma requisição precisar ser repetida
+  // nesta execução, o id é reutilizado para o backend tratar a chamada como idempotente.
+  const requestId = crypto.randomUUID();
+  const payload = { p_business_id:businessId,p_request_id:requestId,p_operations:operations as unknown as Json };
+  let lastError: { message: string } | null = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const result = await supabase.rpc("apply_nat_transition_v2",payload);
+    if (!result.error) return;
+    lastError = result.error;
+    const message = result.error.message ?? "";
+    const retryable = /fetch|network|timeout|Failed to fetch/i.test(message);
+    if (!retryable) break;
+  }
+  failure("Falha ao salvar alteração",lastError);
+}
