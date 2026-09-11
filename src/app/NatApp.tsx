@@ -12,6 +12,7 @@ import { ProductsView, type ProductTab } from "@/components/nat/ProductsView";
 import { SalesHistoryView } from "@/components/nat/SalesHistoryView";
 import { SaleOrderSheet } from "@/components/nat/SaleOrderSheet";
 import { CustomersView } from "@/components/nat/CustomersView";
+import { IntelligenceView } from "@/components/nat/IntelligenceView";
 import { PortfolioHierarchyView } from "@/components/nat/PortfolioHierarchyView";
 import { BrandGuideView } from "@/components/nat/BrandGuideView";
 import { CalendarView } from "@/components/nat/CalendarView";
@@ -59,6 +60,7 @@ export function NatApp({ view,onView }: { view:NatView; onView:(view:NatView)=>v
     {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")}/><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")} onCashMovement={()=>setSheet({type:"ownerCash"})}/></div>}
     {view==="sales"&&<SalesHistoryView state={state} onNew={()=>setSheet({type:"sale"})} onCancel={(saleId,reason)=>update((current)=>({...current,sales:current.sales.map((sale)=>sale.id===saleId?{...sale,status:"cancelled",cancelReason:reason,cancelledAt:new Date().toISOString()}:sale)}))}/>} 
     {view==="customers"&&<CustomersView state={state} onSave={saveCustomer}/>} 
+    {view==="intelligence"&&<IntelligenceView state={state} inventory={inventory.snapshot} businessId={businessId}/>} 
     {view==="calendar"&&<CalendarView/>}
     {view==="inventory"&&<InventoryView state={state} snapshot={inventory.snapshot} loading={inventory.loading} error={inventory.error} onRetry={inventory.reload} onSetBalance={inventory.setBalance} onProduction={inventory.registerProduction}/>} 
     {view==="portfolio"&&<PortfolioHierarchyView state={state} onConfigure={(preset)=>setSheet({type:"product",preset})} onEdit={(value)=>setSheet({type:"product",value})} onAvailability={(product,available)=>setProductAvailability(product.id,available)} onPricing={()=>onView("pricing")}/>} 
