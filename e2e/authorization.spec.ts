@@ -26,11 +26,10 @@ function totp(secret:string, now=Date.now()){
 }
 
 async function createAal2Session(page:Page,email:string){
-  await page.goto("/signup");
-  await page.getByLabel("E-mail autorizado").fill(email);
+  await page.goto("/login");
+  await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(password);
-  await page.getByRole("button",{name:"Criar acesso"}).click();
-  await page.waitForURL(/\/login/);
+  await page.getByRole("button",{name:"Entrar",exact:true}).click();
   const secretField=page.locator("p.font-mono");
   await expect(secretField).toBeVisible();
   const secret=(await secretField.textContent())?.trim();
