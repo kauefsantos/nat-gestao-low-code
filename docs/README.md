@@ -17,6 +17,7 @@ Esta pasta separa a apresentação de portfólio da documentação técnica de e
 | [SECURITY.md](../SECURITY.md) | segurança, RLS, credenciais e práticas de hardening |
 | [PROJECT_STATE.md](../PROJECT_STATE.md) | estado operacional e histórico técnico consolidado |
 | [PUBLICATION_NOTES.md](PUBLICATION_NOTES.md) | critérios de sanitização adotados para a versão pública |
+| [CODEBASE_AUDIT.md](CODEBASE_AUDIT.md) | critérios e achados da limpeza de código mais recente |
 
 ## Ordem sugerida de leitura
 
