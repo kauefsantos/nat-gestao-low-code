@@ -3,6 +3,7 @@ export type Unit = "g" | "kg" | "ml" | "l" | "unit";
 export type PaymentMethod = "pix" | "cash" | "card" | "other";
 export type SaleStatus = "completed" | "cancelled";
 export type TransactionType = "sale" | "courtesy" | "personal_consumption" | "loss";
+export type OwnerCashMovementType = "contribution" | "withdrawal";
 
 export type Supply = { id: string; name: string; category: SupplyCategory; packageQuantity: number; packageUnit: Unit; packagePrice: number; purchasedAt: string };
 export type RecipeItem = { id: string; supplyId: string; quantity: number; unit: Unit };
@@ -29,13 +30,30 @@ export type Sale = {
   cancelReason?: string | null;
 };
 export type SporadicExpense = { id: string; name: string; amount: number; spentAt: string };
-export type Settings = { ownerName: string; monthlyFixedCosts: number; paymentFeePercent: number; defaultMinimumMarginPercent: number; defaultTargetMarginPercent: number; ownerHourlyRate?:number; ownerDailyHours?:number };
-export type NatState = { version: 3|4; supplies: Supply[]; products: Product[]; customers?:Customer[]; sales: Sale[]; expenses: SporadicExpense[]; settings: Settings; purchaseCashOut?:number };
+export type OwnerCashMovement = { id:string; movementType:OwnerCashMovementType; amount:number; occurredAt:string; note?:string|null; createdAt?:string; updatedAt?:string };
+export type Settings = {
+  ownerName: string;
+  monthlyFixedCosts: number;
+  paymentFeePercent: number;
+  pixFeePercent?: number;
+  cashFeePercent?: number;
+  cardFeePercent?: number;
+  defaultMinimumMarginPercent: number;
+  defaultTargetMarginPercent: number;
+  ownerHourlyRate?:number;
+  ownerDailyHours?:number;
+};
+export type NatState = { version: 3|4|5; supplies: Supply[]; products: Product[]; customers?:Customer[]; sales: Sale[]; expenses: SporadicExpense[]; ownerCashMovements?:OwnerCashMovement[]; settings: Settings; purchaseCashOut?:number };
 
-export const initialState: NatState = { version: 4, supplies: [], products: [], customers:[], sales: [], expenses: [], purchaseCashOut:0, settings: { ownerName: "NAT", monthlyFixedCosts: 0, paymentFeePercent: 0, defaultMinimumMarginPercent: 35, defaultTargetMarginPercent: 50, ownerHourlyRate:20, ownerDailyHours:3 } };
+export const initialState: NatState = {
+  version: 5,
+  supplies: [], products: [], customers:[], sales: [], expenses: [], ownerCashMovements:[], purchaseCashOut:0,
+  settings: { ownerName: "NAT", monthlyFixedCosts: 0, paymentFeePercent: 0, pixFeePercent:0, cashFeePercent:0, cardFeePercent:0, defaultMinimumMarginPercent: 35, defaultTargetMarginPercent: 50, ownerHourlyRate:20, ownerDailyHours:3 }
+};
 export const unitLabel: Record<Unit, string> = { g: "g", kg: "kg", ml: "ml", l: "L", unit: "un" };
 export const paymentLabel: Record<PaymentMethod, string> = { pix: "Pix", cash: "Dinheiro", card: "Cartão", other: "Outro" };
 export const transactionTypeLabel:Record<TransactionType,string>={ sale:"Venda",courtesy:"Cortesia",personal_consumption:"Consumo próprio",loss:"Perda" };
+export const ownerCashMovementLabel:Record<OwnerCashMovementType,string>={ contribution:"Dinheiro colocado no negócio",withdrawal:"Retirada dos donos" };
 
 export function id(_prefix: string) { return crypto.randomUUID(); }
 export function money(value: number) {
@@ -45,6 +63,16 @@ export function money(value: number) {
 export function percent(value: number) {
   if (!Number.isFinite(value)) return "—";
   return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(value)}%`;
+}
+
+export function paymentFeeForMethod(settings:Settings,method:PaymentMethod){
+  if(method==="pix") return Math.max(0,settings.pixFeePercent??0);
+  if(method==="cash") return Math.max(0,settings.cashFeePercent??0);
+  if(method==="card") return Math.max(0,settings.cardFeePercent??0);
+  return Math.max(0,settings.paymentFeePercent??0);
+}
+export function pricingFeePercent(settings:Settings){
+  return Math.max(paymentFeeForMethod(settings,"pix"),paymentFeeForMethod(settings,"cash"),paymentFeeForMethod(settings,"card"),Math.max(0,settings.paymentFeePercent??0));
 }
 
 type Dimension = "mass" | "volume" | "unit";
@@ -84,18 +112,18 @@ export type ProductCost = {
   recipeValid: boolean; pricingValid: boolean;
 };
 export function productCost(product: Product, supplies: Supply[], paymentFeePercent: number): ProductCost {
-  let ingredientBatch = 0; let packagingBatch = 0; let recipeValid = true;
+  let ingredientBatch = 0; let lossEligibleBatch=0; let packagingBatch = 0; let recipeValid = true;
   for (const item of product.recipe) {
     const supply = supplies.find((candidate) => candidate.id === item.supplyId);
     if (!supply) { recipeValid = false; continue; }
     const cost = supplyUsageCost(supply, item.quantity, item.unit);
     if (!Number.isFinite(cost)) { recipeValid = false; continue; }
-    if (supply.category === "packaging") packagingBatch += cost; else ingredientBatch += cost;
+    if (supply.category === "packaging") packagingBatch += cost;
+    else { ingredientBatch += cost; if(supply.category==="ingredient") lossEligibleBatch += cost; }
   }
   const laborBatch=Math.max(0,product.laborCostPerBatch??0);
   const productionBatch = Math.max(0, product.productionCostPerBatch);
-  const lossBase = recipeValid ? ingredientBatch : Number.NaN;
-  const lossBatch = Number.isFinite(lossBase) ? lossBase * Math.max(0, product.lossPercent) / 100 : Number.NaN;
+  const lossBatch = recipeValid ? lossEligibleBatch * Math.max(0, product.lossPercent) / 100 : Number.NaN;
   const totalBatch = recipeValid ? ingredientBatch + lossBatch + packagingBatch + laborBatch + productionBatch : Number.NaN;
   const unitCost = product.batchYield > 0 && Number.isFinite(totalBatch) ? totalBatch / product.batchYield : Number.NaN;
   const fee = Math.max(0, paymentFeePercent) / 100;
@@ -126,10 +154,16 @@ export function monthSales(sales: Sale[], now = new Date()) {
 function monthExpenses(expenses: SporadicExpense[], now = new Date()) {
   return expenses.filter((expense) => { const date = new Date(`${expense.spentAt.slice(0,10)}T12:00:00`); return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth(); });
 }
+function monthOwnerCashMovements(movements:OwnerCashMovement[],now=new Date()){
+  return movements.filter((movement)=>{const date=new Date(`${movement.occurredAt.slice(0,10)}T12:00:00`);return date.getFullYear()===now.getFullYear()&&date.getMonth()===now.getMonth();});
+}
 export function dashboardNumbers(state: NatState) {
   const movements = monthSales(state.sales);
   const commercialSales=movements.filter((sale)=>(sale.transactionType??"sale")==="sale");
   const expenses = monthExpenses(state.expenses);
+  const ownerCash=monthOwnerCashMovements(state.ownerCashMovements??[]);
+  const ownerContributions=ownerCash.filter((m)=>m.movementType==="contribution").reduce((sum,m)=>sum+m.amount,0);
+  const ownerWithdrawals=ownerCash.filter((m)=>m.movementType==="withdrawal").reduce((sum,m)=>sum+m.amount,0);
   const revenue = commercialSales.reduce((sum, sale) => sum + sale.totalReceived, 0);
   const units = commercialSales.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum,line) => lineSum + line.quantity,0), 0);
   const contribution = movements.reduce((sum, sale) => sum + sale.contributionSnapshot, 0);
@@ -137,8 +171,8 @@ export function dashboardNumbers(state: NatState) {
   const sporadicExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const resultBeforeOwner=contribution+ownerRemuneration-state.settings.monthlyFixedCosts-sporadicExpenses;
   const estimatedResult = contribution-state.settings.monthlyFixedCosts-sporadicExpenses;
-  const cashIn=revenue;
-  const cashOut=(state.purchaseCashOut??0)+sporadicExpenses+state.settings.monthlyFixedCosts;
+  const cashIn=revenue+ownerContributions;
+  const cashOut=(state.purchaseCashOut??0)+sporadicExpenses+state.settings.monthlyFixedCosts+ownerWithdrawals;
   const cashAvailable=cashIn-cashOut;
   const cashAfterOwner=cashAvailable-ownerRemuneration;
   const byProduct = new Map<string, { name: string; quantity: number }>();
@@ -150,13 +184,17 @@ export function dashboardNumbers(state: NatState) {
     }
   }
   const topProduct = [...byProduct.values()].sort((a,b) => b.quantity - a.quantity)[0] ?? null;
-  return { sales:commercialSales,movements, expenses, revenue, units, contribution, ownerRemuneration, sporadicExpenses, resultBeforeOwner, estimatedResult, cashIn,cashOut,cashAvailable,cashAfterOwner,purchaseCashOut:state.purchaseCashOut??0,topProduct };
+  return { sales:commercialSales,movements, expenses, ownerCash, revenue, units, contribution, ownerRemuneration, sporadicExpenses, resultBeforeOwner, estimatedResult, cashIn,cashOut,cashAvailable,cashAfterOwner,purchaseCashOut:state.purchaseCashOut??0,ownerContributions,ownerWithdrawals,topProduct };
 }
 
-export type CustomerInsight={customer:Customer;firstPurchase:string|null;lastPurchase:string|null;orders:number;totalSpent:number;averageTicket:number;units:number;daysSinceLast:number|null;recurring:boolean;favoriteProduct:string|null};
+function recencyScore(days:number|null,orders:number){ if(!orders||days===null)return 0;if(days<=7)return 5;if(days<=14)return 4;if(days<=30)return 3;if(days<=60)return 2;return 1; }
+function frequencyScore(orders:number){if(orders>=8)return 5;if(orders>=5)return 4;if(orders>=3)return 3;if(orders>=2)return 2;if(orders>=1)return 1;return 0;}
+function valueScore(value:number){if(value>=500)return 5;if(value>=250)return 4;if(value>=100)return 3;if(value>=50)return 2;if(value>0)return 1;return 0;}
+export type CustomerInsight={customer:Customer;firstPurchase:string|null;lastPurchase:string|null;orders:number;totalSpent:number;averageTicket:number;units:number;daysSinceLast:number|null;recurring:boolean;favoriteProduct:string|null;nonCommercialInteractions:number;recencyScore:number;frequencyScore:number;valueScore:number;rfmTotal:number};
 export function customerInsights(state:NatState,now=new Date()):CustomerInsight[]{
   return (state.customers??[]).filter((c)=>c.active).map((customer)=>{
     const sales=state.sales.filter((sale)=>sale.status!=="cancelled"&&(sale.transactionType??"sale")==="sale"&&sale.customerId===customer.id).sort((a,b)=>+new Date(a.soldAt)-+new Date(b.soldAt));
+    const nonCommercialInteractions=state.sales.filter((sale)=>sale.status!=="cancelled"&&(sale.transactionType??"sale")!=="sale"&&sale.customerId===customer.id).length;
     const totalSpent=sales.reduce((sum,s)=>sum+s.totalReceived,0);
     const units=sales.reduce((sum,s)=>sum+activeSaleLines(s).reduce((x,l)=>x+l.quantity,0),0);
     const productMap=new Map<string,{name:string;qty:number}>();
@@ -164,7 +202,8 @@ export function customerInsights(state:NatState,now=new Date()):CustomerInsight[
     const favorite=[...productMap.values()].sort((a,b)=>b.qty-a.qty)[0]?.name??null;
     const first=sales[0]?.soldAt??null; const last=sales.at(-1)?.soldAt??null;
     const daysSinceLast=last?Math.max(0,Math.floor((now.getTime()-new Date(last).getTime())/86400000)):null;
-    return {customer,firstPurchase:first,lastPurchase:last,orders:sales.length,totalSpent,averageTicket:sales.length?totalSpent/sales.length:0,units,daysSinceLast,recurring:sales.length>=2,favoriteProduct:favorite};
+    const r=recencyScore(daysSinceLast,sales.length);const f=frequencyScore(sales.length);const v=valueScore(totalSpent);
+    return {customer,firstPurchase:first,lastPurchase:last,orders:sales.length,totalSpent,averageTicket:sales.length?totalSpent/sales.length:0,units,daysSinceLast,recurring:sales.length>=2,favoriteProduct:favorite,nonCommercialInteractions,recencyScore:r,frequencyScore:f,valueScore:v,rfmTotal:r+f+v};
   });
 }
 export function customerOverview(state:NatState,now=new Date()){
@@ -173,7 +212,9 @@ export function customerOverview(state:NatState,now=new Date()){
   const recurrent=customersWithOrders.filter((x)=>x.recurring);
   const newThisMonth=customersWithOrders.filter((x)=>{if(!x.firstPurchase)return false;const d=new Date(x.firstPurchase);return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();});
   const orders=customersWithOrders.reduce((s,x)=>s+x.orders,0);
-  return {activeCustomers:insights.length,newThisMonth:newThisMonth.length,recurrent:recurrent.length,repurchaseRate:customersWithOrders.length?recurrent.length/customersWithOrders.length*100:0,averageTicket:orders?customersWithOrders.reduce((s,x)=>s+x.totalSpent,0)/orders:0,inactive:customersWithOrders.filter((x)=>x.daysSinceLast!==null&&x.daysSinceLast>=30).length};
+  const sourceMap=new Map<string,{source:string;customers:number;revenue:number;orders:number}>();
+  for(const row of customersWithOrders){const source=row.customer.source?.trim()||"Não informado";const current=sourceMap.get(source)??{source,customers:0,revenue:0,orders:0};current.customers+=1;current.revenue+=row.totalSpent;current.orders+=row.orders;sourceMap.set(source,current);}
+  return {activeCustomers:insights.length,newThisMonth:newThisMonth.length,recurrent:recurrent.length,repurchaseRate:customersWithOrders.length?recurrent.length/customersWithOrders.length*100:0,averageTicket:orders?customersWithOrders.reduce((s,x)=>s+x.totalSpent,0)/orders:0,inactive:customersWithOrders.filter((x)=>x.daysSinceLast!==null&&x.daysSinceLast>=30).length,sourceBreakdown:[...sourceMap.values()].sort((a,b)=>b.revenue-a.revenue)};
 }
 
 export function buildSaleOrder(args: { items: Array<{ product: Product; quantity: number }>; supplies: Supply[]; paymentFeePercent: number; totalReceived: number; paymentMethod: PaymentMethod; soldAt: string; customerId?:string|null; transactionType?:TransactionType }): Sale {
