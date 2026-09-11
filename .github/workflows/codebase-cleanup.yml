@@ -1,0 +1,112 @@
+name: Temporary codebase cleanup
+
+on:
+  push:
+    branches: [chore/codebase-github-polish]
+    paths:
+      - .github/workflows/codebase-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chore/codebase-github-polish
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Remove unused dependencies
+        run: npm uninstall @tanstack/react-query @tanstack/router-plugin --save
+      - name: Remove dead exports and duplicated onboarding
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'Expected fragment not found in {path}: {old[:120]}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Repository: remove unused canonical state comparison helper.
+          p = Path('src/data/nat-repository.ts')
+          text = p.read_text(encoding='utf-8')
+          text, count = re.subn(
+              r'\nconst canonicalState = .*?;\nexport function sameNatState\(left: NatState, right: NatState\) \{ return canonicalState\(left\) === canonicalState\(right\); \}\n',
+              '\n', text, count=1
+          )
+          if count != 1:
+              raise SystemExit('Could not remove sameNatState helper')
+          p.write_text(text, encoding='utf-8')
+
+          # Catalog: keep demo recipe references internal and remove unused API/dead computation.
+          replace('src/domain/catalog.ts', 'export type RecipeReferenceItem =', 'type RecipeReferenceItem =')
+          replace('src/domain/catalog.ts', 'export type RecipeReference =', 'type RecipeReference =')
+          replace('src/domain/catalog.ts', 'export const BROWNIE_BASE_RECIPE:', 'const BROWNIE_BASE_RECIPE:')
+          replace('src/domain/catalog.ts', 'export const BRIGADEIRO_BASE_RECIPE:', 'const BRIGADEIRO_BASE_RECIPE:')
+          p = Path('src/domain/catalog.ts')
+          text = p.read_text(encoding='utf-8')
+          text, count = re.subn(
+              r'\nexport function portfolioKeyForSale\(sale: Sale, state: NatState\) \{.*?\n\}',
+              '', text, count=1, flags=re.S
+          )
+          if count != 1:
+              raise SystemExit('Could not remove portfolioKeyForSale')
+          text = text.replace('      const totalCost=lines.reduce((sum,line)=>sum+line.unitCostSnapshot*line.quantity,0);\n', '')
+          text = text.replace('      void totalCost;\n', '')
+          p.write_text(text, encoding='utf-8')
+
+          # Internal helpers should not enlarge the public module surface.
+          replace('src/domain/insights.ts', 'export function activeSales(', 'function activeSales(')
+          replace('src/domain/insights.ts', 'export function insightReadiness(', 'function insightReadiness(')
+          replace('src/domain/inventory.ts', 'export const inventoryUnitLabel:', 'const inventoryUnitLabel:')
+          replace('src/domain/nat.ts', 'export function monthExpenses(', 'function monthExpenses(')
+          replace('src/integrations/supabase/client.ts', 'export function getSupabaseConfiguration()', 'function getSupabaseConfiguration()')
+          replace('src/domain/calendar.ts', 'export type CalendarEventStatus =', 'type CalendarEventStatus =')
+
+          # Home: the active 4-step onboarding lives in HomeOperations. Remove the old hidden 3-step copy.
+          p = Path('src/components/nat/Views.tsx')
+          text = p.read_text(encoding='utf-8')
+          old_signature = 'export function HomeView({ state,numbers,onSale,onSupplies,onProducts,onPricing,showOnboarding=true }: { state: NatState; numbers: ReturnType<typeof dashboardNumbers>; onSale:()=>void; onSupplies:()=>void; onProducts:()=>void; onPricing:()=>void; showOnboarding?:boolean }) {\n  const steps=[state.supplies.length>0,state.products.length>0,state.sales.length>0]; const completed=steps.filter(Boolean).length;\n'
+          new_signature = 'export function HomeView({ state,numbers,onSale,onPricing }: { state: NatState; numbers: ReturnType<typeof dashboardNumbers>; onSale:()=>void; onPricing:()=>void }) {\n'
+          if old_signature not in text:
+              raise SystemExit('HomeView signature fragment not found')
+          text = text.replace(old_signature, new_signature, 1)
+          text, count = re.subn(
+              r'\{showOnboarding&&completed<3 && <div className="rounded-\[28px\] bg-chocolate.*?</div></div>\}<div className="grid gap-4',
+              '<div className="grid gap-4', text, count=1, flags=re.S
+          )
+          if count != 1:
+              raise SystemExit('Old HomeView onboarding block not found')
+          text, count = re.subn(r'\nfunction Step\(.*?\n\nfunction FamilyPricingCard', '\n\nfunction FamilyPricingCard', text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('Old Step component not found')
+          p.write_text(text, encoding='utf-8')
+
+          replace(
+              'src/app/NatApp.tsx',
+              '<HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} showOnboarding={false}/>',
+              '<HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")}/>'
+          )
+          PY
+      - name: Validate cleaned code
+        run: npm run check
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          git config user.name 'Kauê Pastrello'
+          git config user.email '120512459+kauefsantos@users.noreply.github.com'
+          git add package.json package-lock.json src
+          git commit -m 'refactor: remove dead code and unused dependencies'
+          git push origin HEAD:chore/codebase-github-polish
