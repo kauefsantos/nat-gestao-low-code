@@ -12,3 +12,5 @@
 - [ ] Alterações de banco vieram com migration e regressão em `supabase/tests`
 - [ ] UX foi conferida em mobile quando a interface mudou
 - [ ] Nenhum segredo, dado pessoal, dado de cliente ou receita operacional real foi incluído
+- [ ] Migrations/testes/docs usam somente dados fictícios; nenhum backfill de cliente real foi versionado
+- [ ] Screenshots, issues e descrição desta PR foram revisados para não expor dados de clientes
