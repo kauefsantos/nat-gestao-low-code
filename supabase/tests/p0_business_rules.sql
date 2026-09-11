@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(14);
 
 insert into public.businesses(id,name) values('91919191-9191-4919-8919-919191919191','P0 test');
 insert into private.allowed_auth_emails(email,business_id,role) values('p0@example.invalid','91919191-9191-4919-8919-919191919191','admin');
