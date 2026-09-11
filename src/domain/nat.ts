@@ -88,9 +88,9 @@ export function productCost(product: Product, supplies: Supply[], paymentFeePerc
     if (supply.category === "packaging") packagingBatch += cost; else ingredientBatch += cost;
   }
   const productionBatch = Math.max(0, product.productionCostPerBatch);
-  const beforeLoss = recipeValid ? ingredientBatch + packagingBatch + productionBatch : Number.NaN;
-  const lossBatch = Number.isFinite(beforeLoss) ? beforeLoss * Math.max(0, product.lossPercent) / 100 : Number.NaN;
-  const totalBatch = beforeLoss + lossBatch;
+  const lossBase = recipeValid ? ingredientBatch : Number.NaN;
+  const lossBatch = Number.isFinite(lossBase) ? lossBase * Math.max(0, product.lossPercent) / 100 : Number.NaN;
+  const totalBatch = recipeValid ? ingredientBatch + lossBatch + packagingBatch + productionBatch : Number.NaN;
   const unitCost = product.batchYield > 0 && Number.isFinite(totalBatch) ? totalBatch / product.batchYield : Number.NaN;
   const fee = Math.max(0, paymentFeePercent) / 100;
   const minimumMargin = Math.max(0, product.minimumMarginPercent) / 100;
