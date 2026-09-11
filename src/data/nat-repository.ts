@@ -93,8 +93,6 @@ export async function setProductAvailabilityCloud(businessId:string,productId:st
   failure("Não foi possível alterar a disponibilidade do produto",result.error);
 }
 
-const canonicalState = (state: NatState) => JSON.stringify({ ...state,supplies:[...state.supplies].sort((a,b)=>a.id.localeCompare(b.id)),products:[...state.products].map((product)=>({...product,recipe:[...product.recipe].sort((a,b)=>a.id.localeCompare(b.id))})).sort((a,b)=>a.id.localeCompare(b.id)),sales:[...state.sales].map((sale)=>({...sale,items:[...sale.items].sort((a,b)=>a.productId.localeCompare(b.productId))})).sort((a,b)=>a.id.localeCompare(b.id)),expenses:[...state.expenses].sort((a,b)=>a.id.localeCompare(b.id)) });
-export function sameNatState(left: NatState, right: NatState) { return canonicalState(left) === canonicalState(right); }
 const same = (left: unknown,right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 
 type Operation = { type:string; expectedUpdatedAt:string|null; payload:Record<string,unknown> };

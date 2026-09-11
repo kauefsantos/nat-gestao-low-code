@@ -31,7 +31,7 @@ export type InventoryMovement = {
 export type InventorySnapshot = { items: InventoryItem[]; movements: InventoryMovement[] };
 
 export const emptyInventorySnapshot = (): InventorySnapshot => ({ items: [], movements: [] });
-export const inventoryUnitLabel: Record<InventoryBaseUnit,string> = { g:"g",ml:"ml",unit:"un" };
+const inventoryUnitLabel: Record<InventoryBaseUnit,string> = { g:"g",ml:"ml",unit:"un" };
 export const inventoryCategoryLabel: Record<InventoryCategory,string> = {
   product:"Produto pronto",
   ingredient:"Ingrediente",
