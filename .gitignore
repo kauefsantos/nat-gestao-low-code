@@ -22,6 +22,12 @@ dist-ssr
 .env.*
 !.env.example
 
+# Exports operacionais podem conter clientes, vendas e dados financeiros.
+nat-gestao-backup-*.json
+nat-gestao-????-??-??.csv
+exports/
+backups/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

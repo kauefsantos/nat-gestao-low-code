@@ -341,19 +341,5 @@ $$;
 revoke all on function public.get_customers_snapshot(uuid) from public,anon;
 grant execute on function public.get_customers_snapshot(uuid) to authenticated,service_role;
 
--- Backfill real first-day customers and transactions without inventing contact data.
-with b as (select business_id from public.business_settings limit 1), ins as (
-  insert into public.customers(business_id,name) select b.business_id,v.name from b cross join (values('Maria'),('Manu'),('Pedrosa')) v(name)
-  where not exists(select 1 from public.customers c where c.business_id=b.business_id and lower(c.name)=lower(v.name))
-  returning id,business_id,name
-)
-select 1;
-
-update public.sales s set customer_id=(select c.id from public.customers c where c.business_id=s.business_id and c.name='Maria' limit 1),transaction_type='sale'
-where s.id='af80e1e2-1444-4398-a6ed-b08e2b0f18a3';
-update public.sales s set customer_id=(select c.id from public.customers c where c.business_id=s.business_id and c.name='Manu' limit 1),transaction_type='sale'
-where s.id='03bc1401-53fc-401b-a18f-aa7cf8d0d2d5';
-update public.sales s set customer_id=(select c.id from public.customers c where c.business_id=s.business_id and c.name='Pedrosa' limit 1),transaction_type='courtesy',total_received=0,variable_fee_snapshot=0
-where s.id='ad45f4a1-983c-4963-bf7a-53745720eeca';
-
+-- Production customer data is intentionally never seeded from a public migration.
 commit;
