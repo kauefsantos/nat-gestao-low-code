@@ -13,9 +13,9 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Lovable%20Cloud-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-Mobile--first-55281B?style=flat-square)
-![CI](https://img.shields.io/badge/CI-Validated-2EA44F?style=flat-square&logo=githubactions&logoColor=white)
+[![CI](https://github.com/kauefsantos/nat-gestao-low-code/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kauefsantos/nat-gestao-low-code/actions/workflows/ci.yml)
 
-[**Ver o case em 2 minutos**](docs/PORTFOLIO.md) · [**Case Study**](docs/CASE_STUDY.md) · [**Arquitetura**](docs/ARCHITECTURE.md) · [**Documentação**](docs/README.md)
+[**Abrir aplicação**](https://nat-gestao.lovable.app/) · [**Ver o case em 2 minutos**](docs/PORTFOLIO.md) · [**Case Study**](docs/CASE_STUDY.md) · [**Arquitetura**](docs/ARCHITECTURE.md) · [**Documentação**](docs/README.md)
 
 </div>
 
@@ -26,7 +26,7 @@
 | | |
 | --- | --- |
 | **Contexto** | pequena confeitaria com operação real e usuária sem experiência com dashboards ou automações |
-| **Problema** | custos, preços, vendas, estoque e rotina operacional estavam conectados, mas sem uma visão única |
+| **Problema** | custos, preços, vendas, estoque e rotina operacional estavam desconectados e sem uma visão única |
 | **Abordagem** | Lovable para acelerar prototipação + código sob medida para regras críticas e segurança |
 | **Produto** | aplicação mobile-first que explica o negócio em linguagem simples e funciona como PWA |
 | **Meu papel** | descoberta, UX, regras de negócio, modelagem de dados, automações, segurança, testes e evolução do MVP |
@@ -203,6 +203,7 @@ lint
 → Edge Functions
 → testes de domínio
 → build
+→ mobile E2E em PR (viewport touch)
 → auditoria de dependências
 → rebuild do banco
 → migrations
@@ -222,7 +223,7 @@ Fluxos críticos de **Agenda, Push, Estoque e Outros insumos** também foram val
 | **Frontend** | React 19, TypeScript, TanStack Router/Start, Tailwind CSS, Vite |
 | **Dados e backend** | PostgreSQL, Supabase APIs, RPCs, Edge Functions, Cron |
 | **Mobile** | PWA, Service Worker, Web Push |
-| **Qualidade** | ESLint, TypeScript, Node Test Runner, pgTAP, GitHub Actions |
+| **Qualidade** | ESLint, TypeScript, Node Test Runner, Playwright, pgTAP, GitHub Actions |
 
 ---
 
@@ -257,6 +258,12 @@ docs/
 - **[Architecture](docs/ARCHITECTURE.md)** — desenho técnico e responsabilidades.
 - **[Security](SECURITY.md)** — práticas de segurança e limites.
 - **[Project State](PROJECT_STATE.md)** — estado técnico e histórico consolidado.
+
+---
+
+## Governança do repositório
+
+A `main` é protegida por ruleset ativo: mudanças entram por **Pull Request**, passam pelos checks `validate` e `database-security` e são integradas por **squash merge**. Force push e exclusão da branch principal ficam bloqueados. O repositório também mantém `CODEOWNERS`, Dependabot e regressão mobile automática em PRs.
 
 ---
 

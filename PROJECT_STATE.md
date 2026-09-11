@@ -16,6 +16,9 @@ Aplicação mobile-first para a usuária principal e o responsável pelo projeto
 - `src/components/nat/Feedback.tsx`: feedback `Salvando`, `Salvo`, `Erro` e confirmações NAT.
 - `src/components/nat/InventoryView.tsx`: interface de estoque, saldos, mínimos, produção e movimentos.
 - `src/domain/calendar.ts`, `src/hooks/use-calendar.ts`, `src/components/nat/CalendarView.tsx`: agenda e lembretes.
+- `src/domain/insights.ts` e `src/components/nat/HomeOperations.tsx`: Central do Dia, onboarding e relatórios com amostra mínima.
+- `src/lib/export-data.ts`: exportação CSV e backup estruturado em JSON.
+- `src/lib/telemetry.ts`: diagnóstico técnico local, sem enviar dados comerciais a terceiros.
 - `src/integrations/supabase`: cliente e tipos gerados; o browser usa apenas chave publicável. As RPCs de Estoque recentes permanecem isoladas no adaptador até a próxima regeneração automática de tipos, sem edição manual do arquivo gerado.
 - `supabase/migrations`: schema versionado, RLS, auditoria, invariantes, RPCs, estoque e jobs.
 - `supabase/tests`: regressões pgTAP/RLS contra stack descartável.
@@ -129,6 +132,7 @@ As funções legadas permanecem no schema apenas por compatibilidade interna/his
 ## Frontend P1–P4
 ### P1 — mobile e acessibilidade
 - Barra mobile fixa: **Início, Vendas, Agenda, Estoque e Mais**.
+- Regressão Playwright em viewport touch valida login/cadastro contra overflow horizontal, zoom indevido de inputs e alvos de toque pequenos.
 - Mais contém **Produtos, Portfólio, Preços e Identidade visual**.
 - Dialogs/bottom-sheets usam Escape, backdrop, focus trap, scroll lock e retorno de foco.
 
@@ -176,6 +180,11 @@ As funções legadas permanecem no schema apenas por compatibilidade interna/his
 11. MFA TOTP para dados comerciais.
 12. Portfólio com disponibilidade temporária e Doce de Leite.
 13. Estoque opt-in com produção, mínimos, alertas e ledger.
+14. Onboarding guiado: compra → receita → preço → primeira venda.
+15. Central do Dia com vendas, sobra, agenda, estoque baixo e atalhos operacionais.
+16. Exportação CSV compatível com Excel e backup completo em JSON.
+17. Diagnóstico técnico local e exportável sem dados comerciais.
+18. Relatórios liberados após amostra mínima de 10 vendas distribuídas por pelo menos 7 dias.
 
 ## Auditoria consolidada final — encerrada
 A varredura final pós-P4/Estoque cobriu frontend, backend, banco real, RLS, permissões, RPCs, vendas, custos, agenda, push, estoque, navegação, código morto, tipagem e regressões cruzadas.
@@ -199,5 +208,6 @@ Resultado:
 - `nat-content-ai` e `nat-push-dispatch` estão provisionadas; IA segue desativada no frontend.
 - Push real já validado em iPhone/PWA; quatro jobs seguem ativos (09h, 12h, 16h e 21h de São Paulo).
 - Não há chave OpenAI configurada no Vault e ela não é necessária neste momento.
-- O workspace Lovable continua sem créditos para execução do agente por essa via; não criar projeto/banco alternativo para contornar isso.
-- **Único hardening externo não encerrado:** branch protection/ruleset da `main`. A API do GitHub retornou `403` para rulesets/branch protection no repositório privado pela integração/nível disponível. Isso não é falha da aplicação nem do banco.
+- O repositório é público e passou por higienização de histórico, dados demonstrativos e documentação antes da abertura.
+- A `main` está protegida pelo ruleset ativo `main-protection`; mudanças seguem branch → Pull Request → checks obrigatórios → squash merge.
+- `validate` e `database-security` são gates obrigatórios; `mobile-e2e` roda automaticamente em Pull Requests.

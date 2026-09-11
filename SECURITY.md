@@ -41,7 +41,13 @@ Edge Functions podem usar `SUPABASE_SECRET_KEYS`, `SUPABASE_SECRET_KEY` ou compa
 - Formulários precisam manter labels associados, validação e dialogs acessíveis.
 
 ## CI
-O pipeline deve executar lint, typecheck, scanner de segurança, validação Deno das Edge Functions, testes do domínio, build, auditoria de dependências e testes reais de RLS em Supabase descartável.
+O pipeline deve executar lint, typecheck, scanner de segurança, validação Deno das Edge Functions, testes do domínio, build, auditoria de dependências e testes reais de RLS em Supabase descartável. Pull Requests também executam regressão mobile com Playwright.
+
+## Governança do repositório
+- A `main` é protegida por ruleset ativo.
+- Mudanças entram por Pull Request e squash merge; force push e exclusão da branch principal são bloqueados.
+- `validate` e `database-security` são checks obrigatórios antes do merge.
+- Dependabot acompanha dependências npm e GitHub Actions; `CODEOWNERS` mantém responsabilidade explícita sobre o código.
 
 ## Relato de vulnerabilidade
 Não abra issue pública com credenciais, tokens ou dados reais. Use canal privado do proprietário do repositório.
