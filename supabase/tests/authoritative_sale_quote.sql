@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(11);
 
 select ok(has_function_privilege('authenticated','public.quote_sale_v1(uuid,jsonb,numeric,text,timestamptz,text,numeric)','execute'),'authenticated can request authoritative sale quote');
 
