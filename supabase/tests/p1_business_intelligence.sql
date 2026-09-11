@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(29);
 
 select has_table('public','owner_cash_movements','owner cash movements table exists');
 select has_table('public','inventory_product_cost_layers','frozen production cost layers exist');
@@ -46,7 +46,6 @@ select is((select sum(quantity_delta)::numeric from public.inventory_movements w
 select is((select unit_cost_snapshot::numeric from public.inventory_product_cost_layers where business_id='a1111111-1111-4111-8111-111111111111' limit 1),3.1::numeric,'production freezes ingredient loss plus labor at R$3.10 per finished unit');
 
 reset role;
--- A later expensive ingredient purchase must not reprice the already-produced FIFO layer.
 insert into public.supply_purchases(id,business_id,supply_id,package_quantity,package_unit,package_price,purchased_at)
 values ('a4444444-4444-4444-8444-444444444443','a1111111-1111-4111-8111-111111111111','a3333333-3333-4333-8333-333333333331',100,'g',100,current_date);
 
