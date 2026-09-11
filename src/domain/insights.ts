@@ -1,4 +1,4 @@
-import { activeSaleLines, type NatState, type Sale } from "./nat";
+import { activeSaleLines, type NatState, type Sale } from "./nat.js";
 
 function localDateKey(value: string | Date) {
   const date = value instanceof Date ? value : new Date(value);
@@ -8,25 +8,25 @@ function localDateKey(value: string | Date) {
   return `${year}-${month}-${day}`;
 }
 
+function activeMovements(state: NatState) {
+  return state.sales.filter((sale) => sale.status !== "cancelled");
+}
+
 function activeSales(state: NatState) {
-  return state.sales.filter((sale) => sale.status !== "cancelled" && (sale.transactionType ?? "sale") === "sale");
+  return activeMovements(state).filter((sale) => (sale.transactionType ?? "sale") === "sale");
 }
 
 export function todaySalesSummary(state: NatState, now = new Date()) {
   const key = localDateKey(now);
-  const sales = activeSales(state).filter((sale) => localDateKey(sale.soldAt) === key);
+  const movements = activeMovements(state).filter((sale) => localDateKey(sale.soldAt) === key);
+  const sales = movements.filter((sale) => (sale.transactionType ?? "sale") === "sale");
   return {
     sales,
+    movements,
     revenue: sales.reduce((sum, sale) => sum + sale.totalReceived, 0),
-    contribution: sales.reduce((sum, sale) => sum + sale.contributionSnapshot, 0),
+    contribution: movements.reduce((sum, sale) => sum + sale.contributionSnapshot, 0),
     units: sales.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + line.quantity, 0), 0),
   };
-}
-
-function differenceInCalendarDays(a: Date, b: Date) {
-  const start = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
-  const end = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
-  return Math.round((end - start) / 86_400_000);
 }
 
 function salesBetween(sales: Sale[], start: Date, end: Date) {
@@ -36,18 +36,26 @@ function salesBetween(sales: Sale[], start: Date, end: Date) {
   });
 }
 
-function insightReadiness(state: NatState, now = new Date()) {
-  const sales = activeSales(state).sort((a, b) => new Date(a.soldAt).getTime() - new Date(b.soldAt).getTime());
-  const first = sales[0] ? new Date(sales[0].soldAt) : now;
-  const spanDays = sales.length ? differenceInCalendarDays(first, now) + 1 : 0;
+export function insightReadiness(state: NatState) {
+  const sales = activeSales(state);
+  const distinctSalesDays = new Set(sales.map((sale) => localDateKey(sale.soldAt))).size;
   const minimumSales = 10;
   const minimumDays = 7;
-  return { ready: sales.length >= minimumSales && spanDays >= minimumDays, salesCount: sales.length, spanDays, minimumSales, minimumDays, missingSales: Math.max(0, minimumSales - sales.length), missingDays: Math.max(0, minimumDays - spanDays) };
+  return {
+    ready: sales.length >= minimumSales && distinctSalesDays >= minimumDays,
+    salesCount: sales.length,
+    spanDays: distinctSalesDays,
+    distinctSalesDays,
+    minimumSales,
+    minimumDays,
+    missingSales: Math.max(0, minimumSales - sales.length),
+    missingDays: Math.max(0, minimumDays - distinctSalesDays),
+  };
 }
 
 export function businessInsights(state: NatState, now = new Date()) {
   const sales = activeSales(state);
-  const readiness = insightReadiness(state, now);
+  const readiness = insightReadiness(state);
   const revenue = sales.reduce((sum, sale) => sum + sale.totalReceived, 0);
   const averageTicket = sales.length ? revenue / sales.length : 0;
   const productMap = new Map<string, { name: string; quantity: number; revenue: number }>();
