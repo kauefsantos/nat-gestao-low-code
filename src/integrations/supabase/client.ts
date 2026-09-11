@@ -6,7 +6,7 @@ import type { Database } from "./types";
 const DEFAULT_SUPABASE_URL = "https://qkqxzgvctusxybvfsxiu.supabase.co";
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Kfba5oA2XoIUjA4tBh_6vw_iyKMDggR";
 
-export function getSupabaseConfiguration() {
+function getSupabaseConfiguration() {
   const url =
     import.meta.env.VITE_SUPABASE_URL ||
     (typeof process !== "undefined" ? process.env.SUPABASE_URL : undefined) ||

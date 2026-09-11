@@ -1,5 +1,5 @@
 export type CalendarEventKind = "content" | "delivery" | "production" | "purchase";
-export type CalendarEventStatus = "planned" | "done" | "cancelled";
+type CalendarEventStatus = "planned" | "done" | "cancelled";
 
 export type CalendarEvent = {
   id: string;

@@ -117,7 +117,7 @@ export function monthSales(sales: Sale[], now = new Date()) {
     return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
   });
 }
-export function monthExpenses(expenses: SporadicExpense[], now = new Date()) {
+function monthExpenses(expenses: SporadicExpense[], now = new Date()) {
   return expenses.filter((expense) => { const date = new Date(`${expense.spentAt.slice(0,10)}T12:00:00`); return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth(); });
 }
 export function dashboardNumbers(state: NatState) {

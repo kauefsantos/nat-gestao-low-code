@@ -3,8 +3,8 @@ import { activeSaleLines, monthSales, productCost, type NatState, type Product, 
 export type ProductFamily = "brownie" | "brigadeiro";
 export type CatalogItem = { key: string; family: ProductFamily; flavor: string; name: string };
 export type StarterSupply = { name: string; category: SupplyCategory; suggestedUnit: Unit };
-export type RecipeReferenceItem = { name: string; amount: string; estimate?: string };
-export type RecipeReference = { title: string; note: string; items: RecipeReferenceItem[] };
+type RecipeReferenceItem = { name: string; amount: string; estimate?: string };
+type RecipeReference = { title: string; note: string; items: RecipeReferenceItem[] };
 
 export const BROWNIE_CATALOG: CatalogItem[] = [
   { key: "brownie-tradicional", family: "brownie", flavor: "Tradicional", name: "Brownie • Tradicional" },
@@ -28,7 +28,7 @@ export const BRIGADEIRO_CATALOG: CatalogItem[] = [
 
 export const PRODUCT_CATALOG = [...BROWNIE_CATALOG, ...BRIGADEIRO_CATALOG];
 
-export const BROWNIE_BASE_RECIPE: RecipeReference = {
+const BROWNIE_BASE_RECIPE: RecipeReference = {
   title: "Exemplo demonstrativo — brownie",
   note: "Dados fictícios usados apenas para demonstrar o fluxo de cadastro e precificação. Não representam a receita operacional da NAT.",
   items: [
@@ -39,7 +39,7 @@ export const BROWNIE_BASE_RECIPE: RecipeReference = {
   ],
 };
 
-export const BRIGADEIRO_BASE_RECIPE: RecipeReference = {
+const BRIGADEIRO_BASE_RECIPE: RecipeReference = {
   title: "Exemplo demonstrativo — doce de enrolar",
   note: "Dados fictícios usados apenas para demonstrar o fluxo de cadastro e precificação. Não representam a receita operacional da NAT.",
   items: [
@@ -89,11 +89,6 @@ export function catalogItemForProduct(product: Product) {
   return PRODUCT_CATALOG.find((item) => normalize(item.name) === normalizedName) ?? null;
 }
 export function recipeReferenceForFamily(family: ProductFamily) { return family === "brownie" ? BROWNIE_BASE_RECIPE : BRIGADEIRO_BASE_RECIPE; }
-export function portfolioKeyForSale(sale: Sale, state: NatState) {
-  if (sale.portfolioKey) return sale.portfolioKey;
-  const product = state.products.find((candidate) => candidate.id === sale.productId);
-  return product ? catalogItemForProduct(product)?.key ?? null : PRODUCT_CATALOG.find((item) => normalize(item.name) === normalize(sale.productName))?.key ?? null;
-}
 function portfolioKeyForLine(line: SaleLine, state: NatState) {
   if (line.portfolioKey) return line.portfolioKey;
   const product=state.products.find((candidate)=>candidate.id===line.productId);
@@ -129,7 +124,6 @@ export function portfolioAnalytics(state: NatState) {
     for (const sale of sales) {
       const lines=activeSaleLines(sale);
       const lineRevenueTotal=lines.reduce((sum,line)=>sum+line.unitPriceSnapshot*line.quantity,0);
-      const totalCost=lines.reduce((sum,line)=>sum+line.unitCostSnapshot*line.quantity,0);
       const orderContribution=sale.contributionSnapshot;
       for (const line of lines) {
         const key=portfolioKeyForLine(line,state);
@@ -144,7 +138,6 @@ export function portfolioAnalytics(state: NatState) {
         current.contribution+=contribution;
         map.set(key,current);
       }
-      void totalCost;
     }
     return [...map.values()].sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue);
   };

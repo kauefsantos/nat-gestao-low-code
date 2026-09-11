@@ -8,7 +8,7 @@ function localDateKey(value: string | Date) {
   return `${year}-${month}-${day}`;
 }
 
-export function activeSales(state: NatState) {
+function activeSales(state: NatState) {
   return state.sales.filter((sale) => sale.status !== "cancelled");
 }
 
@@ -36,7 +36,7 @@ function salesBetween(sales: Sale[], start: Date, end: Date) {
   });
 }
 
-export function insightReadiness(state: NatState, now = new Date()) {
+function insightReadiness(state: NatState, now = new Date()) {
   const sales = activeSales(state).sort((a, b) => new Date(a.soldAt).getTime() - new Date(b.soldAt).getTime());
   const first = sales[0] ? new Date(sales[0].soldAt) : now;
   const spanDays = sales.length ? differenceInCalendarDays(first, now) + 1 : 0;
