@@ -1,7 +1,7 @@
 -- Authorization matrix regression tests: visitor, AAL1, member, admin and cross-tenant isolation.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(46);
 
 insert into public.businesses(id,name) values
   ('e1000000-0000-4000-8000-000000000001','Authorization Tenant A'),
@@ -62,6 +62,19 @@ select ok(not has_function_privilege('authenticated','private.prevent_history_mu
 select ok(not has_function_privilege('authenticated','private.validate_business_margin()','execute'),'business margin trigger helper is not client-executable');
 select ok(not has_function_privilege('authenticated','private.validate_product_margin()','execute'),'product margin trigger helper is not client-executable');
 select ok(not has_function_privilege('authenticated','private.validate_settings_margin()','execute'),'settings margin trigger helper is not client-executable');
+
+create function public.authorization_default_probe() returns integer language sql as $$select 1$$;
+create function private.authorization_default_probe() returns integer language sql as $$select 1$$;
+select ok(
+  not has_function_privilege('anon','public.authorization_default_probe()','execute')
+  and not has_function_privilege('authenticated','public.authorization_default_probe()','execute'),
+  'future public functions default to no client execution'
+);
+select ok(
+  not has_function_privilege('anon','private.authorization_default_probe()','execute')
+  and not has_function_privilege('authenticated','private.authorization_default_probe()','execute'),
+  'future private functions default to no client execution'
+);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','e2000000-0000-4000-8000-000000000002',true);
