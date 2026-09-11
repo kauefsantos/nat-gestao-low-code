@@ -1,6 +1,6 @@
 name: One-time application UX upgrade
 
-# retry after validating the corrected daily-operations component
+# Final persistence pass: workflow files are managed separately through GitHub.
 on:
   push:
     branches: [product-ux-daily-ops]
@@ -20,12 +20,10 @@ jobs:
           ref: product-ux-daily-ops
           fetch-depth: 0
           persist-credentials: true
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
-
       - name: Patch application integration points
         shell: bash
         run: |
@@ -79,8 +77,7 @@ jobs:
           replace('src/components/nat/ProductsView.tsx','<button type="button" className="icon-button" onClick={()=>onDelete(product)} aria-label={`Arquivar ${product.name}`}><Trash2 size={16}/></button>',
             '<button type="button" className="icon-button" onClick={()=>onDuplicate(product)} aria-label={`Duplicar ${product.name}`}><Copy size={16}/></button><button type="button" className="icon-button" onClick={()=>onDelete(product)} aria-label={`Arquivar ${product.name}`}><Trash2 size={16}/></button>')
           PY
-
-      - name: Add mobile browser regression
+      - name: Add mobile browser regression files
         shell: bash
         run: |
           npm install --save-dev @playwright/test@1.55.0 --ignore-scripts --no-audit --no-fund
@@ -104,7 +101,6 @@ jobs:
           EOF
           cat > e2e/mobile.spec.ts <<'EOF'
           import { expect, test } from "@playwright/test";
-
           for (const path of ["/login", "/signup"]) {
             test(`${path} cabe em uma tela de iPhone sem zoom ou rolagem lateral`, async ({ page }) => {
               await page.goto(path);
@@ -124,35 +120,13 @@ jobs:
             });
           }
           EOF
-          cat > .github/workflows/mobile-e2e.yml <<'EOF'
-          name: Mobile E2E
-          on:
-            pull_request:
-              branches: [main]
-          jobs:
-            mobile-e2e:
-              runs-on: ubuntu-latest
-              timeout-minutes: 15
-              steps:
-                - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-                - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-                  with:
-                    node-version: 22
-                    cache: npm
-                - run: npm ci --ignore-scripts --no-audit --no-fund
-                - run: npx playwright install --with-deps chromium
-                - run: npm run test:mobile
-          EOF
-
       - name: Validate before commit
         run: npm run check
-
       - name: Commit feature changes
         shell: bash
         run: |
-          rm -f .github/workflows/app-ux-upgrade-patch.yml
           git config user.name 'Kauê Pastrello'
           git config user.email '120512459+kauefsantos@users.noreply.github.com'
-          git add -A
+          git add src package.json package-lock.json e2e playwright.config.ts
           git commit -m 'feat: improve daily operations UX, exports and observability'
           git push origin HEAD:product-ux-daily-ops
