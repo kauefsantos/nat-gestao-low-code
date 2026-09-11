@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNatStore } from "@/hooks/use-nat-store";
 import { useInventory } from "@/hooks/use-inventory";
 import { useCalendar } from "@/hooks/use-calendar";
-import { dashboardNumbers, id, type Product, type Settings, type SporadicExpense, type Supply } from "@/domain/nat";
+import { dashboardNumbers, id, type Customer, type Product, type Settings, type SporadicExpense, type Supply } from "@/domain/nat";
 import type { CatalogItem, StarterSupply } from "@/domain/catalog";
 import { AppShell, Brand, type NatView } from "@/components/nat/AppShell";
 import { HomeView, PricingView } from "@/components/nat/Views";
@@ -11,6 +11,7 @@ import { HomeOperations } from "@/components/nat/HomeOperations";
 import { ProductsView, type ProductTab } from "@/components/nat/ProductsView";
 import { SalesHistoryView } from "@/components/nat/SalesHistoryView";
 import { SaleOrderSheet } from "@/components/nat/SaleOrderSheet";
+import { CustomersView } from "@/components/nat/CustomersView";
 import { PortfolioHierarchyView } from "@/components/nat/PortfolioHierarchyView";
 import { BrandGuideView } from "@/components/nat/BrandGuideView";
 import { CalendarView } from "@/components/nat/CalendarView";
@@ -48,11 +49,13 @@ export function NatApp({ view,onView }: { view:NatView; onView:(view:NatView)=>v
   const logout=()=>void supabase.auth.signOut().finally(()=>{window.location.href="/";});
   const notice=localNotice??inventory.notice??syncNotice;
   const dismissNotice=()=>{if(localNotice)setLocalNotice(null);else if(inventory.notice)inventory.clearNotice();else clearSyncNotice();};
+  const saveCustomer=(customer:Customer)=>update((current)=>({...current,customers:(current.customers??[]).some((item)=>item.id===customer.id)?(current.customers??[]).map((item)=>item.id===customer.id?customer:item):[...(current.customers??[]),customer]}));
 
   return <AppShell view={view} onView={onView} onSale={()=>setSheet({type:"sale"})} onSettings={()=>setSheet({type:"settings"})} onLogout={logout}>
     <StatusToast notice={notice} onDismiss={dismissNotice}/>
-    {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")}/><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")}/></div>} 
+    {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")}/><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")}/></div>}
     {view==="sales"&&<SalesHistoryView state={state} onNew={()=>setSheet({type:"sale"})} onCancel={(saleId,reason)=>update((current)=>({...current,sales:current.sales.map((sale)=>sale.id===saleId?{...sale,status:"cancelled",cancelReason:reason,cancelledAt:new Date().toISOString()}:sale)}))}/>} 
+    {view==="customers"&&<CustomersView state={state} onSave={saveCustomer}/>} 
     {view==="calendar"&&<CalendarView/>}
     {view==="inventory"&&<InventoryView state={state} snapshot={inventory.snapshot} loading={inventory.loading} error={inventory.error} onRetry={inventory.reload} onSetBalance={inventory.setBalance} onProduction={inventory.registerProduction}/>} 
     {view==="portfolio"&&<PortfolioHierarchyView state={state} onConfigure={(preset)=>setSheet({type:"product",preset})} onEdit={(value)=>setSheet({type:"product",value})} onAvailability={(product,available)=>setProductAvailability(product.id,available)} onPricing={()=>onView("pricing")}/>} 
