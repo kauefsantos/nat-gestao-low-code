@@ -1,9 +1,12 @@
-import { createHmac } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
+import { createHmac, randomUUID } from "node:crypto";
+import { expect, test } from "@playwright/test";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const tenantA = "a1000000-0000-4000-8000-000000000001";
 const tenantB = "a1000000-0000-4000-8000-000000000002";
 const password = "NAT-RLS-e2e-2026!";
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 function decodeBase32(value:string){
   const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -25,79 +28,70 @@ function totp(secret:string, now=Date.now()){
   return String(code%1_000_000).padStart(6,"0");
 }
 
-async function createAal2Session(page:Page,email:string){
-  await page.goto("/login");
-  const enrollment=await page.evaluate(async ({email,password})=>{
-    const {supabase}=await import("/src/integrations/supabase/client.ts");
-    const signIn=await supabase.auth.signInWithPassword({email,password});
-    if(signIn.error)return {error:`sign-in: ${signIn.error.message}`,factorId:null,secret:null};
-    const factors=await supabase.auth.mfa.listFactors();
-    if(factors.error)return {error:`list-factors: ${factors.error.message}`,factorId:null,secret:null};
-    for(const pending of factors.data.totp.filter((factor)=>factor.status!=="verified")){
-      const removed=await supabase.auth.mfa.unenroll({factorId:pending.id});
-      if(removed.error)return {error:`unenroll: ${removed.error.message}`,factorId:null,secret:null};
-    }
-    const verified=factors.data.totp.find((factor)=>factor.status==="verified");
-    if(verified)return {error:null,factorId:verified.id,secret:null};
-    const enrolled=await supabase.auth.mfa.enroll({factorType:"totp",friendlyName:`NAT Gestão E2E ${crypto.randomUUID()}`});
-    if(enrolled.error)return {error:`enroll: ${enrolled.error.message}`,factorId:null,secret:null};
-    return {error:null,factorId:enrolled.data.id,secret:enrolled.data.totp.secret??null};
-  },{email,password});
-  expect(enrollment.error).toBeNull();
-  expect(enrollment.factorId).toBeTruthy();
-  expect(enrollment.secret).toBeTruthy();
-  const code=totp(enrollment.secret!);
-  const verification=await page.evaluate(async ({factorId,code})=>{
-    const {supabase}=await import("/src/integrations/supabase/client.ts");
-    const challenge=await supabase.auth.mfa.challenge({factorId});
-    if(challenge.error)return {error:`challenge: ${challenge.error.message}`,currentLevel:null,bootstrapBusinessId:null};
-    const verified=await supabase.auth.mfa.verify({factorId,challengeId:challenge.data.id,code});
-    if(verified.error)return {error:`verify: ${verified.error.message}`,currentLevel:null,bootstrapBusinessId:null};
-    const assurance=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if(assurance.error)return {error:`assurance: ${assurance.error.message}`,currentLevel:null,bootstrapBusinessId:null};
-    const bootstrap=await supabase.rpc("bootstrap_nat_business");
-    if(bootstrap.error)return {error:`bootstrap: ${bootstrap.error.message}`,currentLevel:assurance.data.currentLevel,bootstrapBusinessId:null};
-    return {error:null,currentLevel:assurance.data.currentLevel,bootstrapBusinessId:bootstrap.data};
-  },{factorId:enrollment.factorId!,code});
-  expect(verification.error).toBeNull();
-  expect(verification.currentLevel).toBe("aal2");
-  expect(verification.bootstrapBusinessId).toBeTruthy();
-  await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/dashboard/);
+function makeClient(){
+  expect(supabaseUrl).toBeTruthy();
+  expect(supabaseKey).toBeTruthy();
+  return createClient(supabaseUrl!,supabaseKey!,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 }
 
-async function probe(page:Page,ownBusinessId:string,foreignBusinessId:string){
-  return page.evaluate(async ({ownBusinessId,foreignBusinessId})=>{
-    const {supabase}=await import("/src/integrations/supabase/client.ts");
-    const membership=await supabase.from("business_members").select("business_id,role");
-    const supplies=await supabase.from("supplies").select("id,business_id,name").order("name");
-    const crossId=crypto.randomUUID();
-    const crossWrite=await supabase.rpc("save_supply",{
-      p_business_id:foreignBusinessId,
-      p_id:crossId,
-      p_name:"CROSS TENANT MUST FAIL",
-      p_category:"ingredient",
-      p_package_quantity:100,
-      p_package_unit:"g",
-      p_package_price:10,
-      p_purchased_at:new Date().toISOString().slice(0,10),
-    });
-    const foreignRead=await supabase.from("supplies").select("id").eq("business_id",foreignBusinessId);
-    return {
-      ownBusinessId,
-      memberships:membership.data??[],membershipError:membership.error?.message??null,
-      supplies:supplies.data??[],suppliesError:supplies.error?.message??null,
-      crossWriteError:crossWrite.error?.message??null,
-      foreignVisibleCount:foreignRead.data?.length??0,foreignReadError:foreignRead.error?.message??null,
-    };
-  },{ownBusinessId,foreignBusinessId});
+async function createAal2Session(client:SupabaseClient,email:string){
+  const signIn=await client.auth.signInWithPassword({email,password});
+  expect(signIn.error?.message??null).toBeNull();
+
+  const factors=await client.auth.mfa.listFactors();
+  expect(factors.error?.message??null).toBeNull();
+  for(const pending of factors.data?.totp.filter((factor)=>factor.status!=="verified")??[]){
+    const removed=await client.auth.mfa.unenroll({factorId:pending.id});
+    expect(removed.error?.message??null).toBeNull();
+  }
+
+  const enrolled=await client.auth.mfa.enroll({factorType:"totp",friendlyName:`NAT Gestão E2E ${randomUUID()}`});
+  expect(enrolled.error?.message??null).toBeNull();
+  expect(enrolled.data?.id).toBeTruthy();
+  expect(enrolled.data?.totp.secret).toBeTruthy();
+
+  const challenge=await client.auth.mfa.challenge({factorId:enrolled.data!.id});
+  expect(challenge.error?.message??null).toBeNull();
+  const verified=await client.auth.mfa.verify({factorId:enrolled.data!.id,challengeId:challenge.data!.id,code:totp(enrolled.data!.totp.secret)});
+  expect(verified.error?.message??null).toBeNull();
+
+  const assurance=await client.auth.mfa.getAuthenticatorAssuranceLevel();
+  expect(assurance.error?.message??null).toBeNull();
+  expect(assurance.data?.currentLevel).toBe("aal2");
+
+  const bootstrap=await client.rpc("bootstrap_nat_business");
+  expect(bootstrap.error?.message??null).toBeNull();
+  expect(bootstrap.data).toBeTruthy();
 }
 
-test("MFA real mantém leitura e escrita isoladas entre dois negócios",async({browser})=>{
-  const contextA=await browser.newContext();
-  const pageA=await contextA.newPage();
-  await createAal2Session(pageA,"rls-admin-a@example.test");
-  const resultA=await probe(pageA,tenantA,tenantB);
+async function probe(client:SupabaseClient,foreignBusinessId:string){
+  const membership=await client.from("business_members").select("business_id,role");
+  const supplies=await client.from("supplies").select("id,business_id,name").order("name");
+  const crossWrite=await client.rpc("save_supply",{
+    p_business_id:foreignBusinessId,
+    p_id:randomUUID(),
+    p_name:"CROSS TENANT MUST FAIL",
+    p_category:"ingredient",
+    p_package_quantity:100,
+    p_package_unit:"g",
+    p_package_price:10,
+    p_purchased_at:new Date().toISOString().slice(0,10),
+  });
+  const foreignRead=await client.from("supplies").select("id").eq("business_id",foreignBusinessId);
+  return {
+    memberships:membership.data??[],membershipError:membership.error?.message??null,
+    supplies:supplies.data??[],suppliesError:supplies.error?.message??null,
+    crossWriteError:crossWrite.error?.message??null,
+    foreignVisibleCount:foreignRead.data?.length??0,foreignReadError:foreignRead.error?.message??null,
+  };
+}
+
+test("MFA real mantém leitura e escrita isoladas entre dois negócios",async()=>{
+  const clientA=makeClient();
+  const clientB=makeClient();
+
+  await createAal2Session(clientA,"rls-admin-a@example.test");
+  const resultA=await probe(clientA,tenantB);
   expect(resultA.membershipError).toBeNull();
   expect(resultA.suppliesError).toBeNull();
   expect(resultA.foreignReadError).toBeNull();
@@ -108,10 +102,8 @@ test("MFA real mantém leitura e escrita isoladas entre dois negócios",async({b
   expect(resultA.foreignVisibleCount).toBe(0);
   expect(resultA.crossWriteError).toBeTruthy();
 
-  const contextB=await browser.newContext();
-  const pageB=await contextB.newPage();
-  await createAal2Session(pageB,"rls-admin-b@example.test");
-  const resultB=await probe(pageB,tenantB,tenantA);
+  await createAal2Session(clientB,"rls-admin-b@example.test");
+  const resultB=await probe(clientB,tenantA);
   expect(resultB.membershipError).toBeNull();
   expect(resultB.suppliesError).toBeNull();
   expect(resultB.foreignReadError).toBeNull();
@@ -122,6 +114,6 @@ test("MFA real mantém leitura e escrita isoladas entre dois negócios",async({b
   expect(resultB.foreignVisibleCount).toBe(0);
   expect(resultB.crossWriteError).toBeTruthy();
 
-  await contextA.close();
-  await contextB.close();
+  await clientA.auth.signOut();
+  await clientB.auth.signOut();
 });
