@@ -6,16 +6,16 @@ export type TransactionType = "sale" | "courtesy" | "personal_consumption" | "lo
 
 export type Supply = { id: string; name: string; category: SupplyCategory; packageQuantity: number; packageUnit: Unit; packagePrice: number; purchasedAt: string };
 export type RecipeItem = { id: string; supplyId: string; quantity: number; unit: Unit };
-export type Product = { id: string; name: string; portfolioKey?: string | null; available?: boolean; batchYield: number; sellingPrice: number; lossPercent: number; laborCostPerBatch: number; productionCostPerBatch: number; minimumMarginPercent: number; targetMarginPercent: number; recipe: RecipeItem[] };
+export type Product = { id: string; name: string; portfolioKey?: string | null; available?: boolean; batchYield: number; sellingPrice: number; lossPercent: number; laborCostPerBatch?: number; productionCostPerBatch: number; minimumMarginPercent: number; targetMarginPercent: number; recipe: RecipeItem[] };
 export type Customer = { id:string; name:string; phone?:string|null; instagram?:string|null; source?:string|null; marketingConsent:boolean; notes?:string|null; active:boolean; createdAt:string; updatedAt:string };
-export type SaleLine = { id?: string; productId: string; productName: string; portfolioKey?: string | null; quantity: number; unitCostSnapshot: number; laborCostSnapshot: number; unitPriceSnapshot: number };
+export type SaleLine = { id?: string; productId: string; productName: string; portfolioKey?: string | null; quantity: number; unitCostSnapshot: number; laborCostSnapshot?: number; unitPriceSnapshot: number };
 export type Sale = {
   id: string;
   productId: string;
   productName: string;
   portfolioKey?: string | null;
   customerId?: string | null;
-  transactionType: TransactionType;
+  transactionType?: TransactionType;
   quantity: number;
   totalReceived: number;
   paymentMethod: PaymentMethod;
@@ -29,8 +29,8 @@ export type Sale = {
   cancelReason?: string | null;
 };
 export type SporadicExpense = { id: string; name: string; amount: number; spentAt: string };
-export type Settings = { ownerName: string; monthlyFixedCosts: number; paymentFeePercent: number; defaultMinimumMarginPercent: number; defaultTargetMarginPercent: number; ownerHourlyRate:number; ownerDailyHours:number };
-export type NatState = { version: 4; supplies: Supply[]; products: Product[]; customers:Customer[]; sales: Sale[]; expenses: SporadicExpense[]; settings: Settings; purchaseCashOut:number };
+export type Settings = { ownerName: string; monthlyFixedCosts: number; paymentFeePercent: number; defaultMinimumMarginPercent: number; defaultTargetMarginPercent: number; ownerHourlyRate?:number; ownerDailyHours?:number };
+export type NatState = { version: 3|4; supplies: Supply[]; products: Product[]; customers?:Customer[]; sales: Sale[]; expenses: SporadicExpense[]; settings: Settings; purchaseCashOut?:number };
 
 export const initialState: NatState = { version: 4, supplies: [], products: [], customers:[], sales: [], expenses: [], purchaseCashOut:0, settings: { ownerName: "NAT", monthlyFixedCosts: 0, paymentFeePercent: 0, defaultMinimumMarginPercent: 35, defaultTargetMarginPercent: 50, ownerHourlyRate:20, ownerDailyHours:3 } };
 export const unitLabel: Record<Unit, string> = { g: "g", kg: "kg", ml: "ml", l: "L", unit: "un" };
@@ -92,7 +92,7 @@ export function productCost(product: Product, supplies: Supply[], paymentFeePerc
     if (!Number.isFinite(cost)) { recipeValid = false; continue; }
     if (supply.category === "packaging") packagingBatch += cost; else ingredientBatch += cost;
   }
-  const laborBatch=Math.max(0,product.laborCostPerBatch);
+  const laborBatch=Math.max(0,product.laborCostPerBatch??0);
   const productionBatch = Math.max(0, product.productionCostPerBatch);
   const lossBase = recipeValid ? ingredientBatch : Number.NaN;
   const lossBatch = Number.isFinite(lossBase) ? lossBase * Math.max(0, product.lossPercent) / 100 : Number.NaN;
@@ -128,17 +128,17 @@ function monthExpenses(expenses: SporadicExpense[], now = new Date()) {
 }
 export function dashboardNumbers(state: NatState) {
   const movements = monthSales(state.sales);
-  const commercialSales=movements.filter((sale)=>sale.transactionType==="sale");
+  const commercialSales=movements.filter((sale)=>(sale.transactionType??"sale")==="sale");
   const expenses = monthExpenses(state.expenses);
   const revenue = commercialSales.reduce((sum, sale) => sum + sale.totalReceived, 0);
   const units = commercialSales.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum,line) => lineSum + line.quantity,0), 0);
   const contribution = movements.reduce((sum, sale) => sum + sale.contributionSnapshot, 0);
-  const ownerRemuneration=movements.reduce((sum,sale)=>sum+activeSaleLines(sale).reduce((lineSum,line)=>lineSum+line.laborCostSnapshot*line.quantity,0),0);
+  const ownerRemuneration=movements.reduce((sum,sale)=>sum+activeSaleLines(sale).reduce((lineSum,line)=>lineSum+(line.laborCostSnapshot??0)*line.quantity,0),0);
   const sporadicExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const resultBeforeOwner=contribution+ownerRemuneration-state.settings.monthlyFixedCosts-sporadicExpenses;
   const estimatedResult = contribution-state.settings.monthlyFixedCosts-sporadicExpenses;
   const cashIn=revenue;
-  const cashOut=state.purchaseCashOut+sporadicExpenses+state.settings.monthlyFixedCosts;
+  const cashOut=(state.purchaseCashOut??0)+sporadicExpenses+state.settings.monthlyFixedCosts;
   const cashAvailable=cashIn-cashOut;
   const cashAfterOwner=cashAvailable-ownerRemuneration;
   const byProduct = new Map<string, { name: string; quantity: number }>();
@@ -150,13 +150,13 @@ export function dashboardNumbers(state: NatState) {
     }
   }
   const topProduct = [...byProduct.values()].sort((a,b) => b.quantity - a.quantity)[0] ?? null;
-  return { sales:commercialSales,movements, expenses, revenue, units, contribution, ownerRemuneration, sporadicExpenses, resultBeforeOwner, estimatedResult, cashIn,cashOut,cashAvailable,cashAfterOwner,purchaseCashOut:state.purchaseCashOut,topProduct };
+  return { sales:commercialSales,movements, expenses, revenue, units, contribution, ownerRemuneration, sporadicExpenses, resultBeforeOwner, estimatedResult, cashIn,cashOut,cashAvailable,cashAfterOwner,purchaseCashOut:state.purchaseCashOut??0,topProduct };
 }
 
 export type CustomerInsight={customer:Customer;firstPurchase:string|null;lastPurchase:string|null;orders:number;totalSpent:number;averageTicket:number;units:number;daysSinceLast:number|null;recurring:boolean;favoriteProduct:string|null};
 export function customerInsights(state:NatState,now=new Date()):CustomerInsight[]{
-  return state.customers.filter((c)=>c.active).map((customer)=>{
-    const sales=state.sales.filter((sale)=>sale.status!=="cancelled"&&sale.transactionType==="sale"&&sale.customerId===customer.id).sort((a,b)=>+new Date(a.soldAt)-+new Date(b.soldAt));
+  return (state.customers??[]).filter((c)=>c.active).map((customer)=>{
+    const sales=state.sales.filter((sale)=>sale.status!=="cancelled"&&(sale.transactionType??"sale")==="sale"&&sale.customerId===customer.id).sort((a,b)=>+new Date(a.soldAt)-+new Date(b.soldAt));
     const totalSpent=sales.reduce((sum,s)=>sum+s.totalReceived,0);
     const units=sales.reduce((sum,s)=>sum+activeSaleLines(s).reduce((x,l)=>x+l.quantity,0),0);
     const productMap=new Map<string,{name:string;qty:number}>();
@@ -172,7 +172,8 @@ export function customerOverview(state:NatState,now=new Date()){
   const customersWithOrders=insights.filter((x)=>x.orders>0);
   const recurrent=customersWithOrders.filter((x)=>x.recurring);
   const newThisMonth=customersWithOrders.filter((x)=>{if(!x.firstPurchase)return false;const d=new Date(x.firstPurchase);return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();});
-  return {activeCustomers:insights.length,newThisMonth:newThisMonth.length,recurrent:recurrent.length,repurchaseRate:customersWithOrders.length?recurrent.length/customersWithOrders.length*100:0,averageTicket:customersWithOrders.length?customersWithOrders.reduce((s,x)=>s+x.totalSpent,0)/customersWithOrders.reduce((s,x)=>s+x.orders,0):0,inactive:customersWithOrders.filter((x)=>x.daysSinceLast!==null&&x.daysSinceLast>=30).length};
+  const orders=customersWithOrders.reduce((s,x)=>s+x.orders,0);
+  return {activeCustomers:insights.length,newThisMonth:newThisMonth.length,recurrent:recurrent.length,repurchaseRate:customersWithOrders.length?recurrent.length/customersWithOrders.length*100:0,averageTicket:orders?customersWithOrders.reduce((s,x)=>s+x.totalSpent,0)/orders:0,inactive:customersWithOrders.filter((x)=>x.daysSinceLast!==null&&x.daysSinceLast>=30).length};
 }
 
 export function buildSaleOrder(args: { items: Array<{ product: Product; quantity: number }>; supplies: Supply[]; paymentFeePercent: number; totalReceived: number; paymentMethod: PaymentMethod; soldAt: string; customerId?:string|null; transactionType?:TransactionType }): Sale {
@@ -189,7 +190,7 @@ export function buildSaleOrder(args: { items: Array<{ product: Product; quantity
     const metrics = productCost(product,args.supplies,args.paymentFeePercent);
     if (!metrics.recipeValid || !Number.isFinite(metrics.unitCost)) throw new Error("Não foi possível calcular o custo desta movimentação.");
     totalCost += metrics.unitCost * quantity; totalQuantity += quantity; listTotal += product.sellingPrice * quantity;
-    return { product, quantity, unitCost: metrics.unitCost,unitLabor:product.batchYield>0?product.laborCostPerBatch/product.batchYield:0,listValue: product.sellingPrice * quantity };
+    return { product, quantity, unitCost: metrics.unitCost,unitLabor:product.batchYield>0?(product.laborCostPerBatch??0)/product.batchYield:0,listValue: product.sellingPrice * quantity };
   });
   const variableFeeSnapshot = transactionType==="sale"?received * Math.max(0,args.paymentFeePercent) / 100:0;
   const contributionSnapshot = received - totalCost - variableFeeSnapshot;
