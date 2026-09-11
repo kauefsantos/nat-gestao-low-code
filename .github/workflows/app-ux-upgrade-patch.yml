@@ -1,5 +1,6 @@
 name: One-time application UX upgrade
 
+# retry after validating the corrected daily-operations component
 on:
   push:
     branches: [product-ux-daily-ops]
@@ -19,10 +20,12 @@ jobs:
           ref: product-ux-daily-ops
           fetch-depth: 0
           persist-credentials: true
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
+
       - name: Patch application integration points
         shell: bash
         run: |
@@ -35,13 +38,11 @@ jobs:
                   raise SystemExit(f'Expected fragment not found in {path}: {old[:100]}')
               p.write_text(text.replace(old,new,1),encoding='utf-8')
 
-          # Home: keep the proven monthly cards, but use the new guided onboarding instead of the legacy 3-step block.
           replace('src/components/nat/Views.tsx',
             'export function HomeView({ state,numbers,onSale,onSupplies,onProducts,onPricing }: { state: NatState; numbers: ReturnType<typeof dashboardNumbers>; onSale:()=>void; onSupplies:()=>void; onProducts:()=>void; onPricing:()=>void }) {',
             'export function HomeView({ state,numbers,onSale,onSupplies,onProducts,onPricing,showOnboarding=true }: { state: NatState; numbers: ReturnType<typeof dashboardNumbers>; onSale:()=>void; onSupplies:()=>void; onProducts:()=>void; onPricing:()=>void; showOnboarding?:boolean }) {')
           replace('src/components/nat/Views.tsx','{completed<3 && <div className="rounded-[28px] bg-chocolate','{showOnboarding&&completed<3 && <div className="rounded-[28px] bg-chocolate')
 
-          # NAT app integration: daily hub, lazy calendar summary, diagnostics, repeat purchase and product duplication.
           replace('src/app/NatApp.tsx','import { useMemo, useState } from "react";','import { useEffect, useMemo, useState } from "react";')
           replace('src/app/NatApp.tsx','import { useInventory } from "@/hooks/use-inventory";','import { useInventory } from "@/hooks/use-inventory";\nimport { useCalendar } from "@/hooks/use-calendar";')
           replace('src/app/NatApp.tsx','import { dashboardNumbers, type Product, type Settings, type SporadicExpense, type Supply } from "@/domain/nat";','import { dashboardNumbers, id, type Product, type Settings, type SporadicExpense, type Supply } from "@/domain/nat";')
@@ -56,7 +57,6 @@ jobs:
           replace('src/app/NatApp.tsx','{sheet?.type==="supply"&&<SupplySheet value={sheet.value} preset={sheet.preset}',
             '{sheet?.type==="supply"&&<SupplySheet value={sheet.value} preset={sheet.preset} recentSupplies={state.supplies}')
 
-          # Faster purchase registration: one tap reuses the last purchase as a starting point.
           replace('src/components/nat/SupplySheet.tsx','export function SupplySheet({value,preset,onClose,onSave}:{value?:Supply;preset?:StarterSupply;onClose:()=>void;onSave:(supply:Supply)=>void}) {',
             'export function SupplySheet({value,preset,recentSupplies=[],onClose,onSave}:{value?:Supply;preset?:StarterSupply;recentSupplies?:Supply[];onClose:()=>void;onSave:(supply:Supply)=>void}) {')
           replace('src/components/nat/SupplySheet.tsx','  const panelRef=useDialogA11y<HTMLDivElement>({onClose});',
@@ -64,7 +64,6 @@ jobs:
           replace('src/components/nat/SupplySheet.tsx','      <form className="mt-7 space-y-5" onSubmit={submit}>',
             '      <form className="mt-7 space-y-5" onSubmit={submit}>{latestPurchase&&<button type="button" className="secondary-button w-full justify-center" onClick={repeatLatest}>Repetir última compra: {latestPurchase.name}</button>}')
 
-          # Product duplication: preserve recipe and costs, detach from fixed catalog key and create a new product.
           replace('src/components/nat/ProductsView.tsx','import { Plus, Trash2 } from "lucide-react";','import { Copy, Plus, Trash2 } from "lucide-react";')
           replace('src/components/nat/ProductsView.tsx','onNewProduct,onEditProduct,onDeleteProduct,onNewExpense', 'onNewProduct,onEditProduct,onDuplicateProduct,onDeleteProduct,onNewExpense')
           replace('src/components/nat/ProductsView.tsx','onEditProduct:(p:Product)=>void;onDeleteProduct:(id:string)=>void;', 'onEditProduct:(p:Product)=>void;onDuplicateProduct:(p:Product)=>void;onDeleteProduct:(id:string)=>void;')
@@ -147,6 +146,7 @@ jobs:
 
       - name: Validate before commit
         run: npm run check
+
       - name: Commit feature changes
         shell: bash
         run: |
