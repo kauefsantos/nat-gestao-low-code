@@ -14,6 +14,14 @@
 - Mudanças críticas são registradas em `audit_log`; alterações da allowlist têm auditoria privada.
 - Alterações de schema/RLS devem vir com migration e teste em `supabase/tests`.
 
+## Privacidade de clientes em repositório público
+- Dados reais de clientes pertencem exclusivamente ao banco de produção e nunca devem ser usados como seed, backfill, fixture, exemplo, screenshot, issue, PR ou documentação pública.
+- Migrations públicas devem conter somente schema, políticas, funções e transformações genéricas. Correções de dados reais são operações administrativas no banco e não podem carregar nomes, telefones, Instagram, IDs de vendas ou outros identificadores operacionais no Git.
+- Testes devem usar identidades inequivocamente fictícias e domínios reservados como `example.invalid`.
+- Backups e exports do app (`nat-gestao-backup-*.json` e `nat-gestao-YYYY-MM-DD.csv`) não podem ser versionados.
+- O CI executa `npm run security:privacy` e bloqueia padrões de seed/backfill de clientes reais em migrations públicas.
+- O princípio de minimização vale para o CRM: coletar somente os campos necessários ao relacionamento e à inteligência comercial; telefone e Instagram permanecem opcionais.
+
 ## Credenciais
 Somente `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` podem ser expostas ao navegador. Segredos administrativos devem permanecer fora do repositório e do bundle.
 
@@ -41,7 +49,7 @@ Edge Functions podem usar `SUPABASE_SECRET_KEYS`, `SUPABASE_SECRET_KEY` ou compa
 - Formulários precisam manter labels associados, validação e dialogs acessíveis.
 
 ## CI
-O pipeline deve executar lint, typecheck, scanner de segurança, validação Deno das Edge Functions, testes do domínio, build, auditoria de dependências e testes reais de RLS em Supabase descartável. Pull Requests também executam regressão mobile com Playwright.
+O pipeline deve executar lint, typecheck, scanner de segurança, scanner de privacidade de dados públicos, validação Deno das Edge Functions, testes do domínio, build, auditoria de dependências e testes reais de RLS em Supabase descartável. Pull Requests também executam regressão mobile com Playwright.
 
 ## Governança do repositório
 - A `main` é protegida por ruleset ativo.
