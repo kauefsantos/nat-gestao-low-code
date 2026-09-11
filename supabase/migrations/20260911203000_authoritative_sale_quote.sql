@@ -40,7 +40,6 @@ begin
   if p_transaction_type not in ('sale','courtesy','personal_consumption','loss') then
     raise exception 'Tipo de movimentação inválido.' using errcode='22023';
   end if;
-  if p_id is not null then null; end if;
   if p_sold_at is null
      or p_total_received is null
      or p_total_received < 0
