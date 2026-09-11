@@ -40,7 +40,7 @@ jobs:
         run: npx --yes supabase@2.117.0 start -x studio,imgproxy,mailpit,logflare,vector
       - name: Rebuild database from migrations
         run: npx --yes supabase@2.117.0 db reset
-      - name: Seed isolated authorization tenants
+      - name: Seed isolated authorization tenants and confirmed users
         shell: bash
         run: |
           source <(npx --yes supabase@2.117.0 status -o env)
@@ -58,6 +58,16 @@ jobs:
             ('a3000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','ONLY TENANT A','ingredient',true),
             ('a3000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','ONLY TENANT B','ingredient',true);
           SQL
+          ADMIN_KEY="${SECRET_KEY:-${SERVICE_ROLE_KEY:-}}"
+          test -n "$ADMIN_KEY"
+          for EMAIL in rls-admin-a@example.test rls-admin-b@example.test; do
+            curl --fail-with-body --silent --show-error \
+              -X POST "$API_URL/auth/v1/admin/users" \
+              -H "apikey: $ADMIN_KEY" \
+              -H "Authorization: Bearer $ADMIN_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{\"email\":\"$EMAIL\",\"password\":\"NAT-RLS-e2e-2026!\",\"email_confirm\":true}" >/dev/null
+          done
       - name: Run real MFA and cross-tenant authorization E2E
         shell: bash
         run: |
