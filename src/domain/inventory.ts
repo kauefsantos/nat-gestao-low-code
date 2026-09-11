@@ -43,8 +43,8 @@ export const inventoryMovementLabel: Record<InventoryMovementType,string> = {
   purchase:"Compra",
   production_in:"Produção",
   production_out:"Usado na produção",
-  sale:"Venda",
-  sale_cancel:"Venda cancelada",
+  sale:"Saída",
+  sale_cancel:"Saída estornada",
   adjustment:"Ajuste de contagem",
 };
 

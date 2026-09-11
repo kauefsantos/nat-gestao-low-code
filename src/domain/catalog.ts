@@ -1,4 +1,4 @@
-import { activeSaleLines, monthSales, productCost, type NatState, type Product, type Sale, type SaleLine, type SupplyCategory, type Unit } from "./nat.js";
+import { activeSaleLines, monthSales, pricingFeePercent, productCost, type NatState, type Product, type Sale, type SaleLine, type SupplyCategory, type Unit } from "./nat.js";
 
 export type ProductFamily = "brownie" | "brigadeiro";
 export type CatalogItem = { key: string; family: ProductFamily; flavor: string; name: string };
@@ -19,6 +19,8 @@ export const BROWNIE_CATALOG: CatalogItem[] = [
 export const BRIGADEIRO_CATALOG: CatalogItem[] = [
   { key: "brigadeiro-ninho-nutella", family: "brigadeiro", flavor: "Ninho com Nutella", name: "Brigadeiro • Ninho com Nutella" },
   { key: "brigadeiro-tradicional", family: "brigadeiro", flavor: "Tradicional", name: "Brigadeiro • Tradicional" },
+  { key: "brigadeiro-tradicional-disqueti", family: "brigadeiro", flavor: "Tradicional com Disqueti", name: "Brigadeiro • Tradicional • Disqueti" },
+  { key: "brigadeiro-oreo", family: "brigadeiro", flavor: "Oreo", name: "Brigadeiro • Oreo" },
   { key: "brigadeiro-uva", family: "brigadeiro", flavor: "Surpresa de uva", name: "Brigadeiro • Surpresa de uva" },
   { key: "brigadeiro-ninho", family: "brigadeiro", flavor: "Ninho", name: "Brigadeiro • Ninho" },
   { key: "brigadeiro-beijinho", family: "brigadeiro", flavor: "Beijinho", name: "Brigadeiro • Beijinho" },
@@ -98,10 +100,11 @@ export function roundUpToHalf(value: number) { return Number.isFinite(value) ? M
 
 export function familyPricingSummary(state: NatState, family: ProductFamily) {
   const items = PRODUCT_CATALOG.filter((item) => item.family === family);
+  const fee=pricingFeePercent(state.settings);
   const configured = items.map((item) => {
     const product = state.products.find((candidate) => candidate.portfolioKey === item.key) ?? state.products.find((candidate) => catalogItemForProduct(candidate)?.key === item.key);
     if (!product) return { item, product: null, metrics: null };
-    const metrics = productCost(product, state.supplies, state.settings.paymentFeePercent);
+    const metrics = productCost(product, state.supplies, fee);
     const ready = product.recipe.length > 0 && metrics.recipeValid && metrics.pricingValid && Number.isFinite(metrics.unitCost) && metrics.unitCost > 0;
     return { item, product, metrics: ready ? metrics : null };
   });
@@ -118,10 +121,11 @@ export function familyPricingSummary(state: NatState, family: ProductFamily) {
 }
 
 export function portfolioAnalytics(state: NatState) {
-  const month = monthSales(state.sales);
+  const commercial=(sales:Sale[])=>sales.filter((sale)=>sale.status!=="cancelled"&&(sale.transactionType??"sale")==="sale");
+  const month = commercial(monthSales(state.sales));
   const aggregate = (sales: Sale[]) => {
     const map = new Map<string, { key: string; quantity: number; revenue: number; contribution: number }>();
-    for (const sale of sales) {
+    for (const sale of commercial(sales)) {
       const lines=activeSaleLines(sale);
       const lineRevenueTotal=lines.reduce((sum,line)=>sum+line.unitPriceSnapshot*line.quantity,0);
       const orderContribution=sale.contributionSnapshot;
@@ -141,5 +145,5 @@ export function portfolioAnalytics(state: NatState) {
     }
     return [...map.values()].sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue);
   };
-  return { month: aggregate(month), allTime: aggregate(state.sales.filter((sale)=>sale.status!=="cancelled")) };
+  return { month: aggregate(month), allTime: aggregate(state.sales) };
 }
