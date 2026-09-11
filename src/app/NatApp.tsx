@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNatStore } from "@/hooks/use-nat-store";
 import { useInventory } from "@/hooks/use-inventory";
 import { useCalendar } from "@/hooks/use-calendar";
-import { dashboardNumbers, id, type Customer, type Product, type Settings, type SporadicExpense, type Supply } from "@/domain/nat";
+import { dashboardNumbers, id, type Customer, type OwnerCashMovement, type Product, type Settings, type SporadicExpense, type Supply } from "@/domain/nat";
 import type { CatalogItem, StarterSupply } from "@/domain/catalog";
 import { AppShell, Brand, type NatView } from "@/components/nat/AppShell";
 import { HomeView, PricingView } from "@/components/nat/Views";
@@ -19,6 +19,7 @@ import { InventoryView } from "@/components/nat/InventoryView";
 import { StatusToast, type AppNotice } from "@/components/nat/Feedback";
 import { SupplySheet } from "@/components/nat/SupplySheet";
 import { ExpenseSheet, ProductSheet, SettingsSheet } from "@/components/nat/Sheets";
+import { OwnerCashMovementSheet } from "@/components/nat/OwnerCashMovementSheet";
 import { installGlobalDiagnostics, recordDiagnostic } from "@/lib/telemetry";
 
 type Sheet =
@@ -26,6 +27,7 @@ type Sheet =
   | { type:"supply"; value?:Supply; preset?:StarterSupply }
   | { type:"product"; value?:Product; preset?:CatalogItem }
   | { type:"expense"; value?:SporadicExpense; presetName?:string }
+  | { type:"ownerCash"; value?:OwnerCashMovement }
   | { type:"settings" }
   | null;
 
@@ -50,10 +52,11 @@ export function NatApp({ view,onView }: { view:NatView; onView:(view:NatView)=>v
   const notice=localNotice??inventory.notice??syncNotice;
   const dismissNotice=()=>{if(localNotice)setLocalNotice(null);else if(inventory.notice)inventory.clearNotice();else clearSyncNotice();};
   const saveCustomer=(customer:Customer)=>update((current)=>({...current,customers:(current.customers??[]).some((item)=>item.id===customer.id)?(current.customers??[]).map((item)=>item.id===customer.id?customer:item):[...(current.customers??[]),customer]}));
+  const saveOwnerCash=(movement:OwnerCashMovement)=>update((current)=>({...current,ownerCashMovements:(current.ownerCashMovements??[]).some((item)=>item.id===movement.id)?(current.ownerCashMovements??[]).map((item)=>item.id===movement.id?movement:item):[movement,...(current.ownerCashMovements??[])]}));
 
   return <AppShell view={view} onView={onView} onSale={()=>setSheet({type:"sale"})} onSettings={()=>setSheet({type:"settings"})} onLogout={logout}>
     <StatusToast notice={notice} onDismiss={dismissNotice}/>
-    {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")}/><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")}/></div>}
+    {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")}/><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")} onCashMovement={()=>setSheet({type:"ownerCash"})}/></div>}
     {view==="sales"&&<SalesHistoryView state={state} onNew={()=>setSheet({type:"sale"})} onCancel={(saleId,reason)=>update((current)=>({...current,sales:current.sales.map((sale)=>sale.id===saleId?{...sale,status:"cancelled",cancelReason:reason,cancelledAt:new Date().toISOString()}:sale)}))}/>} 
     {view==="customers"&&<CustomersView state={state} onSave={saveCustomer}/>} 
     {view==="calendar"&&<CalendarView/>}
@@ -66,6 +69,7 @@ export function NatApp({ view,onView }: { view:NatView; onView:(view:NatView)=>v
     {sheet?.type==="supply"&&<SupplySheet value={sheet.value} preset={sheet.preset} recentSupplies={state.supplies} onClose={()=>setSheet(null)} onSave={(supply)=>{update((current)=>({...current,supplies:current.supplies.some((item)=>item.id===supply.id)?current.supplies.map((item)=>item.id===supply.id?supply:item):[...current.supplies,supply]}));setSheet(null);}}/>}
     {sheet?.type==="product"&&<ProductSheet state={state} value={sheet.value} preset={sheet.preset} onClose={()=>setSheet(null)} onSave={(product)=>{update((current)=>({...current,products:current.products.some((item)=>item.id===product.id)?current.products.map((item)=>item.id===product.id?{...product,available:item.available}:item):[...current.products,{...product,available:true}]}));setSheet(null);}}/>}
     {sheet?.type==="expense"&&<ExpenseSheet value={sheet.value} presetName={sheet.presetName} onClose={()=>setSheet(null)} onSave={(expense)=>{update((current)=>({...current,expenses:current.expenses.some((item)=>item.id===expense.id)?current.expenses.map((item)=>item.id===expense.id?expense:item):[expense,...current.expenses]}));setSheet(null);}}/>}
+    {sheet?.type==="ownerCash"&&<OwnerCashMovementSheet value={sheet.value} onClose={()=>setSheet(null)} onSave={(movement)=>{saveOwnerCash(movement);setSheet(null);}}/>}
     {sheet?.type==="settings"&&<SettingsSheet value={state.settings} onClose={()=>setSheet(null)} onSave={(settings:Settings)=>{update((current)=>({...current,settings}));setSheet(null);}} onRefresh={refresh}/>} 
   </AppShell>;
 }
