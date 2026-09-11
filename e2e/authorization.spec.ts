@@ -27,17 +27,43 @@ function totp(secret:string, now=Date.now()){
 
 async function createAal2Session(page:Page,email:string){
   await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(password);
-  await page.getByRole("button",{name:"Entrar",exact:true}).click();
-  const secretField=page.locator("p.font-mono");
-  await expect(secretField).toBeVisible();
-  const secret=(await secretField.textContent())?.trim();
-  expect(secret).toBeTruthy();
-  await page.getByLabel("Código de segurança").fill(totp(secret!));
-  await page.getByRole("button",{name:"Ativar e entrar"}).click();
-  await page.waitForURL(/\/dashboard/);
-  await expect(page.locator("body")).toBeVisible();
+  const enrollment=await page.evaluate(async ({email,password})=>{
+    const {supabase}=await import("/src/integrations/supabase/client.ts");
+    const signIn=await supabase.auth.signInWithPassword({email,password});
+    if(signIn.error)return {error:`sign-in: ${signIn.error.message}`,factorId:null,secret:null};
+    const factors=await supabase.auth.mfa.listFactors();
+    if(factors.error)return {error:`list-factors: ${factors.error.message}`,factorId:null,secret:null};
+    for(const pending of factors.data.totp.filter((factor)=>factor.status!=="verified")){
+      const removed=await supabase.auth.mfa.unenroll({factorId:pending.id});
+      if(removed.error)return {error:`unenroll: ${removed.error.message}`,factorId:null,secret:null};
+    }
+    const verified=factors.data.totp.find((factor)=>factor.status==="verified");
+    if(verified)return {error:null,factorId:verified.id,secret:null};
+    const enrolled=await supabase.auth.mfa.enroll({factorType:"totp",friendlyName:`NAT Gestão E2E ${crypto.randomUUID()}`});
+    if(enrolled.error)return {error:`enroll: ${enrolled.error.message}`,factorId:null,secret:null};
+    return {error:null,factorId:enrolled.data.id,secret:enrolled.data.totp.secret??null};
+  },{email,password});
+  expect(enrollment.error).toBeNull();
+  expect(enrollment.factorId).toBeTruthy();
+  expect(enrollment.secret).toBeTruthy();
+  const code=totp(enrollment.secret!);
+  const verification=await page.evaluate(async ({factorId,code})=>{
+    const {supabase}=await import("/src/integrations/supabase/client.ts");
+    const challenge=await supabase.auth.mfa.challenge({factorId});
+    if(challenge.error)return {error:`challenge: ${challenge.error.message}`,currentLevel:null,bootstrapBusinessId:null};
+    const verified=await supabase.auth.mfa.verify({factorId,challengeId:challenge.data.id,code});
+    if(verified.error)return {error:`verify: ${verified.error.message}`,currentLevel:null,bootstrapBusinessId:null};
+    const assurance=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(assurance.error)return {error:`assurance: ${assurance.error.message}`,currentLevel:null,bootstrapBusinessId:null};
+    const bootstrap=await supabase.rpc("bootstrap_nat_business");
+    if(bootstrap.error)return {error:`bootstrap: ${bootstrap.error.message}`,currentLevel:assurance.data.currentLevel,bootstrapBusinessId:null};
+    return {error:null,currentLevel:assurance.data.currentLevel,bootstrapBusinessId:bootstrap.data};
+  },{factorId:enrollment.factorId!,code});
+  expect(verification.error).toBeNull();
+  expect(verification.currentLevel).toBe("aal2");
+  expect(verification.bootstrapBusinessId).toBeTruthy();
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/dashboard/);
 }
 
 async function probe(page:Page,ownBusinessId:string,foreignBusinessId:string){
