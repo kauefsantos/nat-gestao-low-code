@@ -1,5 +1,9 @@
 project_id = "qkqxzgvctusxybvfsxiu"
 
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
 [functions.nat-content-ai]
 verify_jwt = true
 
