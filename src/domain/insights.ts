@@ -1,4 +1,4 @@
-import { activeSaleLines, type NatState, type Sale } from "./nat";
+import { activeSaleLines, type NatState, type Sale } from "./nat.js";
 
 function localDateKey(value: string | Date) {
   const date = value instanceof Date ? value : new Date(value);
