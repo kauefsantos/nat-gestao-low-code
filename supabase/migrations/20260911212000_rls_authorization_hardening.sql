@@ -78,4 +78,12 @@ revoke all on function private.validate_business_margin() from public,anon,authe
 revoke all on function private.validate_product_margin() from public,anon,authenticated;
 revoke all on function private.validate_settings_margin() from public,anon,authenticated;
 
+-- Migrations run as postgres in this project. Deny function execution to client
+-- roles by default so a future function is not exposed merely because a migration
+-- forgot an explicit REVOKE. Intended RPCs must be granted deliberately.
+alter default privileges for role postgres in schema public revoke execute on functions from public;
+alter default privileges for role postgres in schema public revoke execute on functions from anon,authenticated;
+alter default privileges for role postgres in schema private revoke execute on functions from public;
+alter default privileges for role postgres in schema private revoke execute on functions from anon,authenticated;
+
 commit;
