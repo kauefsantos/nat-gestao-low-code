@@ -9,7 +9,7 @@ function localDateKey(value: string | Date) {
 }
 
 function activeSales(state: NatState) {
-  return state.sales.filter((sale) => sale.status !== "cancelled");
+  return state.sales.filter((sale) => sale.status !== "cancelled" && (sale.transactionType ?? "sale") === "sale");
 }
 
 export function todaySalesSummary(state: NatState, now = new Date()) {
@@ -42,15 +42,7 @@ function insightReadiness(state: NatState, now = new Date()) {
   const spanDays = sales.length ? differenceInCalendarDays(first, now) + 1 : 0;
   const minimumSales = 10;
   const minimumDays = 7;
-  return {
-    ready: sales.length >= minimumSales && spanDays >= minimumDays,
-    salesCount: sales.length,
-    spanDays,
-    minimumSales,
-    minimumDays,
-    missingSales: Math.max(0, minimumSales - sales.length),
-    missingDays: Math.max(0, minimumDays - spanDays),
-  };
+  return { ready: sales.length >= minimumSales && spanDays >= minimumDays, salesCount: sales.length, spanDays, minimumSales, minimumDays, missingSales: Math.max(0, minimumSales - sales.length), missingDays: Math.max(0, minimumDays - spanDays) };
 }
 
 export function businessInsights(state: NatState, now = new Date()) {
@@ -58,7 +50,6 @@ export function businessInsights(state: NatState, now = new Date()) {
   const readiness = insightReadiness(state, now);
   const revenue = sales.reduce((sum, sale) => sum + sale.totalReceived, 0);
   const averageTicket = sales.length ? revenue / sales.length : 0;
-
   const productMap = new Map<string, { name: string; quantity: number; revenue: number }>();
   for (const sale of sales) {
     for (const line of activeSaleLines(sale)) {
@@ -70,31 +61,14 @@ export function businessInsights(state: NatState, now = new Date()) {
     }
   }
   const topProduct = [...productMap.values()].sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)[0] ?? null;
-
   const dayMap = new Map<string, number>();
-  for (const sale of sales) {
-    const key = localDateKey(sale.soldAt);
-    dayMap.set(key, (dayMap.get(key) ?? 0) + sale.totalReceived);
-  }
+  for (const sale of sales) { const key = localDateKey(sale.soldAt); dayMap.set(key, (dayMap.get(key) ?? 0) + sale.totalReceived); }
   const bestDayEntry = [...dayMap.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
-
-  const end = new Date(now);
-  end.setHours(24, 0, 0, 0);
-  const currentStart = new Date(end);
-  currentStart.setDate(currentStart.getDate() - 7);
-  const previousStart = new Date(currentStart);
-  previousStart.setDate(previousStart.getDate() - 7);
+  const end = new Date(now); end.setHours(24, 0, 0, 0);
+  const currentStart = new Date(end); currentStart.setDate(currentStart.getDate() - 7);
+  const previousStart = new Date(currentStart); previousStart.setDate(previousStart.getDate() - 7);
   const currentRevenue = salesBetween(sales, currentStart, end).reduce((sum, sale) => sum + sale.totalReceived, 0);
   const previousRevenue = salesBetween(sales, previousStart, currentStart).reduce((sum, sale) => sum + sale.totalReceived, 0);
   const weeklyChangePercent = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : null;
-
-  return {
-    readiness,
-    averageTicket,
-    topProduct,
-    bestDay: bestDayEntry ? { date: bestDayEntry[0], revenue: bestDayEntry[1] } : null,
-    currentRevenue,
-    previousRevenue,
-    weeklyChangePercent,
-  };
+  return { readiness,averageTicket,topProduct,bestDay:bestDayEntry?{date:bestDayEntry[0],revenue:bestDayEntry[1]}:null,currentRevenue,previousRevenue,weeklyChangePercent };
 }
