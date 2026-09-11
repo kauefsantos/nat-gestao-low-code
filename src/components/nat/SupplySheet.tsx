@@ -8,7 +8,7 @@ function Choice({active,onClick,label}:{active:boolean;onClick:()=>void;label:st
   return <button type="button" aria-pressed={active} className={`choice-button ${active?"active":""}`} onClick={onClick}>{label}</button>;
 }
 
-export function SupplySheet({value,preset,onClose,onSave}:{value?:Supply;preset?:StarterSupply;onClose:()=>void;onSave:(supply:Supply)=>void}) {
+export function SupplySheet({value,preset,recentSupplies=[],onClose,onSave}:{value?:Supply;preset?:StarterSupply;recentSupplies?:Supply[];onClose:()=>void;onSave:(supply:Supply)=>void}) {
   const [name,setName]=useState(value?.name??preset?.name??"");
   const [category,setCategory]=useState<SupplyCategory>(value?.category??preset?.category??"ingredient");
   const [quantity,setQuantity]=useState(String(value?.packageQuantity??""));
@@ -17,6 +17,8 @@ export function SupplySheet({value,preset,onClose,onSave}:{value?:Supply;preset?
   const [date,setDate]=useState(value?.purchasedAt.slice(0,10)??new Date().toISOString().slice(0,10));
   const [error,setError]=useState("");
   const panelRef=useDialogA11y<HTMLDivElement>({onClose});
+  const latestPurchase=!value&&!preset?recentSupplies[0]:undefined;
+  const repeatLatest=()=>{if(!latestPurchase)return;setName(latestPurchase.name);setCategory(latestPurchase.category);setQuantity(String(latestPurchase.packageQuantity));setUnit(latestPurchase.packageUnit);setPrice(String(latestPurchase.packagePrice).replace(".",","));setDate(new Date().toISOString().slice(0,10));};
   const q=Number(quantity.replace(",","."));
   const p=Number(price.replace(",","."));
   const preview={id:value?.id??"preview",name,category,packageQuantity:q,packageUnit:unit,packagePrice:p,purchasedAt:`${date}T12:00:00.000Z`} satisfies Supply;
@@ -33,7 +35,7 @@ export function SupplySheet({value,preset,onClose,onSave}:{value?:Supply;preset?
   return <div className="fixed inset-0 z-50 flex justify-end bg-[#35150A]/35 backdrop-blur-[2px]" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose();}}>
     <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="supply-sheet-title" className="h-full w-full max-w-xl overflow-y-auto bg-[#FFF9F6] p-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-[max(20px,env(safe-area-inset-top))] shadow-2xl sm:p-7">
       <div className="flex items-start justify-between gap-4"><div><p className="eyebrow">NAT Gestão</p><h2 id="supply-sheet-title" className="mt-2 font-display text-4xl">{value?"Atualizar compra":"Cadastrar compra"}</h2><p className="mt-2 text-sm leading-6 text-caramel">Cadastre ingredientes, embalagens ou outros materiais. A NAT calcula o custo e, se o item estiver sendo controlado no Estoque, novas compras também entram no saldo automaticamente.</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fechar"><X size={20}/></button></div>
-      <form className="mt-7 space-y-5" onSubmit={submit}>
+      <form className="mt-7 space-y-5" onSubmit={submit}>{latestPurchase&&<button type="button" className="secondary-button w-full justify-center" onClick={repeatLatest}>Repetir última compra: {latestPurchase.name}</button>}
         <div><label htmlFor="supply-name" className="field-label">O que você comprou?</label><input id="supply-name" className="nat-input" value={name} onChange={(e)=>setName(e.target.value)} placeholder="Ex.: Ovos, caixa para brownie ou papel-manteiga" required maxLength={160}/></div>
         <fieldset><legend className="field-label">Que tipo de item é?</legend><div className="grid gap-2 sm:grid-cols-3"><Choice active={category==="ingredient"} onClick={()=>setCategory("ingredient")} label="Ingrediente"/><Choice active={category==="packaging"} onClick={()=>setCategory("packaging")} label="Embalagem"/><Choice active={category==="other"} onClick={()=>setCategory("other")} label="Outro insumo"/></div><p className="field-help">“Outro insumo” serve para materiais operacionais que você quer acompanhar, mas que não são ingrediente nem embalagem.</p></fieldset>
         <div className="grid grid-cols-[1fr_120px] gap-3"><div><label htmlFor="supply-quantity" className="field-label">Quanto veio?</label><input id="supply-quantity" className="nat-input" inputMode="decimal" value={quantity} onChange={(e)=>setQuantity(e.target.value)} placeholder="12" required/></div><div><label htmlFor="supply-unit" className="field-label">Unidade</label><select id="supply-unit" className="nat-input" value={unit} onChange={(e)=>setUnit(e.target.value as Unit)}><option value="unit">un</option><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">L</option></select></div></div>
