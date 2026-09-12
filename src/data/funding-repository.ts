@@ -4,6 +4,7 @@ import { type FundingSource, type FundingSummary } from "@/domain/funding";
 
 type RpcResult={data:unknown;error:{message:string}|null};
 const numeric=(value:unknown)=>Number.isFinite(Number(value))?Number(value):0;
+function fundingMap(value:unknown):Record<string,FundingSource>{if(!value||typeof value!=="object"||Array.isArray(value))return{};return Object.fromEntries(Object.entries(value as Record<string,unknown>).map(([key,source])=>[key,source==="business"?"business":"owner"]));}
 
 export async function loadFundingSummary(businessId:string):Promise<FundingSummary>{
   const monthStart=`${businessDate().slice(0,7)}-01`;
@@ -21,5 +22,7 @@ export async function loadFundingSummary(businessId:string):Promise<FundingSumma
     monthOwnerFundedOutflows:numeric(row.monthOwnerFundedOutflows),
     monthBusinessReinvestment:numeric(row.monthBusinessReinvestment),
     fixedCostFundingSource,
+    supplyFunding:fundingMap(row.supplyFunding),
+    expenseFunding:fundingMap(row.expenseFunding),
   };
 }
