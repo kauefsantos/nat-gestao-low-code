@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { initialState, type Customer, type NatState, type OwnerCashMovement, type PaymentMethod, type Product, type RecipeItem, type Sale, type SaleChannel, type SaleLine, type SaleStatus, type Settings, type SporadicExpense, type Supply, type SupplyCategory, type TransactionType, type Unit } from "@/domain/nat";
-import { businessDate } from "@/lib/business-time";
+import { addCalendarDays, businessDate, businessDayStartInstant } from "@/lib/business-time";
 import { emptyNatVersions, type NatVersions } from "@/data/nat-repository";
 
 type MembershipRow=Database["public"]["Tables"]["business_members"]["Row"];
@@ -24,22 +24,22 @@ function ownerCashMovementFrom(value:unknown):OwnerCashMovement{const row=(value
 
 export async function loadNatOperationalState():Promise<{businessId:string;state:NatState;versions:NatVersions}>{
   const businessId=await ensureBusiness();
-  const today=businessDate();const monthStart=`${today.slice(0,7)}-01`;const monthStartIso=`${monthStart}T00:00:00-03:00`;
+  const today=businessDate();const monthStart=`${today.slice(0,7)}-01`;const recentSalesStart=businessDayStartInstant(addCalendarDays(today,-45));
   const [settingsResult,suppliesResult,purchaseSnapshotResult,productsResult,recipeResult,salesResult,expensesResult,customersResult,ownerCashResult]=await Promise.all([
     supabase.from("business_settings").select("*").eq("business_id",businessId).maybeSingle(),
     supabase.from("supplies").select("*").eq("business_id",businessId).order("name",{ascending:true}),
     supabase.rpc("get_supply_purchase_snapshot" as never,{p_business_id:businessId,p_month_start:monthStart} as never),
     supabase.from("products").select("*").eq("business_id",businessId).order("name",{ascending:true}),
     supabase.from("recipe_items").select("*").eq("business_id",businessId),
-    supabase.from("sales").select("*").eq("business_id",businessId).gte("sold_at",monthStartIso).order("sold_at",{ascending:false}),
+    supabase.from("sales").select("*").eq("business_id",businessId).gte("sold_at",recentSalesStart).order("sold_at",{ascending:false}),
     supabase.from("sporadic_expenses").select("*").eq("business_id",businessId).gte("spent_at",monthStart).order("spent_at",{ascending:false}).order("created_at",{ascending:false}),
     supabase.rpc("get_customers_snapshot" as never,{p_business_id:businessId} as never),
     supabase.rpc("get_owner_cash_movements_snapshot" as never,{p_business_id:businessId} as never),
   ]);
-  failure("Não foi possível carregar as configurações",settingsResult.error);failure("Não foi possível carregar os ingredientes",suppliesResult.error);failure("Não foi possível carregar o custo dos ingredientes",purchaseSnapshotResult.error);failure("Não foi possível carregar os produtos",productsResult.error);failure("Não foi possível carregar as receitas",recipeResult.error);failure("Não foi possível carregar as vendas do mês",salesResult.error);failure("Não foi possível carregar os gastos do mês",expensesResult.error);failure("Não foi possível carregar os clientes",customersResult.error);failure("Não foi possível carregar aportes e retiradas",ownerCashResult.error);
+  failure("Não foi possível carregar as configurações",settingsResult.error);failure("Não foi possível carregar os ingredientes",suppliesResult.error);failure("Não foi possível carregar o custo dos ingredientes",purchaseSnapshotResult.error);failure("Não foi possível carregar os produtos",productsResult.error);failure("Não foi possível carregar as receitas",recipeResult.error);failure("Não foi possível carregar as vendas recentes",salesResult.error);failure("Não foi possível carregar os gastos do mês",expensesResult.error);failure("Não foi possível carregar os clientes",customersResult.error);failure("Não foi possível carregar aportes e retiradas",ownerCashResult.error);
 
   const saleRows=rows<SaleRow>(salesResult.data);const saleIds=saleRows.map((row)=>row.id);let saleItemRows:SaleItemRow[]=[];
-  if(saleIds.length){const saleItemsResult=await supabase.from("sale_items").select("*").eq("business_id",businessId).in("sale_id",saleIds);failure("Não foi possível carregar os itens das vendas do mês",saleItemsResult.error);saleItemRows=rows<SaleItemRow>(saleItemsResult.data);}
+  if(saleIds.length){const saleItemsResult=await supabase.from("sale_items").select("*").eq("business_id",businessId).in("sale_id",saleIds);failure("Não foi possível carregar os itens das vendas recentes",saleItemsResult.error);saleItemRows=rows<SaleItemRow>(saleItemsResult.data);}
 
   const snapshot=(purchaseSnapshotResult.data??{}) as unknown as{latest?:PurchaseSnapshot[];monthCashOut?:number|string};const latestPurchase=new Map((snapshot.latest??[]).map((purchase)=>[purchase.supplyId,purchase]));const purchaseCashOut=numberValue(snapshot.monthCashOut);
   const allSupplies=rows<SupplyRow>(suppliesResult.data);const recipeRows=rows<RecipeRow>(recipeResult.data);const allProductRows=rows<ProductRow>(productsResult.data);const activeProductRows=allProductRows.filter((row)=>row.active);const referencedSupplyIds=new Set(recipeRows.filter((row)=>activeProductRows.some((product)=>product.id===row.product_id)).map((row)=>row.supply_id));
