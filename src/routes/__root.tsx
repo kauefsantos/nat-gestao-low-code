@@ -32,7 +32,7 @@ export const Route = createRootRoute({
       { rel: "icon", type: "image/png", sizes: "512x512", href: "/icons/nat-512.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=GFS+Didot&family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=GFS+Didot&family=Lato:wght@400;700;900&display=swap" },
     ],
   }),
   shellComponent: ({ children }) => <html lang="pt-BR"><head><HeadContent /></head><body>{children}<Scripts /></body></html>,
