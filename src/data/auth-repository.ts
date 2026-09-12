@@ -59,8 +59,7 @@ export async function verifyTotp(factorId:string,code:string){
 }
 
 export async function signOut(){
-  const result=await supabase.auth.signOut();
-  fail(result.error);
+  await supabase.auth.signOut();
 }
 
 export async function createAuthorizedAccount(email:string,password:string){
