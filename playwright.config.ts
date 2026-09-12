@@ -1,10 +1,15 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
   retries: 1,
-  use: { baseURL: "http://127.0.0.1:4173", trace: "retain-on-failure" },
+  workers: process.env.CI ? 1 : undefined,
+  use: {
+    baseURL: "http://127.0.0.1:4173",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
   projects: [
     {
       name: "compact-mobile-chromium",
@@ -24,7 +29,11 @@ export default defineConfig({
     },
     {
       name: "mobile-webkit",
-      use: { browserName: "webkit", viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+      use: { ...devices["iPhone 13"], browserName: "webkit" },
+    },
+    {
+      name: "desktop-webkit",
+      use: { browserName: "webkit", viewport: { width: 1440, height: 900 } },
     },
     {
       name: "desktop-firefox",
