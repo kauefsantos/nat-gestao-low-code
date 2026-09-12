@@ -48,7 +48,8 @@ test("busca global, ajuda contextual, desfazer e fluxos guiados permanecem dispo
   const search=source("src/components/nat/GlobalSearchSheet.tsx");
   const feedback=source("src/components/nat/Feedback.tsx");
   const app=source("src/app/NatApp.tsx");
-  assert.match(search,/Cliente, produto, ingrediente ou venda/);assert.match(feedback,/export function HelpTip/);assert.match(app,/actionLabel:"Desfazer"/);assert.match(app,/Usar em uma receita/);assert.match(app,/Conferir preço/);assert.match(app,/Venda registrada:/);
+  const commands=source("src/hooks/use-nat-commands.ts");
+  assert.match(search,/Cliente, produto, ingrediente ou venda/);assert.match(feedback,/export function HelpTip/);assert.match(commands,/actionLabel:"Desfazer"/);assert.match(app,/Usar em uma receita/);assert.match(app,/Conferir preço/);assert.match(app,/Venda registrada:/);
 });
 
 test("análises começam por recomendações acionáveis e escondem detalhe denso por padrão",()=>{
