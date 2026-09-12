@@ -1,9 +1,15 @@
 import { Copy, Download, Image as ImageIcon, KeyRound, LoaderCircle, Sparkles, Unplug } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  configureContentAi,
+  disconnectContentAi,
+  generateContentWithAi,
+  loadContentAiStatus,
+  type AiCopy,
+  type ContentFormat,
+} from "@/data/content-ai-repository";
 
-type FormatKey="feed"|"story"|"square";
-type AiCopy={headline:string;subheadline:string;caption:string;cta:string;visual_direction:string};
+type FormatKey=ContentFormat;
 
 const AI_ENABLED=false;
 
@@ -37,13 +43,14 @@ export function ContentStudio(){
     let cancelled=false;
     async function load(){
       if(!AI_ENABLED){if(!cancelled)setAiConnected(false);return;}
-      const membership=await supabase.from("business_members").select("business_id").order("created_at",{ascending:true}).limit(1).maybeSingle();
-      if(cancelled)return;
-      const id=membership.data?.business_id??null;
-      setBusinessId(id);
-      if(!id||membership.error){setAiConnected(false);return;}
-      const result=await supabase.rpc("content_ai_status",{p_business_id:id});
-      if(!cancelled)setAiConnected(!result.error&&Boolean(result.data));
+      try{
+        const status=await loadContentAiStatus();
+        if(cancelled)return;
+        setBusinessId(status.businessId);
+        setAiConnected(status.connected);
+      }catch{
+        if(!cancelled)setAiConnected(false);
+      }
     }
     void load();
     return()=>{cancelled=true;};
@@ -79,8 +86,7 @@ export function ContentStudio(){
     if(!businessId||!apiKey.trim())return;
     setAiBusy(true);setMessage(null);
     try{
-      const result=await supabase.rpc("configure_content_ai",{p_business_id:businessId,p_api_key:apiKey.trim()});
-      if(result.error)throw result.error;
+      await configureContentAi(businessId,apiKey.trim());
       setApiKey("");setShowKey(false);setAiConnected(true);setMessage("IA conectada com segurança.");
     }catch(error){setMessage(error instanceof Error?error.message:"Não foi possível conectar a IA.");}
     finally{setAiBusy(false);}
@@ -91,8 +97,7 @@ export function ContentStudio(){
     if(!businessId||!window.confirm("Desconectar a IA da NAT? A chave armazenada será removida."))return;
     setAiBusy(true);setMessage(null);
     try{
-      const result=await supabase.rpc("disconnect_content_ai",{p_business_id:businessId});
-      if(result.error)throw result.error;
+      await disconnectContentAi(businessId);
       setAiConnected(false);setAiCopy(null);setMessage("IA desconectada.");
     }catch(error){setMessage(error instanceof Error?error.message:"Não foi possível desconectar a IA.");}
     finally{setAiBusy(false);}
@@ -103,10 +108,8 @@ export function ContentStudio(){
     if(!businessId||!prompt.trim())return;
     setAiBusy(true);setMessage(null);
     try{
-      const result=await supabase.functions.invoke<AiCopy>("nat-content-ai",{body:{businessId,prompt:prompt.trim(),format}});
-      if(result.error)throw result.error;
-      if(!result.data?.headline||!result.data.caption)throw new Error("A IA não retornou um conteúdo válido.");
-      setAiCopy(result.data);render(result.data);setMessage("Conteúdo criado com IA e aplicado ao layout da NAT.");
+      const result=await generateContentWithAi({businessId,prompt:prompt.trim(),format});
+      setAiCopy(result);render(result);setMessage("Conteúdo criado com IA e aplicado ao layout da NAT.");
     }catch(error){setMessage(error instanceof Error?error.message:"Não foi possível gerar o conteúdo com IA.");}
     finally{setAiBusy(false);}
   }
@@ -121,7 +124,7 @@ export function ContentStudio(){
       {AI_ENABLED?(aiConnected?<button type="button" className="secondary-button shrink-0" onClick={()=>void disconnectAi()} disabled={aiBusy}><Unplug size={16}/> Desconectar IA</button>:<button type="button" className="secondary-button shrink-0" onClick={()=>setShowKey((value)=>!value)}><KeyRound size={16}/> Conectar IA</button>):<div className="shrink-0 rounded-xl bg-rose-soft px-4 py-2 text-center text-xs font-bold text-caramel">IA temporariamente desativada</div>}
     </div>
 
-    {AI_ENABLED&&showKey&&!aiConnected&&<div className="mt-5 rounded-2xl border border-nat bg-soft p-4"><p className="text-sm font-bold">Conectar OpenAI</p><p className="mt-1 text-xs leading-5 text-caramel">Cole uma chave da API da OpenAI. Ela é enviada diretamente ao backend e armazenada criptografada no Supabase Vault; o app não consegue lê-la de volta.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input type="password" autoComplete="off" className="nat-input flex-1" placeholder="Chave da API" value={apiKey} onChange={e=>setApiKey(e.target.value)}/><button type="button" className="primary-button justify-center" onClick={()=>void connectAi()} disabled={aiBusy||apiKey.trim().length<20}>{aiBusy?<LoaderCircle className="animate-spin" size={17}/>:<KeyRound size={17}/>} Salvar conexão</button></div></div>}
+    {AI_ENABLED&&showKey&&!aiConnected&&<div className="mt-5 rounded-2xl border border-nat bg-soft p-4"><p className="text-sm font-bold">Conectar OpenAI</p><p className="mt-1 text-xs leading-5 text-caramel">Cole uma chave da API da OpenAI. Ela é enviada diretamente ao backend e armazenada com segurança no Lovable Cloud; o app não consegue lê-la de volta.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input type="password" autoComplete="off" className="nat-input flex-1" placeholder="Chave da API" value={apiKey} onChange={e=>setApiKey(e.target.value)}/><button type="button" className="primary-button justify-center" onClick={()=>void connectAi()} disabled={aiBusy||apiKey.trim().length<20}>{aiBusy?<LoaderCircle className="animate-spin" size={17}/>:<KeyRound size={17}/>} Salvar conexão</button></div></div>}
 
     <label className="field-label mt-5">O que você quer comunicar?<textarea className="nat-input mt-1 min-h-28 resize-y" maxLength={1500} placeholder="Ex.: Quero avisar que amanhã teremos brownie de Ninho com Nutella e encomendas até as 18h." value={prompt} onChange={e=>setPrompt(e.target.value)}/></label>
     <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]"><label className="field-label">Formato<select className="nat-input mt-1" value={format} onChange={e=>{setFormat(e.target.value as FormatKey);setGenerated(false);setAiCopy(null);}}>{Object.entries(formats).map(([key,value])=><option key={key} value={key}>{value.label}</option>)}</select></label>
