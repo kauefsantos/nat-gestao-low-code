@@ -29,17 +29,19 @@ Deno.serve(async(req)=>{
     const product=await client.from("products").select("id,name,batch_yield,active").eq("business_id",businessId).eq("id",productId).maybeSingle();if(product.error)throw product.error;if(!product.data||product.data.active!==true)return json(404,{error:"PRODUCT_NOT_FOUND"},cors);
     const batchYield=Number(product.data.batch_yield);if(!Number.isFinite(batchYield)||batchYield<=0)return json(409,{error:"INVALID_RECIPE_YIELD",message:"Defina primeiro o rendimento da receita deste produto."},cors);
 
-    let unitsProduced=asNumber(body?.unitsProduced);let targetQuantity: number|null=null;let minimumQuantity=0;
+    let batches=asNumber(body?.batches);let unitsProduced=asNumber(body?.unitsProduced);let targetQuantity:number|null=null;let minimumQuantity=0;
     if(mode==="set_product_stock"){
       targetQuantity=asNumber(body?.targetQuantity);minimumQuantity=asNumber(body?.minimumQuantity);
       if(!Number.isFinite(targetQuantity)||targetQuantity<0||!Number.isFinite(minimumQuantity)||minimumQuantity<0)return json(400,{error:"INVALID_INPUT",message:"Saldo e estoque mínimo precisam ser zero ou maiores."},cors);
       const snapshot=await client.rpc("get_inventory_snapshot" as never,{p_business_id:businessId} as never);if(snapshot.error)throw snapshot.error;
       const payload=snapshot.data as{items?:SnapshotItem[]}|null;const current=(payload?.items??[]).find((item)=>item.kind==="product"&&item.itemId===productId)?.currentQuantity??0;
-      unitsProduced=Math.max(0,targetQuantity-current);
-      if(unitsProduced===0){const balance=await client.rpc("set_inventory_balance" as never,{p_business_id:businessId,p_item_kind:"product",p_item_id:productId,p_quantity:targetQuantity,p_minimum_quantity:minimumQuantity,p_note:note} as never);if(balance.error)throw balance.error;return json(200,{ok:true,requestId,productId,productName:product.data.name,previousQuantity:current,targetQuantity,unitsProduced:0,mode},cors);}
+      unitsProduced=Math.max(0,targetQuantity-current);batches=unitsProduced/batchYield;
+      if(unitsProduced===0){const balance=await client.rpc("set_inventory_balance" as never,{p_business_id:businessId,p_item_kind:"product",p_item_id:productId,p_quantity:targetQuantity,p_minimum_quantity:minimumQuantity,p_note:note} as never);if(balance.error)throw balance.error;return json(200,{ok:true,requestId,productId,productName:product.data.name,previousQuantity:current,targetQuantity,unitsProduced:0,batches:0,mode},cors);}
+    }else{
+      if(Number.isFinite(batches)&&batches>0)unitsProduced=batchYield*batches;
+      else if(Number.isFinite(unitsProduced)&&unitsProduced>0)batches=unitsProduced/batchYield;
     }
-    if(!Number.isFinite(unitsProduced)||unitsProduced<=0)return json(400,{error:"INVALID_INPUT",message:"Informe uma quantidade produzida maior que zero."},cors);
-    const batches=unitsProduced/batchYield;
+    if(!Number.isFinite(unitsProduced)||unitsProduced<=0||!Number.isFinite(batches)||batches<=0)return json(400,{error:"INVALID_INPUT",message:"Informe uma quantidade produzida maior que zero."},cors);
     const result=await client.rpc("record_inventory_production_v2" as never,{p_business_id:businessId,p_request_id:requestId,p_product_id:productId,p_batches:batches,p_produced_at:producedAt,p_note:note} as never);
     if(result.error){const status=/estoque insuficiente/i.test(result.error.message)?409:/receita|saldo inicial|unidade/i.test(result.error.message)?422:400;return json(status,{error:"PRODUCTION_REJECTED",message:result.error.message,requestId},cors);}
     if(mode==="set_product_stock"&&targetQuantity!==null){const balance=await client.rpc("set_inventory_balance" as never,{p_business_id:businessId,p_item_kind:"product",p_item_id:productId,p_quantity:targetQuantity,p_minimum_quantity:minimumQuantity,p_note:note} as never);if(balance.error)throw balance.error;}
