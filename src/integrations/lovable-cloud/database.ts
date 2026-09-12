@@ -113,6 +113,15 @@ type RuntimeFunctions = {
   get_customers_snapshot: { Args: { p_business_id: string }; Returns: Json };
   get_owner_cash_movements_snapshot: { Args: { p_business_id: string }; Returns: Json };
   get_inventory_snapshot: { Args: { p_business_id: string }; Returns: Json };
+  get_supply_purchase_snapshot: {
+    Args: { p_business_id: string; p_month_start: string };
+    Returns: Json;
+  };
+  get_financial_funding_snapshot: {
+    Args: { p_business_id: string; p_month_start: string };
+    Returns: Json;
+  };
+  get_integration_health: { Args: { p_business_id: string }; Returns: Json };
   set_inventory_balance: {
     Args: {
       p_business_id: string;
@@ -138,8 +147,9 @@ type RuntimeFunctions = {
  * Effective application schema for Lovable Cloud.
  *
  * `src/integrations/supabase/types.ts` remains the last generated snapshot.
- * This overlay contains fields/RPCs confirmed against Lovable Cloud, plus branch
- * RPCs exercised by CI, until an authorized generator can refresh the snapshot.
+ * This overlay contains fields/RPCs confirmed against Lovable Cloud and contracts
+ * introduced by migrations in this stacked branch, until an authorized generator
+ * can refresh the generated snapshot.
  */
 export type Database = Omit<GeneratedDatabase, "public"> & {
   public: Omit<PublicSchema, "Tables" | "Functions"> & {
