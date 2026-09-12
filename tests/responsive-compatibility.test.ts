@@ -9,8 +9,10 @@ test("touch targets e inputs touch mantêm dimensões seguras",()=>{
   assert.match(css,/\.icon-button \{[^}]*height:44px; width:44px;/);
   assert.match(css,/\.tab-button \{ min-height:44px;/);
   assert.match(css,/\.mobile-nav-button \{[^}]*min-height:44px;/);
-  assert.match(css,/@media \(pointer:coarse\)\{\.nat-input\{font-size:16px;\}\}/);
+  assert.match(css,/@media \(pointer:coarse\)[\s\S]*?\.nat-input\{font-size:16px;\}/);
+  assert.match(css,/@media \(pointer:coarse\)[\s\S]*?button,summary\{min-height:44px;\}/);
   assert.match(css,/button,a,summary \{ touch-action:manipulation; \}/);
+  assert.match(css,/\.nat-input \{[^}]*min-width:0;/);
 });
 
 test("hover visual só é aplicado quando há ponteiro fino",()=>{
@@ -44,14 +46,16 @@ test("shell evita safe area duplicada e protege o botão flutuante",()=>{
   assert.match(shell,/max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6/);
 });
 
-test("matriz E2E cobre celular compacto tablet desktop WebKit e Firefox",()=>{
+test("matriz E2E cobre celular compacto tablet desktop paisagem WebKit e Firefox",()=>{
   const config=source("playwright.config.ts");
+  const authenticated=source("e2e/responsive-authenticated.spec.ts");
   const workflow=source(".github/workflows/mobile-e2e.yml");
   assert.match(config,/width: 320, height: 568/);
   assert.match(config,/width: 768, height: 1024/);
   assert.match(config,/width: 1440, height: 900/);
   assert.match(config,/browserName: "webkit"/);
   assert.match(config,/browserName: "firefox"/);
+  assert.match(authenticated,/width:844,height:390/);
   assert.match(workflow,/playwright install --with-deps chromium firefox webkit/);
   assert.match(workflow,/responsive-authenticated\.spec\.ts/);
 });
