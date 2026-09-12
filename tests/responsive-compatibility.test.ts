@@ -53,9 +53,51 @@ test("matriz E2E cobre celular compacto tablet desktop paisagem WebKit e Firefox
   assert.match(config,/width: 320, height: 568/);
   assert.match(config,/width: 768, height: 1024/);
   assert.match(config,/width: 1440, height: 900/);
-  assert.match(config,/browserName: "webkit"/);
+  assert.match(config,/name: "mobile-webkit"/);
+  assert.match(config,/name: "desktop-webkit"/);
   assert.match(config,/browserName: "firefox"/);
+  assert.match(config,/workers: process\.env\.CI \? 1 : undefined/);
   assert.match(authenticated,/width:844,height:390/);
+  assert.match(authenticated,/fontSize="200%"/);
   assert.match(workflow,/playwright install --with-deps chromium firefox webkit/);
   assert.match(workflow,/responsive-authenticated\.spec\.ts/);
+});
+
+test("páginas públicas esperam CSS antes de medir toque e geram evidência visual",()=>{
+  const mobile=source("e2e/mobile.spec.ts");
+  assert.match(mobile,/--color-cream/);
+  assert.match(mobile,/fontSize="200%"/);
+  assert.match(mobile,/testInfo\.attach/);
+  assert.doesNotMatch(mobile,/locator\("body"\)\.toBeVisible/);
+});
+
+test("importação CSV usa confirmação acessível e trava repetição durante aplicação",()=>{
+  const importer=source("src/components/nat/RecipeCsvImporter.tsx");
+  assert.match(importer,/ConfirmDialog/);
+  assert.match(importer,/applying/);
+  assert.match(importer,/Substituir receita atual\?/);
+  assert.doesNotMatch(importer,/window\.confirm/);
+});
+
+test("editores legados de produto e gasto foram removidos de Sheets",()=>{
+  const sheets=source("src/components/nat/Sheets.tsx");
+  assert.match(sheets,/export function SettingsSheet/);
+  assert.doesNotMatch(sheets,/export function ProductSheet/);
+  assert.doesNotMatch(sheets,/export function ExpenseSheet/);
+  assert.doesNotMatch(sheets,/RecipeCsvImporter/);
+});
+
+test("política de compatibilidade e smoke real estão documentados",()=>{
+  const policy=source("docs/RESPONSIVE_COMPATIBILITY.md");
+  const smoke=source("docs/REAL_DEVICE_SMOKE.md");
+  assert.match(policy,/duas versões principais estáveis mais recentes/);
+  assert.match(policy,/Chromium/);
+  assert.match(policy,/Firefox/);
+  assert.match(policy,/WebKit/);
+  assert.match(policy,/200%/);
+  assert.match(smoke,/iPhone/);
+  assert.match(smoke,/iPad/);
+  assert.match(smoke,/Android/);
+  assert.match(smoke,/Edge/);
+  assert.match(smoke,/Safari/);
 });
