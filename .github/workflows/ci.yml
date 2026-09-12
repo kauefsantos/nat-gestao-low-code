@@ -38,8 +38,8 @@ jobs:
       - run: npm run build
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
-      - name: Audit complete dependency tree for critical issues
-        run: npm audit --audit-level=critical
+      - name: Audit complete dependency tree for high or critical issues
+        run: npm audit --audit-level=high
 
   database-security:
     runs-on: ubuntu-latest
@@ -53,6 +53,11 @@ jobs:
         run: npx --yes supabase@2.117.0 start -x studio,imgproxy,mailpit,logflare,vector
       - name: Rebuild database from migrations
         run: npx --yes supabase@2.117.0 db reset
+      - name: Align disposable database with business timezone
+        shell: bash
+        run: |
+          source <(npx --yes supabase@2.117.0 status -o env)
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "alter database postgres set timezone to 'America/Sao_Paulo';"
       - name: Run RLS and integrity regression tests
         run: npx --yes supabase@2.117.0 test db
       - name: Lint database schema
