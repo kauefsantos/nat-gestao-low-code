@@ -111,6 +111,16 @@ type RuntimeFunctions = {
     Args: { p_business_id: string; p_customer_id: string; p_reason?: string };
     Returns: Json;
   };
+  stage_recipe_import_v1: {
+    Args: {
+      p_source_type: string;
+      p_file_name: string | null;
+      p_file_sha256: string;
+      p_parser_version: string;
+      p_row_count: number;
+    };
+    Returns: undefined;
+  };
   get_customers_snapshot: { Args: { p_business_id: string }; Returns: Json };
   get_owner_cash_movements_snapshot: { Args: { p_business_id: string }; Returns: Json };
   get_inventory_snapshot: { Args: { p_business_id: string }; Returns: Json };
