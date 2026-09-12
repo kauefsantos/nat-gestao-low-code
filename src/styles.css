@@ -14,12 +14,15 @@
 * { box-sizing:border-box; }
 html { background:#F8EEE9; min-height:100%; scroll-padding-bottom:calc(env(safe-area-inset-bottom) + 96px); }
 body { margin:0; min-width:320px; min-height:100vh; min-height:100dvh; background:#F8EEE9; padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); overflow-wrap:anywhere; }
+body > main.min-h-screen { min-height:100dvh; }
 button,input,select,textarea { font:inherit; }
 button { cursor:pointer; }
 button:disabled { cursor:not-allowed; opacity:.45; }
 button,a,summary { touch-action:manipulation; }
 ::selection { background:#F2C5B5; color:#35150A; }
 button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:2px solid #55281B; outline-offset:3px; }
+
+[aria-labelledby="inventory-balance-title"],[aria-labelledby="inventory-production-title"] { max-height:100dvh; overflow-y:auto; overscroll-behavior:contain; }
 
 .app-safe-top { padding-top:env(safe-area-inset-top); }
 .app-safe-nav { padding-left:max(8px,env(safe-area-inset-left)); padding-right:max(8px,env(safe-area-inset-right)); }
