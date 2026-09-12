@@ -65,13 +65,13 @@ export async function loadNatHistoricalState():Promise<{businessId:string;state:
   const operational=await loadNatOperationalState();const sales:Sale[]=[];const expenses:SporadicExpense[]=[];const saleVersions:Record<string,string>={};const expenseVersions:Record<string,string>={};
   let saleCursor:PageCursor|null=null;const seenSaleCursors=new Set<string>();
   for(let page=0;page<1000;page+=1){
-    const result=await supabase.rpc("list_sales_page",{p_business_id:operational.businessId,p_limit:100,p_before_sold_at:saleCursor?.soldAt??null,p_before_id:saleCursor?.id??null});failure("Não foi possível carregar o histórico de vendas",result.error);
+    const result=await supabase.rpc("list_sales_page",{p_business_id:operational.businessId,p_limit:100,p_before_sold_at:saleCursor?.soldAt??undefined,p_before_id:saleCursor?.id??undefined});failure("Não foi possível carregar o histórico de vendas",result.error);
     const payload=(result.data??{}) as unknown as{items?:unknown[];hasMore?:boolean;nextCursor?:PageCursor|null};for(const item of payload.items??[]){const parsed=saleFromPage(item);if(!parsed)continue;sales.push(parsed.sale);if(parsed.updatedAt)saleVersions[parsed.sale.id]=parsed.updatedAt;}
     if(!payload.hasMore||!payload.nextCursor?.soldAt||!payload.nextCursor.id)break;const key=`${payload.nextCursor.soldAt}|${payload.nextCursor.id}`;if(seenSaleCursors.has(key))throw new Error("Cursor repetido ao carregar histórico de vendas.");seenSaleCursors.add(key);saleCursor=payload.nextCursor;
   }
   let expenseCursor:PageCursor|null=null;const seenExpenseCursors=new Set<string>();
   for(let page=0;page<1000;page+=1){
-    const result=await supabase.rpc("list_expenses_page",{p_business_id:operational.businessId,p_limit:100,p_before_spent_at:expenseCursor?.spentAt??null,p_before_id:expenseCursor?.id??null});failure("Não foi possível carregar o histórico de despesas",result.error);
+    const result=await supabase.rpc("list_expenses_page",{p_business_id:operational.businessId,p_limit:100,p_before_spent_at:expenseCursor?.spentAt??undefined,p_before_id:expenseCursor?.id??undefined});failure("Não foi possível carregar o histórico de despesas",result.error);
     const payload=(result.data??{}) as unknown as{items?:Array<Record<string,unknown>>;hasMore?:boolean;nextCursor?:PageCursor|null};for(const row of payload.items??[]){const id=String(row.id??"");expenses.push({id,name:String(row.name??"Despesa"),amount:numberValue(row.amount as number|string|null|undefined),spentAt:String(row.spentAt??businessDate())});if(row.updatedAt!=null)expenseVersions[id]=String(row.updatedAt);}
     if(!payload.hasMore||!payload.nextCursor?.spentAt||!payload.nextCursor.id)break;const key=`${payload.nextCursor.spentAt}|${payload.nextCursor.id}`;if(seenExpenseCursors.has(key))throw new Error("Cursor repetido ao carregar histórico de despesas.");seenExpenseCursors.add(key);expenseCursor=payload.nextCursor;
   }
