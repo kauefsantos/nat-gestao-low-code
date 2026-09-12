@@ -43,9 +43,6 @@ for (const [label, pattern] of [
 
 const sourceFiles = walk("src").filter((file) => /\.(ts|tsx|js|jsx)$/.test(file));
 const source = sourceFiles.map((file) => `${file}\n${read(file)}`).join("\n");
-// TanStack/Lovable may generate explicit *.server.ts helpers that read privileged keys
-// from server environment variables. Those files are not browser code. Keep the strict
-// browser boundary while detecting actual hardcoded secret-key values everywhere.
 const browserSourceFiles = sourceFiles.filter((file) => !file.endsWith(".server.ts"));
 const browserSource = browserSourceFiles.map((file) => `${file}\n${read(file)}`).join("\n");
 for (const forbidden of ["SUPABASE_SERVICE_ROLE_KEY", "service_role"]) {
@@ -73,20 +70,26 @@ if (!resetPassword.includes('event==="PASSWORD_RECOVERY"&&session') || resetPass
   failures.push("Reset de senha só pode ser liberado por evento PASSWORD_RECOVERY, não por sessão genérica.");
 }
 
+// The cron secret is now rotatable in Lovable Cloud/Vault. The dispatcher may create its
+// backend-only client to retrieve that one secret, but must validate it before reading VAPID
+// configuration or processing any delivery. Generic apikey/service-key request auth is forbidden.
 const pushDispatcher = read("supabase/functions/nat-push-dispatch/index.ts");
-const serviceAuth = pushDispatcher.indexOf("if (!(await authorizeServiceRequest(req)))");
 const adminClient = pushDispatcher.indexOf("const admin = createClient");
+const cronSecretLookup = pushDispatcher.indexOf('admin.rpc("get_push_cron_secret")');
+const suppliedSecret = pushDispatcher.indexOf('req.headers.get("x-nat-cron-secret")');
+const secretComparison = pushDispatcher.indexOf("secureEqual(suppliedSecret, expectedSecret)");
 const privilegedConfig = pushDispatcher.indexOf('admin.rpc("get_push_backend_config")');
-if (!pushDispatcher.includes('req.headers.get("apikey")') || serviceAuth < 0 || adminClient < 0 || serviceAuth > adminClient) {
-  failures.push("Push dispatcher precisa autenticar chamada de serviço antes de criar cliente administrativo.");
+if (adminClient < 0 || cronSecretLookup < adminClient || suppliedSecret < cronSecretLookup || secretComparison < suppliedSecret) {
+  failures.push("Push dispatcher precisa buscar o segredo dedicado e validá-lo antes de operações privilegiadas.");
 }
-if (pushDispatcher.includes('req.headers.get("x-nat-cron-secret")')) {
-  if (!pushDispatcher.includes("CRON_SECRET_SHA256") || !pushDispatcher.includes("sha256Hex(suppliedCronSecret)")) {
-    failures.push("Segredo dedicado do cron deve ser validado por hash, sem valor bruto hardcoded.");
-  }
-  if (privilegedConfig >= 0 && (serviceAuth < 0 || privilegedConfig < serviceAuth)) {
-    failures.push("Push dispatcher não pode consultar configuração privilegiada antes de autenticar o cron.");
-  }
+if (privilegedConfig < 0 || privilegedConfig < secretComparison) {
+  failures.push("Push dispatcher não pode consultar configuração VAPID antes de autenticar o cron.");
+}
+if (pushDispatcher.includes('req.headers.get("apikey")') || pushDispatcher.includes("CRON_SECRET_SHA256")) {
+  failures.push("Push dispatcher não pode autenticar cron por service-key genérica nem hash fixo compilado.");
+}
+if (!pushDispatcher.includes("secureEqual") || !pushDispatcher.includes('admin.rpc("get_push_cron_secret")')) {
+  failures.push("Segredo do cron deve vir da fonte segura rotacionável e ser comparado em constant-time.");
 }
 
 const start = read("src/start.ts");
