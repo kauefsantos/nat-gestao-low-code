@@ -1,6 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 import { resilientRequest } from "@/lib/resilient-request";
 
+export type JobHealth = {
+  name: string;
+  lastStartedAt: string | null;
+  lastSucceededAt: string | null;
+  lastFailedAt: string | null;
+  status: string;
+  stale: boolean;
+};
+
 export type IntegrationHealth = {
   generatedAt: string;
   push: {
@@ -10,7 +19,7 @@ export type IntegrationHealth = {
     expired24h: number;
     oldestRetryAt: string | null;
   };
-  jobsObserved: false;
+  jobs: JobHealth[];
   ai: {
     enabled: boolean;
     calls24h: number;
@@ -19,52 +28,44 @@ export type IntegrationHealth = {
   };
 };
 
-function oldest(values: Array<string | null>) {
-  return values.filter((value): value is string => Boolean(value)).sort()[0] ?? null;
+function healthFrom(value: unknown): IntegrationHealth {
+  const row = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const push = row.push && typeof row.push === "object" && !Array.isArray(row.push) ? row.push as Record<string, unknown> : {};
+  const ai = row.ai && typeof row.ai === "object" && !Array.isArray(row.ai) ? row.ai as Record<string, unknown> : {};
+  const jobs = Array.isArray(row.jobs) ? row.jobs : [];
+  return {
+    generatedAt: String(row.generatedAt ?? new Date().toISOString()),
+    push: {
+      sent24h: Number(push.sent24h ?? 0),
+      retrying: Number(push.retrying ?? 0),
+      deadLetter: Number(push.deadLetter ?? 0),
+      expired24h: Number(push.expired24h ?? 0),
+      oldestRetryAt: push.oldestRetryAt == null ? null : String(push.oldestRetryAt),
+    },
+    jobs: jobs.map((item) => {
+      const job = item && typeof item === "object" && !Array.isArray(item) ? item as Record<string, unknown> : {};
+      return {
+        name: String(job.name ?? "job"),
+        lastStartedAt: job.lastStartedAt == null ? null : String(job.lastStartedAt),
+        lastSucceededAt: job.lastSucceededAt == null ? null : String(job.lastSucceededAt),
+        lastFailedAt: job.lastFailedAt == null ? null : String(job.lastFailedAt),
+        status: String(job.status ?? "unknown"),
+        stale: job.stale === true,
+      };
+    }),
+    ai: {
+      enabled: ai.enabled === true,
+      calls24h: Number(ai.calls24h ?? 0),
+      failed24h: Number(ai.failed24h ?? 0),
+      circuitOpenUntil: ai.circuitOpenUntil == null ? null : String(ai.circuitOpenUntil),
+    },
+  };
 }
 
 export async function loadIntegrationHealth(businessId: string): Promise<IntegrationHealth> {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
   return resilientRequest(async () => {
-    const [pushResult, aiLogResult, aiStatusResult] = await Promise.all([
-      supabase
-        .from("notification_delivery_log")
-        .select("status,next_retry_at,sent_at,created_at")
-        .eq("business_id", businessId)
-        .gte("created_at", since),
-      supabase
-        .from("ai_generation_log")
-        .select("status,created_at")
-        .eq("business_id", businessId)
-        .gte("created_at", since),
-      supabase.rpc("content_ai_status", { p_business_id: businessId }),
-    ]);
-
-    if (pushResult.error) throw pushResult.error;
-    if (aiLogResult.error) throw aiLogResult.error;
-    if (aiStatusResult.error) throw aiStatusResult.error;
-
-    const pushRows = pushResult.data ?? [];
-    const aiRows = aiLogResult.data ?? [];
-    const retryRows = pushRows.filter((row) => row.status === "retrying" || Boolean(row.next_retry_at));
-
-    return {
-      generatedAt: new Date().toISOString(),
-      push: {
-        sent24h: pushRows.filter((row) => row.status === "sent" || Boolean(row.sent_at)).length,
-        retrying: retryRows.length,
-        deadLetter: pushRows.filter((row) => row.status === "dead_letter").length,
-        expired24h: pushRows.filter((row) => row.status === "expired").length,
-        oldestRetryAt: oldest(retryRows.map((row) => row.next_retry_at)),
-      },
-      jobsObserved: false as const,
-      ai: {
-        enabled: Boolean(aiStatusResult.data),
-        calls24h: aiRows.length,
-        failed24h: aiRows.filter((row) => row.status === "failed").length,
-        circuitOpenUntil: null,
-      },
-    };
+    const result = await supabase.rpc("get_integration_health", { p_business_id: businessId });
+    if (result.error) throw result.error;
+    return healthFrom(result.data);
   }, { attempts: 2, timeoutMs: 8_000 });
 }
