@@ -8,7 +8,8 @@ test("desempenho: gravação incremental não recarrega todo estado após sucess
   const store=read("src/hooks/use-nat-store.ts");
   assert.match(store,/apply_nat_transition_v3|persistNatTransition/);
   assert.match(store,/if\(result\.inventoryChanged\)setInventoryRevision/);
-  assert.match(store,/loadNatHistoryPageV3\(businessId,historyCursorRef\.current,100\)/);
+  assert.match(store,/loadNatHistoryPage\(businessId,historyCursorRef\.current,100\)/);
+  assert.doesNotMatch(store,/loadNatHistoryPageV3/);
 });
 
 test("desempenho: telas pesadas usam lazy loading e histórico é progressivo",()=>{
