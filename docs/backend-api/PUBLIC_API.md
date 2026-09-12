@@ -1,0 +1,1 @@
+Public client commands after hardening: `apply_nat_transition_v2`, `record_inventory_production_v2`, `set_inventory_balance`, `set_product_availability`, calendar APIs, privacy APIs and read-only snapshot/page APIs.
