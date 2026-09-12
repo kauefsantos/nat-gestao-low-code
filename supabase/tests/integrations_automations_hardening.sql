@@ -22,21 +22,25 @@ insert into public.business_settings(business_id,owner_name,payment_fee_percent)
 insert into public.push_subscriptions(id,business_id,user_id,endpoint,p256dh,auth) values ('cccc0000-0000-4000-8000-000000000001','aaaa0000-0000-4000-8000-000000000001','bbbb0000-0000-4000-8000-000000000001','https://push.example.invalid/test','abcdefghijklmnopqrstuvwxyz0123456789','abcdefghijklmno');
 
 set local role service_role;
-select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001','cccc0000-0000-4000-8000-000000000001','bbbb0000-0000-4000-8000-000000000001','2099-12-31',9,1,120)->>'claimed')::boolean,'first delivery claim wins');
-select ok(not (public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001','cccc0000-0000-4000-8000-000000000001','bbbb0000-0000-4000-8000-000000000001','2099-12-31',9,1,120)->>'claimed')::boolean,'immediate replay is rejected');
+select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001'::uuid,'cccc0000-0000-4000-8000-000000000001'::uuid,'bbbb0000-0000-4000-8000-000000000001'::uuid,'2099-12-31'::date,9::smallint,1,120)->>'claimed')::boolean,'first delivery claim wins');
+select is((
+  select count(*)::bigint
+  from generate_series(1,4)
+  where (public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001'::uuid,'cccc0000-0000-4000-8000-000000000001'::uuid,'bbbb0000-0000-4000-8000-000000000001'::uuid,'2099-12-31'::date,9::smallint,1,120)->>'claimed')::boolean
+),0::bigint,'four competing replays lose; one of five claims wins');
 select is((select count(*)::bigint from public.notification_delivery_log where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-31'),1::bigint,'duplicate claims still create one ledger row');
 
 update public.notification_delivery_log set locked_at=now()-interval '5 minutes' where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-31';
-select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001','cccc0000-0000-4000-8000-000000000001','bbbb0000-0000-4000-8000-000000000001','2099-12-31',9,1,120)->>'claimed')::boolean,'expired processing lease can be reclaimed');
+select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001'::uuid,'cccc0000-0000-4000-8000-000000000001'::uuid,'bbbb0000-0000-4000-8000-000000000001'::uuid,'2099-12-31'::date,9::smallint,1,120)->>'claimed')::boolean,'expired processing lease can be reclaimed');
 select is((select attempt_count from public.notification_delivery_log where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-31'),2,'lease reclaim increments attempt count');
 
 select is((public.fail_push_delivery((select id from public.notification_delivery_log where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-31'),false,503,'TRANSIENT','temporary',1,5)->>'status'),'retry','503 schedules retry');
 select ok((select next_retry_at>now() from public.notification_delivery_log where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-31'),'retry has future next_retry_at');
 update public.notification_delivery_log set next_retry_at=now()-interval '1 second' where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-31';
-select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001','cccc0000-0000-4000-8000-000000000001','bbbb0000-0000-4000-8000-000000000001','2099-12-31',9,1,120)->>'claimed')::boolean,'due retry can be claimed');
+select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001'::uuid,'cccc0000-0000-4000-8000-000000000001'::uuid,'bbbb0000-0000-4000-8000-000000000001'::uuid,'2099-12-31'::date,9::smallint,1,120)->>'claimed')::boolean,'due retry can be claimed');
 select is((public.fail_push_delivery((select id from public.notification_delivery_log where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-31'),false,503,'TRANSIENT','temporary',1,3)->>'status'),'dead_letter','max attempts moves delivery to dead letter');
 
-select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001','cccc0000-0000-4000-8000-000000000001','bbbb0000-0000-4000-8000-000000000001','2099-12-30',12,1,120)->>'claimed')::boolean,'second test delivery claim succeeds');
+select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001'::uuid,'cccc0000-0000-4000-8000-000000000001'::uuid,'bbbb0000-0000-4000-8000-000000000001'::uuid,'2099-12-30'::date,12::smallint,1,120)->>'claimed')::boolean,'second test delivery claim succeeds');
 select is((public.fail_push_delivery((select id from public.notification_delivery_log where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-30'),true,410,'SUBSCRIPTION_EXPIRED','gone',null,5)->>'status'),'expired','410/permanent failure is expired');
 
 select ok(private.is_valid_timezone('America/Sao_Paulo'),'Sao Paulo timezone is valid');
