@@ -5,7 +5,6 @@ import { emptyNatVersions, persistNatTransition, setProductAvailabilityCloud, ty
 import { initialHistoryCursor, type HistoryCursor } from "@/data/nat-operational-v2";
 import { loadNatHistoryPageV3, loadNatOperationalStateV3 } from "@/data/nat-operational-v3";
 import { invalidateFundingSummary } from "@/data/funding-repository";
-import { supabase } from "@/integrations/supabase/client";
 import { classifyApiError } from "@/lib/api-error";
 
 export type NatSyncNotice={tone:"saving"|"saved"|"error";message:string;actionLabel?:string;onAction?:()=>void}|null;
@@ -18,7 +17,7 @@ function mergeVersions(current:NatVersions,incoming:Partial<NatVersions>):NatVer
 function mergeById<T extends{id:string}>(current:T[],incoming:T[]){const map=new Map(current.map((item)=>[item.id,item]));for(const item of incoming)map.set(item.id,item);return[...map.values()];}
 
 export function useNatStore(){
-  const{user}=useAuth();
+  const{user,isAuthenticated,isLoading:authLoading}=useAuth();
   const[state,setState]=useState<NatState>(initialState);const[ready,setReady]=useState(false);const[loadError,setLoadError]=useState<string|null>(null);const[syncNotice,setSyncNotice]=useState<NatSyncNotice>(null);
   const[inventoryRevision,setInventoryRevision]=useState(0);const[fundingRevision,setFundingRevision]=useState(0);const[historyLoaded,setHistoryLoaded]=useState(false);const[historyLoading,setHistoryLoading]=useState(false);
   const stateRef=useRef<NatState>(initialState);const businessIdRef=useRef<string|null>(null);const versionsRef=useRef<NatVersions>(emptyNatVersions());const historyCursorRef=useRef<HistoryCursor>({sale:null,expense:null,salesDone:false,expensesDone:false});const historyPromiseRef=useRef<Promise<void>|null>(null);const writeQueue=useRef<Promise<void>>(Promise.resolve());const writeSequence=useRef(0);const noticeTimer=useRef<number|null>(null);
@@ -39,7 +38,24 @@ export function useNatStore(){
   const clearSyncNotice=useCallback(()=>{if(noticeTimer.current!==null)window.clearTimeout(noticeTimer.current);noticeTimer.current=null;setSyncNotice(null);},[]);
   const showSyncNotice=useCallback((notice:Exclude<NatSyncNotice,null>,autoClear=false)=>{if(noticeTimer.current!==null)window.clearTimeout(noticeTimer.current);setSyncNotice(notice);if(autoClear)noticeTimer.current=window.setTimeout(()=>{noticeTimer.current=null;setSyncNotice(null);},2800);},[]);
 
-  useEffect(()=>{let cancelled=false;async function hydrate(){if(!user){setReady(false);setLoadError(null);businessIdRef.current=null;versionsRef.current=emptyNatVersions();setHistoryLoaded(false);return;}try{setReady(false);setLoadError(null);const assurance=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();if(assurance.error)throw assurance.error;if(assurance.data.currentLevel!=="aal2"){if(typeof window!=="undefined")window.location.replace("/login?mfa=1");return;}const loaded=await loadNatOperationalStateV3();if(cancelled)return;applyLoaded(loaded);setReady(true);}catch(error){devError("[NAT] Falha ao carregar dados protegidos",error);if(!cancelled){setLoadError("Não foi possível carregar os dados da NAT. Confira a conexão e tente novamente.");setReady(true);}}}void hydrate();return()=>{cancelled=true;};},[applyLoaded,user]);
+  useEffect(()=>{
+    let cancelled=false;
+    async function hydrate(){
+      if(authLoading)return;
+      if(!user||!isAuthenticated){setReady(false);setLoadError(null);businessIdRef.current=null;versionsRef.current=emptyNatVersions();setHistoryLoaded(false);return;}
+      try{
+        setReady(false);setLoadError(null);
+        const loaded=await loadNatOperationalStateV3();
+        if(cancelled)return;
+        applyLoaded(loaded);setReady(true);
+      }catch(error){
+        devError("[NAT] Falha ao carregar dados protegidos",error);
+        if(!cancelled){setLoadError("Não foi possível carregar os dados da NAT. Confira a conexão e tente novamente.");setReady(true);}
+      }
+    }
+    void hydrate();
+    return()=>{cancelled=true;};
+  },[applyLoaded,authLoading,isAuthenticated,user]);
   useEffect(()=>()=>{if(noticeTimer.current!==null)window.clearTimeout(noticeTimer.current);},[]);
 
   const handleWriteError=useCallback(async(error:unknown,sequence:number,fallback:string)=>{devError("[NAT] Falha ao persistir alteração",error);const classified=classifyApiError(error);try{if(businessIdRef.current)invalidateFundingSummary(businessIdRef.current);await reloadFromCloud();setInventoryRevision((value)=>value+1);setFundingRevision((value)=>value+1);}catch(reloadError){devError("[NAT] Falha ao recarregar após erro",reloadError);}if(sequence!==writeSequence.current)return;showSyncNotice({tone:"error",message:classified.code==="INTERNAL_ERROR"?fallback:classified.message});},[reloadFromCloud,showSyncNotice]);
