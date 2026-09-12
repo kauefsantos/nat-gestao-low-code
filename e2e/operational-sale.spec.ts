@@ -124,7 +124,7 @@ test("fluxos operacionais persistem após reload",async({page})=>{
 
   // Agenda
   await page.goto("/dashboard?view=calendar");
-  await expect(page.getByRole("heading",{name:"Agenda",exact:true})).toBeVisible({timeout:30_000});
+  await expect(page.locator("h1",{hasText:"Agenda"})).toBeVisible({timeout:30_000});
   await page.getByRole("button",{name:"Novo compromisso"}).click();
   const calendarDialog=page.getByRole("dialog",{name:"Novo compromisso"});
   await expect(calendarDialog).toBeVisible();
