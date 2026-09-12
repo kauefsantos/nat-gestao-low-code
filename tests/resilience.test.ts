@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isTransientError } from "../src/lib/resilient-request.js";
+import { isTransientError,resilientRequest } from "../src/lib/resilient-request.js";
 import { businessDate,businessHour,plusCalendarDay } from "../src/lib/business-time.js";
 
 test("classifica apenas falhas transitórias conhecidas para retry",()=>{
@@ -9,6 +9,22 @@ test("classifica apenas falhas transitórias conhecidas para retry",()=>{
   assert.equal(isTransientError(new Error("429 rate limited")),true);
   assert.equal(isTransientError(new Error("CONFLICT: versão alterada")),false);
   assert.equal(isTransientError(new Error("validation failed")),false);
+});
+
+test("retry reutiliza request id e encerra após sucesso",async()=>{
+  const ids:string[]=[];let calls=0;
+  const result=await resilientRequest(async({requestId})=>{ids.push(requestId);calls+=1;if(calls===1)throw new Error("HTTP 503");return"ok";},{attempts:2,baseDelayMs:1,maxDelayMs:1,timeoutMs:200});
+  assert.equal(result,"ok");assert.equal(calls,2);assert.equal(ids[0],ids[1]);
+});
+
+test("erro não transitório não é repetido",async()=>{
+  let calls=0;
+  await assert.rejects(()=>resilientRequest(async()=>{calls+=1;throw new Error("validation failed");},{attempts:3,baseDelayMs:1,timeoutMs:100}),/validation failed/);
+  assert.equal(calls,1);
+});
+
+test("timeout encerra operação pendente",async()=>{
+  await assert.rejects(()=>resilientRequest(async()=>new Promise<string>(()=>undefined),{attempts:1,timeoutMs:10}),/timed out/i);
 });
 
 test("data do negócio respeita America/Sao_Paulo na virada UTC",()=>{
