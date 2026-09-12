@@ -36,6 +36,22 @@ type SaleExtra = {
   below_cost_override: boolean;
 };
 type FundingExtra = { funding_source: string };
+type AiGenerationLogExtra = {
+  provider_called_at: string | null;
+  provider_attempt_count: number;
+  cost_quota_consumed: boolean;
+};
+type NotificationDeliveryExtra = {
+  status: string;
+  attempt_count: number;
+  provider_status: number | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  next_retry_at: string | null;
+  locked_at: string | null;
+  sent_at: string | null;
+  updated_at: string;
+};
 
 type CustomerMarketingConsentTable = {
   Row: {
@@ -122,17 +138,25 @@ type RuntimeFunctions = {
  * Effective application schema for Lovable Cloud.
  *
  * `src/integrations/supabase/types.ts` remains the last generated snapshot.
- * This overlay contains only fields/RPCs confirmed against the live Lovable Cloud
- * schema (plus branch RPCs exercised by CI) so application code stays type-safe
- * until the generated snapshot can be refreshed by an authorized generator.
+ * This overlay contains fields/RPCs confirmed against Lovable Cloud, plus branch
+ * RPCs exercised by CI, until an authorized generator can refresh the snapshot.
  */
 export type Database = Omit<GeneratedDatabase, "public"> & {
   public: Omit<PublicSchema, "Tables" | "Functions"> & {
     Tables: Omit<
       Tables,
-      "business_settings" | "products" | "sale_items" | "sales" | "sporadic_expenses" | "supply_purchases"
+      | "ai_generation_log"
+      | "business_settings"
+      | "notification_delivery_log"
+      | "products"
+      | "sale_items"
+      | "sales"
+      | "sporadic_expenses"
+      | "supply_purchases"
     > & {
+      ai_generation_log: TableWith<"ai_generation_log", AiGenerationLogExtra>;
       business_settings: TableWith<"business_settings", BusinessSettingsExtra>;
+      notification_delivery_log: TableWith<"notification_delivery_log", NotificationDeliveryExtra>;
       products: TableWith<"products", ProductExtra>;
       sale_items: TableWith<"sale_items", SaleItemExtra>;
       sales: TableWith<"sales", SaleExtra>;
