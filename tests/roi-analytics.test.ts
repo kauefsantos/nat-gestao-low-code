@@ -71,6 +71,18 @@ test("ROI financeiro mensal não conta aporte nem reinvestimento novamente como 
   assert.ok(Math.abs(result.roiPercent-(100/23))<1e-9);
 });
 
+test("ROI mensal usa o mês da NAT em America/Sao_Paulo, não o mês UTC do navegador",()=>{
+  const state=roiState();
+  state.expenses=[];
+  state.settings.monthlyFixedCosts=0;
+  state.sales[0]={...state.sales[0],soldAt:"2026-10-01T01:30:00Z",totalReceived:24,variableFeeSnapshot:0,deliveryCostSnapshot:0};
+  const september=businessRoi(state,new Date("2026-10-01T02:30:00Z"));
+  assert.equal(september.revenue,24);
+  assert.equal(september.investedCost,12);
+  assert.equal(september.netReturn,12);
+  assert.equal(september.roiPercent,100);
+});
+
 test("ROI ignora venda cancelada",()=>{
   const state=roiState();
   state.sales[0]={...state.sales[0],status:"cancelled"};
@@ -83,7 +95,7 @@ test("ROI ignora venda cancelada",()=>{
   assert.equal(result.roiPercent,-100);
 });
 
-test("Financeiro mostra ROI consolidado e Inteligência mantém ROI por sabor",()=>{
+test("Financeiro mostra ROI consolidado, Inteligência mantém ROI por sabor e a UI explica o indicador",()=>{
   const financial=read("src/components/nat/FinancialOverview.tsx");
   const intelligence=read("src/components/nat/IntelligenceWorkbench.tsx");
   const panel=read("src/components/nat/RoiOverview.tsx");
@@ -92,4 +104,6 @@ test("Financeiro mostra ROI consolidado e Inteligência mantém ROI por sabor",(
   assert.match(intelligence,/<RoiOverview state=\{state\}\/>/);
   assert.match(panel,/ROI por sabor/);
   assert.match(panel,/ROI do mês/);
+  assert.match(panel,/symbol="i"/);
+  assert.match(panel,/retorno sobre o investimento/i);
 });
