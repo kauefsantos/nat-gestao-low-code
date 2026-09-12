@@ -50,7 +50,11 @@ export function useNatStore(){
         applyLoaded(loaded);setReady(true);
       }catch(error){
         devError("[NAT] Falha ao carregar dados protegidos",error);
-        if(!cancelled){setLoadError("Não foi possível carregar os dados da NAT. Confira a conexão e tente novamente.");setReady(true);}
+        if(!cancelled){
+          const technical=error instanceof Error?error.message:String(error);
+          setLoadError(import.meta.env.DEV?technical:"Não foi possível carregar os dados da NAT. Confira a conexão e tente novamente.");
+          setReady(true);
+        }
       }
     }
     void hydrate();
