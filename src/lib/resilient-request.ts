@@ -23,9 +23,16 @@ export async function resilientRequest<T>(operation:(context:{attempt:number;sig
   let lastError:unknown;
   for(let attempt=1;attempt<=attempts;attempt+=1){
     const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(new DOMException("Request timed out","TimeoutError")),timeoutMs);
+    let timeout:number|undefined;
+    const deadline=new Promise<never>((_,reject)=>{
+      timeout=window.setTimeout(()=>{
+        const error=new DOMException("Request timed out","TimeoutError");
+        controller.abort(error);
+        reject(error);
+      },timeoutMs);
+    });
     try{
-      return await operation({attempt,signal:controller.signal,requestId});
+      return await Promise.race([operation({attempt,signal:controller.signal,requestId}),deadline]);
     }catch(error){
       lastError=error;
       if(attempt>=attempts||!retryable(error))throw error;
@@ -33,7 +40,7 @@ export async function resilientRequest<T>(operation:(context:{attempt:number;sig
       const jitter=Math.floor(Math.random()*Math.max(50,Math.round(exponential*0.2)));
       await sleep(exponential+jitter);
     }finally{
-      clearTimeout(timeout);
+      if(timeout!==undefined)window.clearTimeout(timeout);
     }
   }
   throw lastError;
