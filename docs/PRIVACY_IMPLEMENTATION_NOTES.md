@@ -1,0 +1,1 @@
+A implementação de privacidade deste projeto é aplicada ao banco PostgreSQL do próprio Lovable Cloud. Os arquivos em `supabase/` representam a camada de migrations/functions usada internamente pelo Lovable Cloud neste projeto e não dependem dos projetos Supabase separados da conta do usuário.
