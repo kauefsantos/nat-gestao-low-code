@@ -31,8 +31,8 @@ export function ConfirmDialog({ title,text,confirmLabel="Confirmar",danger=false
   </div>;
 }
 
-export function HelpTip({label,children}:{label:string;children:ReactNode}){
+export function HelpTip({label,children,symbol="?"}:{label:string;children:ReactNode;symbol?:"?"|"i"}){
   const[open,setOpen]=useState(false);const id=useId();const rootRef=useRef<HTMLSpanElement>(null);
   useEffect(()=>{if(!open)return;const close=(event:MouseEvent)=>{if(!rootRef.current?.contains(event.target as Node))setOpen(false);};const onKey=(event:KeyboardEvent)=>{if(event.key==="Escape")setOpen(false);};document.addEventListener("mousedown",close);document.addEventListener("keydown",onKey);return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("keydown",onKey);};},[open]);
-  return <span ref={rootRef} className="relative inline-block align-middle"><button type="button" className="ml-1 inline-grid h-11 w-11 place-items-center rounded-full border border-[#956454] bg-white text-sm font-black text-cocoa" aria-label={label} aria-expanded={open} aria-controls={id} onClick={()=>setOpen((value)=>!value)}>?</button>{open&&<span id={id} role="note" className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+80px)] z-[80] rounded-2xl border border-[#956454] bg-white p-4 text-left text-sm font-normal leading-6 text-caramel shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:mt-2 sm:w-72">{children}</span>}</span>;
+  return <span ref={rootRef} className="relative inline-block align-middle"><button type="button" className="ml-1 inline-grid h-11 w-11 place-items-center rounded-full border border-[#956454] bg-white text-sm font-black text-cocoa" aria-label={label} aria-expanded={open} aria-controls={id} onClick={()=>setOpen((value)=>!value)}>{symbol}</button>{open&&<span id={id} role="note" className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+80px)] z-[80] rounded-2xl border border-[#956454] bg-white p-4 text-left text-sm font-normal leading-6 text-caramel shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:mt-2 sm:w-72">{children}</span>}</span>;
 }
