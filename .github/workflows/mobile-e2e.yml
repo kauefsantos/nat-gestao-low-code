@@ -21,6 +21,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install accessibility test helper
+        run: npm install --no-save --package-lock=false @axe-core/playwright@4.13.0
       - run: npx playwright install --with-deps chromium firefox webkit
       - name: Start disposable Supabase stack
         run: npx --yes supabase@2.117.0 start -x studio,imgproxy,mailpit,logflare,vector
@@ -32,6 +34,12 @@ jobs:
           source <(npx --yes supabase@2.117.0 status -o env)
           CLIENT_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
           VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$CLIENT_KEY" npm run test:mobile
+      - name: Run public WCAG 2.2 AA Axe checks
+        shell: bash
+        run: |
+          source <(npx --yes supabase@2.117.0 status -o env)
+          CLIENT_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
+          VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$CLIENT_KEY" npx playwright test e2e/accessibility-public.spec.ts --project=desktop-chromium --project=mobile-webkit
 
   authorization-e2e:
     runs-on: ubuntu-latest
