@@ -109,7 +109,7 @@ test("área autenticada permanece utilizável de 320px a desktop",async({page},t
   await expect(newProduct).toBeVisible({timeout:15_000});
   await newProduct.click();
   await page.getByRole("button",{name:"Adicionar"}).click();
-  const supplySelect=page.getByLabel("Insumo 1");
+  const supplySelect=page.getByLabel("Item da receita 1");
   await expect(supplySelect).toBeVisible();
   const supplyBox=await supplySelect.boundingBox();
   expect(supplyBox?.width??0).toBeGreaterThan(200);
