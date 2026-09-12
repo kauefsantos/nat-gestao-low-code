@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(13);
 
 select has_table('public','customer_marketing_consents','consent ledger exists');
 select has_table('public','privacy_request_log','privacy request evidence exists');
