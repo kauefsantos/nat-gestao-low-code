@@ -52,7 +52,6 @@ async function openAuthenticatedSession(page:Page){
     if(await alert.isVisible().catch(()=>false))return `error:${await alert.innerText()}`;
     if(await page.getByRole("heading",{name:"Ative a proteção extra"}).isVisible().catch(()=>false))return "enroll";
     if(await page.getByRole("heading",{name:"Confirme que é você"}).isVisible().catch(()=>false))return "challenge";
-    if(await page.getByRole("heading",{name:"Protegendo seu acesso"}).isVisible().catch(()=>false))return "checking";
     return "pending";
   };
 
