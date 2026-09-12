@@ -15,7 +15,7 @@ test("Edge Function de IA rejeita sessão revogada", () => {
   const source = read("supabase/functions/nat-content-ai/index.ts");
   assert.match(source, /session_id/);
   assert.match(source, /is_active_auth_session_for_user/);
-  assert.match(source, /sessionResult\.data !== true/);
+  assert.match(source, /sessionResult\.data\s*!==\s*true/);
 });
 
 test("hardening de sessão valida auth.sessions no banco", () => {
