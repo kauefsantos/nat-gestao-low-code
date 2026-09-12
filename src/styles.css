@@ -6,7 +6,7 @@
   --color-cocoa: #55281B;
   --color-rose: #EAAC93;
   --color-rose-soft: #F2C5B5;
-  --color-caramel: #855342;
+  --color-caramel: #7A4939;
   --color-soft: #FFF9F6;
 }
 
@@ -38,9 +38,9 @@ article.opacity-55,article.opacity-70 { opacity:1!important; }
 .bg-chocolate { background:#35150A; }
 .bg-cream { background:#F8EEE9; }
 .text-chocolate { color:#35150A; }
-.text-caramel { color:#855342; }
+.text-caramel { color:#7A4939; }
 .text-rose { color:#EAAC93; }
-.eyebrow { color:#855342; font-size:12px; line-height:1.4; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+.eyebrow { color:#7A4939; font-size:12px; line-height:1.4; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
 .section-title { margin-top:4px; font-family:"GFS Didot", Georgia, serif; font-size:30px; line-height:1.1; }
 .nat-card { border:1px solid #E8D5CD; border-radius:28px; background:#FFF9F6; padding:20px; box-shadow:0 10px 30px rgba(53,21,10,.04); }
 .metric-card { border:1px solid #E8D5CD; border-radius:24px; background:#FFF9F6; padding:18px; }
@@ -50,16 +50,16 @@ article.opacity-55,article.opacity-70 { opacity:1!important; }
 .secondary-button { display:inline-flex; min-height:46px; align-items:center; justify-content:center; gap:8px; border:1px solid #956454; border-radius:16px; background:#FFF; color:#35150A; padding:0 18px; font-size:15px; font-weight:900; text-decoration:none; }
 .text-button { display:inline-flex; min-height:44px; align-items:center; justify-content:center; gap:4px; border:0; background:transparent; color:#55281B; font-size:14px; font-weight:900; }
 .icon-button { display:grid; height:44px; width:44px; place-items:center; border:0; border-radius:14px; background:transparent; color:#55281B; }
-.side-button { display:flex; width:100%; align-items:center; gap:10px; border:0; border-radius:14px; background:transparent; color:#855342; padding:12px 14px; font-size:15px; font-weight:900; }
+.side-button { display:flex; width:100%; align-items:center; gap:10px; border:0; border-radius:14px; background:transparent; color:#7A4939; padding:12px 14px; font-size:15px; font-weight:900; }
 .side-button.active { background:#FFF9F6; color:#35150A; box-shadow:0 5px 16px rgba(53,21,10,.04); }
-.mobile-nav-button { display:flex; min-width:58px; min-height:44px; flex-direction:column; align-items:center; justify-content:center; gap:4px; border:0; background:transparent; color:#855342; padding:5px 4px; font-size:12px; line-height:1.2; font-weight:900; }
+.mobile-nav-button { display:flex; min-width:58px; min-height:44px; flex-direction:column; align-items:center; justify-content:center; gap:4px; border:0; background:transparent; color:#7A4939; padding:5px 4px; font-size:12px; line-height:1.2; font-weight:900; }
 .mobile-nav-button.active { color:#35150A; }
-.tab-button { min-height:44px; border:0; border-radius:13px; background:transparent; color:#855342; padding:9px 13px; font-size:14px; font-weight:900; }
+.tab-button { min-height:44px; border:0; border-radius:13px; background:transparent; color:#7A4939; padding:9px 13px; font-size:14px; font-weight:900; }
 .tab-button.active { background:#35150A; color:white; }
 .choice-button { min-height:46px; border:1px solid #956454; border-radius:14px; background:white; color:#55281B; padding:0 10px; font-size:14px; font-weight:900; }
 .choice-button.active { border-color:#55281B; background:#F2C5B5; color:#35150A; }
 .field-label { display:block; margin-bottom:7px; color:#55281B; font-size:14px; line-height:1.4; font-weight:900; }
-.field-help { margin-top:6px; color:#855342; font-size:14px; line-height:1.5; }
+.field-help { margin-top:6px; color:#7A4939; font-size:14px; line-height:1.5; }
 .nat-input { width:100%; min-width:0; min-height:48px; border:1px solid #956454; border-radius:15px; outline:none; background:white; color:#35150A; padding:10px 13px; font-size:16px; line-height:1.4; scroll-margin-block:24px 140px; }
 .nat-input:focus { border-color:#55281B; box-shadow:0 0 0 4px rgba(85,40,27,.16); }
 .nat-input[aria-invalid="true"] { border-color:#B91C1C; box-shadow:0 0 0 2px rgba(185,28,28,.12); }
