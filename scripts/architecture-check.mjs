@@ -29,6 +29,9 @@ for(const file of files){
   if(path.startsWith("src/data/")&&hasImport(text,/from\s+["']@\/(?:hooks|components|app|routes)\//)){
     violations.push(`${path}: camada data não pode depender de hooks ou UI.`);
   }
+  if(path.startsWith("src/hooks/")&&hasImport(text,/from\s+["']@\/(?:components|app|routes)\//)){
+    violations.push(`${path}: hook não deve depender de componente/rota; mova tipos compartilhados para domínio ou src/types.`);
+  }
   if((path.startsWith("src/components/")||path.startsWith("src/app/")||path.startsWith("src/routes/"))&&text.includes("@/integrations/supabase/client")){
     violations.push(`${path}: UI/rota não deve acessar o cliente do Lovable Cloud diretamente; use src/data.`);
   }
