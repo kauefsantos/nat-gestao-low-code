@@ -2,7 +2,7 @@ import { useCallback, useRef } from "react";
 import { id, type Customer, type NatState, type OwnerCashMovement, type Product } from "@/domain/nat";
 import type { PersistContext } from "@/data/nat-repository";
 import type { NatWriteSuccess } from "@/hooks/use-nat-store";
-import type { AppNotice } from "@/components/nat/Feedback";
+import type { AppNotice } from "@/types/app-notice";
 
 type UpdateState=(recipe:(current:NatState)=>NatState,success?:NatWriteSuccess,context?:PersistContext)=>void;
 
