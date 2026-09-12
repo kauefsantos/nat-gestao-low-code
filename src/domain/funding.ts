@@ -15,6 +15,8 @@ export type FundingSummary = {
   monthOwnerFundedOutflows:number;
   monthBusinessReinvestment:number;
   fixedCostFundingSource:FundingSource;
+  supplyFunding:Record<string,FundingSource>;
+  expenseFunding:Record<string,FundingSource>;
 };
 
 export const emptyFundingSummary = ():FundingSummary => ({
@@ -27,4 +29,6 @@ export const emptyFundingSummary = ():FundingSummary => ({
   monthOwnerFundedOutflows:0,
   monthBusinessReinvestment:0,
   fixedCostFundingSource:"owner",
+  supplyFunding:{},
+  expenseFunding:{},
 });
