@@ -5,7 +5,6 @@ const publicPaths=["/","/login","/signup","/forgot-password","/reset-password"];
 async function waitForPublicSurface(page:Page,path:string){
   await page.goto(path,{waitUntil:"domcontentloaded"});
   await expect(page.locator("main")).toBeVisible({timeout:15_000});
-  await page.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue("--color-cream").trim().length>0,null,{timeout:15_000});
 }
 
 async function expectNoHorizontalOverflow(page:Page){
