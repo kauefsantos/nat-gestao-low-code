@@ -47,7 +47,8 @@ for (const [label, pattern] of [["Supabase secret key", /sb_secret_[A-Za-z0-9_-]
 const login = read("src/routes/login.tsx");
 if (!login.includes("new URL(target, window.location.origin)") || !login.includes("destination.origin !== window.location.origin") || !login.includes('target.includes("\\\\")')) failures.push("Redirect pós-login precisa validar origem e rejeitar backslashes.");
 const resetPassword = read("src/routes/reset-password.tsx");
-if (!resetPassword.includes('event==="PASSWORD_RECOVERY"&&session') || resetPassword.includes("supabase.auth.getSession().then")) failures.push("Reset de senha só pode ser liberado por evento PASSWORD_RECOVERY, não por sessão genérica.");
+const authRepository = read("src/data/auth-repository.ts");
+if (!resetPassword.includes("onPasswordRecovery") || resetPassword.includes("hasActiveSession") || !authRepository.includes('event==="PASSWORD_RECOVERY"&&session')) failures.push("Reset de senha só pode ser liberado por evento PASSWORD_RECOVERY, não por sessão genérica.");
 
 const pushDispatcher = read("supabase/functions/nat-push-dispatch/index.ts");
 const serviceAuth = pushDispatcher.search(/if\s*\(\s*!\(await\s+authorizeServiceRequest\(req\)\)\s*\)/);
