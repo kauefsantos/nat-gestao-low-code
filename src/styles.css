@@ -59,7 +59,11 @@ button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,s
 .nat-input { width:100%; min-width:0; min-height:48px; border:1px solid #D9C2B9; border-radius:15px; outline:none; background:white; color:#35150A; padding:10px 13px; font-size:14px; scroll-margin-block:24px 140px; }
 .nat-input:focus { border-color:#EAAC93; box-shadow:0 0 0 4px rgba(234,172,147,.18); }
 
-@media (pointer:coarse){.nat-input{font-size:16px;}}
+@media (pointer:coarse){
+  .nat-input{font-size:16px;}
+  button,summary{min-height:44px;}
+  summary{min-width:44px;}
+}
 @media (hover:hover) and (pointer:fine){
   .primary-button:hover { background:#55281B; transform:translateY(-1px); }
   .secondary-button:hover { border-color:#EAAC93; background:#FFF9F6; }
