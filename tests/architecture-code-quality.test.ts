@@ -11,15 +11,32 @@ test("arquitetura: loader operacional legado duplicado foi removido",()=>{
   assert.match(store,/loadNatHistoryPageV3/);
 });
 
-test("arquitetura: Inteligência acessa compras pela camada data",()=>{
-  const view=read("src/components/nat/IntelligenceView.tsx");
-  const repository=read("src/data/intelligence-repository.ts");
-  assert.doesNotMatch(view,/@\/integrations\/supabase\/client/);
-  assert.match(view,/loadSupplyPurchaseInsights/);
-  assert.match(repository,/supply_purchases/);
+test("arquitetura: telas usam adaptadores sem acessar Lovable Cloud diretamente",()=>{
+  const cases:[string,string][]=[
+    ["src/components/nat/IntelligenceView.tsx","loadSupplyPurchaseInsights"],
+    ["src/components/nat/SaleOrderSheet.tsx","quoteSale"],
+    ["src/components/nat/IntegrationHealthPanel.tsx","loadIntegrationHealth"],
+    ["src/components/nat/CustomersView.tsx","loadLatestCustomerConsent"],
+    ["src/components/nat/ContentStudio.tsx","loadContentAiStatus"],
+  ];
+  for(const [path,adapter] of cases){
+    const source=read(path);
+    assert.doesNotMatch(source,/@\/integrations\/supabase\/client/,`${path} não deve conhecer o cliente de infraestrutura`);
+    assert.match(source,new RegExp(adapter),`${path} deve usar ${adapter}`);
+  }
+  assert.doesNotMatch(read("src/app/NatApp.tsx"),/@\/integrations\/supabase\/client/);
 });
 
-test("arquitetura: CI possui gate explícito de boundaries",()=>{
+test("arquitetura: domínio NAT foi dividido mantendo fachada pública",()=>{
+  const facade=read("src/domain/nat.ts");
+  for(const module of ["types","format","pricing","finance","customers","analytics","sales"]){
+    assert.equal(existsSync(`src/domain/${module}.ts`),true);
+    assert.match(facade,new RegExp(`export \\* from \\\"\\./${module}\\.js\\\"`));
+  }
+  assert.doesNotMatch(facade,/\bfunction\s+/);
+});
+
+test("arquitetura: CI possui gate estrito de boundaries",()=>{
   const pkg=JSON.parse(read("package.json")) as {scripts:Record<string,string>};
   const ci=read(".github/workflows/ci.yml");
   const gate=read("scripts/architecture-check.mjs");
@@ -27,7 +44,19 @@ test("arquitetura: CI possui gate explícito de boundaries",()=>{
   assert.match(ci,/Check architecture boundaries/);
   assert.match(gate,/src\/domain\//);
   assert.match(gate,/src\/data\//);
-  assert.match(gate,/componentIntegrationExceptions/);
+  assert.doesNotMatch(gate,/componentIntegrationExceptions/);
+  assert.match(gate,/sem exceções de UI para Lovable Cloud/);
+});
+
+test("arquitetura: schema efetivo documenta drift do Lovable Cloud sem editar snapshot gerado",()=>{
+  const effective=read("src/integrations/lovable-cloud/database.ts");
+  const client=read("src/integrations/supabase/client.ts");
+  assert.match(effective,/timezone/);
+  assert.match(effective,/funding_source/);
+  assert.match(effective,/quote_sale_v1/);
+  assert.match(effective,/get_financial_funding_snapshot/);
+  assert.match(client,/@\/integrations\/lovable-cloud\/database/);
+  assert.match(client,/Lovable Cloud não está configurado/);
 });
 
 test("arquitetura: ROI usa fuso de negócio e oferece ajuda contextual",()=>{
