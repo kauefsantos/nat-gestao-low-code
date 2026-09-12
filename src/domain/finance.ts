@@ -32,14 +32,16 @@ function monthExpenses(expenses: SporadicExpense[], now = new Date()) {
 
 function monthOwnerCashMovements(movements: OwnerCashMovement[], now = new Date()) {
   const monthKey = businessMonthKey(now);
-  return movements.filter((movement) => movement.occurredAt.slice(0, 7) === monthKey);
+  return movements.filter((movement) => movement.movementType !== "initial_capital" && movement.occurredAt.slice(0, 7) === monthKey);
 }
 
 export function dashboardNumbers(state: NatState) {
   const movements = monthSales(state.sales);
   const commercialSales = movements.filter((sale) => (sale.transactionType ?? "sale") === "sale");
   const expenses = monthExpenses(state.expenses);
-  const ownerCash = monthOwnerCashMovements(state.ownerCashMovements ?? []);
+  const allOwnerCash = state.ownerCashMovements ?? [];
+  const ownerCash = monthOwnerCashMovements(allOwnerCash);
+  const initialCapital = allOwnerCash.filter((movement) => movement.movementType === "initial_capital").reduce((sum, movement) => sum + movement.amount, 0);
   const ownerContributions = ownerCash.filter((movement) => movement.movementType === "contribution").reduce((sum, movement) => sum + movement.amount, 0);
   const ownerWithdrawals = ownerCash.filter((movement) => movement.movementType === "withdrawal").reduce((sum, movement) => sum + movement.amount, 0);
   const revenue = commercialSales.reduce((sum, sale) => sum + saleValue(sale), 0);
@@ -51,6 +53,8 @@ export function dashboardNumbers(state: NatState) {
   const sporadicExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const resultBeforeOwner = contribution + ownerRemuneration - state.settings.monthlyFixedCosts - sporadicExpenses;
   const estimatedResult = contribution - state.settings.monthlyFixedCosts - sporadicExpenses;
+  // Monthly cash flow deliberately excludes startup capital. Initial capital is a
+  // balance-origin item, not a recurring inflow of the current month.
   const cashIn = receivedCash + ownerContributions;
   const cashOut = (state.purchaseCashOut ?? 0) + sporadicExpenses + state.settings.monthlyFixedCosts + ownerWithdrawals;
   const cashAvailable = cashIn - cashOut;
@@ -71,6 +75,7 @@ export function dashboardNumbers(state: NatState) {
     movements,
     expenses,
     ownerCash,
+    initialCapital,
     revenue,
     receivedCash,
     receivables,

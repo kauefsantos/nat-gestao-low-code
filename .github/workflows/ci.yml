@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,7 +16,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -44,6 +45,30 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Audit complete dependency tree for high or critical issues
         run: npm audit --audit-level=high
+      - name: Require successful Mobile E2E for pull requests
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          for attempt in $(seq 1 80); do
+            RESULT="$(gh run list --workflow 'Mobile E2E' --commit "$HEAD_SHA" --event pull_request --limit 5 --json status,conclusion,databaseId --jq 'sort_by(.databaseId) | last // {}')"
+            STATUS="$(jq -r '.status // "missing"' <<<"$RESULT")"
+            CONCLUSION="$(jq -r '.conclusion // ""' <<<"$RESULT")"
+            if [ "$STATUS" = "completed" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "Mobile E2E concluído com sucesso."
+                exit 0
+              fi
+              echo "Mobile E2E terminou com conclusão: $CONCLUSION"
+              exit 1
+            fi
+            echo "Aguardando Mobile E2E ($STATUS), tentativa $attempt/80..."
+            sleep 10
+          done
+          echo "Mobile E2E não concluiu dentro do tempo esperado."
+          exit 1
 
   database-security:
     runs-on: ubuntu-latest

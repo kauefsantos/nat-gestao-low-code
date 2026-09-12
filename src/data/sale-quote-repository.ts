@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/lovable-cloud/database";
 import type { PaymentMethod, TransactionType } from "@/domain/nat";
 
+export type SaleMarginStatus = "below_cost" | "below_minimum" | "below_target" | "healthy" | "not_applicable";
+
 export type SaleQuote = {
   listTotal: number;
   totalCost: number;
@@ -11,10 +13,19 @@ export type SaleQuote = {
   contribution: number;
   marginPercent: number;
   belowCost: boolean;
+  minimumRequiredValue: number;
+  recommendedRequiredValue: number;
+  minimumMarginPercent: number;
+  targetMarginPercent: number;
+  marginStatus: SaleMarginStatus;
 };
 
 function quoteFrom(value: unknown): SaleQuote {
   const row = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const status = String(row.marginStatus ?? (row.belowCost === true ? "below_cost" : "healthy"));
+  const marginStatus: SaleMarginStatus = ["below_cost","below_minimum","below_target","healthy","not_applicable"].includes(status)
+    ? status as SaleMarginStatus
+    : "healthy";
   return {
     listTotal: Number(row.listTotal ?? 0),
     totalCost: Number(row.totalCost ?? 0),
@@ -24,6 +35,11 @@ function quoteFrom(value: unknown): SaleQuote {
     contribution: Number(row.contribution ?? 0),
     marginPercent: Number(row.marginPercent ?? 0),
     belowCost: row.belowCost === true,
+    minimumRequiredValue: Number(row.minimumRequiredValue ?? 0),
+    recommendedRequiredValue: Number(row.recommendedRequiredValue ?? 0),
+    minimumMarginPercent: Number(row.minimumMarginPercent ?? 0),
+    targetMarginPercent: Number(row.targetMarginPercent ?? 0),
+    marginStatus,
   };
 }
 

@@ -7,7 +7,7 @@ export type PaymentStatus = "paid" | "pending";
 export type CustomerCreditStatus = "normal" | "critical";
 export type SaleStatus = "completed" | "cancelled";
 export type TransactionType = "sale" | "courtesy" | "personal_consumption" | "loss";
-export type OwnerCashMovementType = "contribution" | "withdrawal";
+export type OwnerCashMovementType = "initial_capital" | "contribution" | "withdrawal";
 export type SaleChannel = "whatsapp" | "instagram" | "street" | "referral" | "in_person" | "other";
 
 export type Supply = {
@@ -74,6 +74,7 @@ export type Sale = {
   deliveryCostSnapshot?: number;
   discountReason?: string | null;
   belowCostOverride?: boolean;
+  marginOverride?: boolean;
   quantity: number;
   /** Cash effectively received. Pending receivables keep this at zero until settlement. */
   totalReceived: number;
@@ -169,5 +170,9 @@ export const initialState: NatState = {
 export const unitLabel: Record<Unit, string> = { g: "g", kg: "kg", ml: "ml", l: "L", unit: "un" };
 export const paymentLabel: Record<PaymentMethod, string> = { pix: "Pix", cash: "Dinheiro", card: "Cartão", other: "Outro" };
 export const transactionTypeLabel: Record<TransactionType, string> = { sale: "Venda", courtesy: "Cortesia", personal_consumption: "Consumo próprio", loss: "Perda" };
-export const ownerCashMovementLabel: Record<OwnerCashMovementType, string> = { contribution: "Dinheiro colocado no negócio", withdrawal: "Retirada dos donos" };
+export const ownerCashMovementLabel: Record<OwnerCashMovementType, string> = {
+  initial_capital: "Capital inicial",
+  contribution: "Novo aporte dos donos",
+  withdrawal: "Retirada dos donos",
+};
 export const saleChannelLabel: Record<SaleChannel, string> = { whatsapp: "WhatsApp", instagram: "Instagram", street: "Rua", referral: "Indicação", in_person: "Presencial", other: "Não informado" };

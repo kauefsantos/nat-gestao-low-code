@@ -6,6 +6,7 @@ export const fundingSourceLabel: Record<FundingSource,string> = {
 };
 
 export type FundingSummary = {
+  initialCapital:number;
   ownerContributions:number;
   ownerWithdrawals:number;
   ownerFundedOutflows:number;
@@ -20,6 +21,7 @@ export type FundingSummary = {
 };
 
 export const emptyFundingSummary = ():FundingSummary => ({
+  initialCapital:0,
   ownerContributions:0,
   ownerWithdrawals:0,
   ownerFundedOutflows:0,

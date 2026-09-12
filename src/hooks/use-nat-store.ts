@@ -2,15 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { initialState, type NatState } from "@/domain/nat";
 import { useAuth } from "@/hooks/use-auth";
 import { emptyNatVersions, persistNatTransition, setProductAvailabilityCloud, type NatVersions, type PersistContext } from "@/data/nat-repository";
-import { initialHistoryCursor, type HistoryCursor } from "@/data/nat-operational-v2";
-import { loadNatHistoryPageV3, loadNatOperationalStateV3 } from "@/data/nat-operational-v3";
+import { initialHistoryCursor, loadNatHistoryPage, loadNatOperationalState, type HistoryCursor } from "@/data/nat-operational";
 import { invalidateFundingSummary } from "@/data/funding-repository";
 import { classifyApiError } from "@/lib/api-error";
 
 export type NatSyncNotice={tone:"saving"|"saved"|"error";message:string;actionLabel?:string;onAction?:()=>void}|null;
 export type NatWriteSuccess={message?:string;actionLabel?:string;onAction?:()=>void};
 const devError=(message:string,error?:unknown)=>{if(import.meta.env.DEV)console.error(message,error);};
-type LoadedState=Awaited<ReturnType<typeof loadNatOperationalStateV3>>;
+type LoadedState=Awaited<ReturnType<typeof loadNatOperationalState>>;
 
 function mergeVersionMap(current:Record<string,string>,incoming:Record<string,string>|undefined){return{...current,...(incoming??{})};}
 function mergeVersions(current:NatVersions,incoming:Partial<NatVersions>):NatVersions{return{settings:incoming.settings===undefined?current.settings:incoming.settings,supplies:mergeVersionMap(current.supplies,incoming.supplies),products:mergeVersionMap(current.products,incoming.products),sales:mergeVersionMap(current.sales,incoming.sales),expenses:mergeVersionMap(current.expenses,incoming.expenses)};}
@@ -24,13 +23,13 @@ export function useNatStore(){
 
   const applyState=useCallback((next:NatState)=>{stateRef.current=next;setState(next);},[]);
   const applyLoaded=useCallback((loaded:LoadedState)=>{businessIdRef.current=loaded.businessId;versionsRef.current=loaded.versions;applyState(loaded.state);historyCursorRef.current=initialHistoryCursor(loaded.state);setHistoryLoaded(false);setLoadError(null);},[applyState]);
-  const reloadFromCloud=useCallback(async()=>{const loaded=await loadNatOperationalStateV3();applyLoaded(loaded);setReady(true);},[applyLoaded]);
+  const reloadFromCloud=useCallback(async()=>{const loaded=await loadNatOperationalState();applyLoaded(loaded);setReady(true);},[applyLoaded]);
 
   const loadMoreHistory=useCallback(async()=>{
     const businessId=businessIdRef.current;if(!businessId||historyLoaded)return;
     if(historyPromiseRef.current)return historyPromiseRef.current;
     setHistoryLoading(true);
-    historyPromiseRef.current=(async()=>{const page=await loadNatHistoryPageV3(businessId,historyCursorRef.current,100);historyCursorRef.current=page.cursor;versionsRef.current={...versionsRef.current,sales:mergeVersionMap(versionsRef.current.sales,page.saleVersions),expenses:mergeVersionMap(versionsRef.current.expenses,page.expenseVersions)};const next:NatState={...stateRef.current,sales:mergeById(stateRef.current.sales,page.sales).sort((a,b)=>+new Date(b.soldAt)-+new Date(a.soldAt)),expenses:mergeById(stateRef.current.expenses,page.expenses).sort((a,b)=>b.spentAt.localeCompare(a.spentAt))};applyState(next);const done=page.cursor.salesDone&&page.cursor.expensesDone;setHistoryLoaded(done);})().finally(()=>{historyPromiseRef.current=null;setHistoryLoading(false);});
+    historyPromiseRef.current=(async()=>{const page=await loadNatHistoryPage(businessId,historyCursorRef.current,100);historyCursorRef.current=page.cursor;versionsRef.current={...versionsRef.current,sales:mergeVersionMap(versionsRef.current.sales,page.saleVersions),expenses:mergeVersionMap(versionsRef.current.expenses,page.expenseVersions)};const next:NatState={...stateRef.current,sales:mergeById(stateRef.current.sales,page.sales).sort((a,b)=>+new Date(b.soldAt)-+new Date(a.soldAt)),expenses:mergeById(stateRef.current.expenses,page.expenses).sort((a,b)=>b.spentAt.localeCompare(a.spentAt))};applyState(next);const done=page.cursor.salesDone&&page.cursor.expensesDone;setHistoryLoaded(done);})().finally(()=>{historyPromiseRef.current=null;setHistoryLoading(false);});
     return historyPromiseRef.current;
   },[applyState,historyLoaded]);
   const ensureFullHistory=loadMoreHistory;
@@ -45,7 +44,7 @@ export function useNatStore(){
       if(!user||!isAuthenticated){setReady(false);setLoadError(null);businessIdRef.current=null;versionsRef.current=emptyNatVersions();setHistoryLoaded(false);return;}
       try{
         setReady(false);setLoadError(null);
-        const loaded=await loadNatOperationalStateV3();
+        const loaded=await loadNatOperationalState();
         if(cancelled)return;
         applyLoaded(loaded);setReady(true);
       }catch(error){
