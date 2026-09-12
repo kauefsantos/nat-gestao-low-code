@@ -92,7 +92,7 @@ test("área autenticada permanece utilizável de 320px a desktop",async({page})=
   await expectNoHorizontalOverflow(page);
   await page.getByRole("button",{name:"Fechar"}).click();
 
-  for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:1440,height:900}]){
+  for(const viewport of [{width:390,height:844},{width:844,height:390},{width:768,height:1024},{width:1440,height:900}]){
     await page.setViewportSize(viewport);
     for(const view of ["home","products","intelligence"]){
       await page.goto(`/dashboard?view=${view}`);
@@ -100,6 +100,14 @@ test("área autenticada permanece utilizável de 320px a desktop",async({page})=
       await expectNoHorizontalOverflow(page);
     }
   }
+
+  await page.setViewportSize({width:844,height:390});
+  await page.goto("/dashboard?view=home");
+  await page.getByRole("button",{name:"Mais"}).click();
+  const landscapeMore=page.getByRole("dialog",{name:"Mais opções"});
+  const landscapeBox=await landscapeMore.boundingBox();
+  expect((landscapeBox?.y??0)+(landscapeBox?.height??0)).toBeLessThanOrEqual(391);
+  await page.getByRole("button",{name:"Fechar menu"}).click();
 
   await page.setViewportSize({width:768,height:1024});
   await page.goto("/dashboard?view=products");
@@ -112,6 +120,6 @@ test("área autenticada permanece utilizável de 320px a desktop",async({page})=
   await page.setViewportSize({width:1440,height:900});
   await page.goto("/dashboard?view=home");
   await expect(page.locator("aside")).toBeVisible();
-  await expect(page.locator('nav[aria-label="Navegação principal"]').last()).toBeVisible();
+  await expect(page.locator('aside nav[aria-label="Navegação principal"]')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
