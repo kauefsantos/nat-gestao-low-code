@@ -79,7 +79,7 @@ begin
   v_change_reason := nullif(left(btrim(coalesce(current_setting('app.audit_reason',true),'')),500),'');
   v_app_version := nullif(left(btrim(coalesce(current_setting('app.app_version',true),'')),80),'');
   v_actor_type := nullif(btrim(coalesce(current_setting('app.audit_actor_type',true),'')),'');
-  if v_actor_type not in ('user','system','service') then
+  if v_actor_type is null or v_actor_type not in ('user','system','service') then
     v_actor_type := case when auth.uid() is null then 'system' else 'user' end;
   end if;
 
