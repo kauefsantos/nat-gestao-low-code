@@ -13,6 +13,7 @@ type SaleRow=Database["public"]["Tables"]["sales"]["Row"]&{customer_id?:string|n
 type SaleItemRow=Database["public"]["Tables"]["sale_items"]["Row"]&{labor_cost_snapshot?:number|string|null};
 type ExpenseRow=Database["public"]["Tables"]["sporadic_expenses"]["Row"];
 type PurchaseSnapshot={supplyId:string;packageQuantity:number|string;packageUnit:Unit;packagePrice:number|string;purchasedAt:string};
+type PageCursor={soldAt?:string;spentAt?:string;id:string};
 
 const numberValue=(value:number|string|null|undefined)=>Number.isFinite(Number(value))?Number(value):0;
 const rows=<T>(value:unknown):T[]=>Array.isArray(value)?value as T[]:[];
@@ -51,4 +52,28 @@ export async function loadNatOperationalState():Promise<{businessId:string;state
   const customers=rows<unknown>(customersResult.data).map(customerFrom);const ownerCashMovements=rows<unknown>(ownerCashResult.data).map(ownerCashMovementFrom);
   const versions:NatVersions={...emptyNatVersions(),settings:settingsRow?.updated_at??null,supplies:Object.fromEntries(allSupplies.map((row)=>[row.id,row.updated_at])),products:Object.fromEntries(allProductRows.map((row)=>[row.id,row.updated_at])),sales:Object.fromEntries(saleRows.map((row)=>[row.id,row.updated_at])),expenses:Object.fromEntries(expenseRows.map((row)=>[row.id,row.updated_at]))};
   return{businessId,state:{version:6,supplies,products,customers,sales,expenses,ownerCashMovements,settings,purchaseCashOut},versions};
+}
+
+function saleFromPage(value:unknown):{sale:Sale;updatedAt:string|null}|null{
+  const row=(value&&typeof value==="object"?value:{}) as Record<string,unknown>;const rawItems=rows<Record<string,unknown>>(row.items);if(!rawItems.length)return null;
+  const items:SaleLine[]=rawItems.map((item)=>({id:String(item.id??""),productId:String(item.productId??""),productName:String(item.productName??"Produto"),portfolioKey:item.portfolioKey==null?null:String(item.portfolioKey),quantity:numberValue(item.quantity as number|string|null|undefined),unitCostSnapshot:numberValue(item.unitCostSnapshot as number|string|null|undefined),laborCostSnapshot:numberValue(item.laborCostSnapshot as number|string|null|undefined),unitPriceSnapshot:numberValue(item.unitPriceSnapshot as number|string|null|undefined)}));
+  const quantity=items.reduce((sum,item)=>sum+item.quantity,0);const totalCost=items.reduce((sum,item)=>sum+item.unitCostSnapshot*item.quantity,0);const first=items[0];
+  return{updatedAt:row.updatedAt==null?null:String(row.updatedAt),sale:{id:String(row.id??""),productId:first.productId,productName:items.length===1?first.productName:`${items.length} produtos`,portfolioKey:items.length===1?first.portfolioKey??null:null,customerId:row.customerId==null?null:String(row.customerId),transactionType:(row.transactionType??"sale") as TransactionType,saleChannel:(row.saleChannel??"other") as SaleChannel,deliveryCostSnapshot:numberValue(row.deliveryCostSnapshot as number|string|null|undefined),discountReason:row.discountReason==null?null:String(row.discountReason),belowCostOverride:Boolean(row.belowCostOverride),quantity,totalReceived:numberValue(row.totalReceived as number|string|null|undefined),paymentMethod:(row.paymentMethod??"other") as PaymentMethod,soldAt:String(row.soldAt??new Date().toISOString()),unitCostSnapshot:quantity>0?totalCost/quantity:0,variableFeeSnapshot:numberValue(row.variableFeeSnapshot as number|string|null|undefined),contributionSnapshot:numberValue(row.contributionSnapshot as number|string|null|undefined),items,status:(row.status??"completed") as SaleStatus,cancelledAt:row.cancelledAt==null?null:String(row.cancelledAt),cancelReason:row.cancelReason==null?null:String(row.cancelReason)}};
+}
+
+export async function loadNatHistoricalState():Promise<{businessId:string;state:NatState;versions:NatVersions}>{
+  const operational=await loadNatOperationalState();const sales:Sale[]=[];const expenses:SporadicExpense[]=[];const saleVersions:Record<string,string>={};const expenseVersions:Record<string,string>={};
+  let saleCursor:PageCursor|null=null;const seenSaleCursors=new Set<string>();
+  for(let page=0;page<1000;page+=1){
+    const result=await supabase.rpc("list_sales_page",{p_business_id:operational.businessId,p_limit:100,p_before_sold_at:saleCursor?.soldAt??null,p_before_id:saleCursor?.id??null});failure("Não foi possível carregar o histórico de vendas",result.error);
+    const payload=(result.data??{}) as unknown as{items?:unknown[];hasMore?:boolean;nextCursor?:PageCursor|null};for(const item of payload.items??[]){const parsed=saleFromPage(item);if(!parsed)continue;sales.push(parsed.sale);if(parsed.updatedAt)saleVersions[parsed.sale.id]=parsed.updatedAt;}
+    if(!payload.hasMore||!payload.nextCursor?.soldAt||!payload.nextCursor.id)break;const key=`${payload.nextCursor.soldAt}|${payload.nextCursor.id}`;if(seenSaleCursors.has(key))throw new Error("Cursor repetido ao carregar histórico de vendas.");seenSaleCursors.add(key);saleCursor=payload.nextCursor;
+  }
+  let expenseCursor:PageCursor|null=null;const seenExpenseCursors=new Set<string>();
+  for(let page=0;page<1000;page+=1){
+    const result=await supabase.rpc("list_expenses_page",{p_business_id:operational.businessId,p_limit:100,p_before_spent_at:expenseCursor?.spentAt??null,p_before_id:expenseCursor?.id??null});failure("Não foi possível carregar o histórico de despesas",result.error);
+    const payload=(result.data??{}) as unknown as{items?:Array<Record<string,unknown>>;hasMore?:boolean;nextCursor?:PageCursor|null};for(const row of payload.items??[]){const id=String(row.id??"");expenses.push({id,name:String(row.name??"Despesa"),amount:numberValue(row.amount as number|string|null|undefined),spentAt:String(row.spentAt??businessDate())});if(row.updatedAt!=null)expenseVersions[id]=String(row.updatedAt);}
+    if(!payload.hasMore||!payload.nextCursor?.spentAt||!payload.nextCursor.id)break;const key=`${payload.nextCursor.spentAt}|${payload.nextCursor.id}`;if(seenExpenseCursors.has(key))throw new Error("Cursor repetido ao carregar histórico de despesas.");seenExpenseCursors.add(key);expenseCursor=payload.nextCursor;
+  }
+  return{...operational,state:{...operational.state,sales,expenses},versions:{...operational.versions,sales:saleVersions,expenses:expenseVersions}};
 }
