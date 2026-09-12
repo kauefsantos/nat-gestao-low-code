@@ -2,247 +2,254 @@
 
 ## Contexto
 
-A NAT Brownies e Brigadeiros Gourmet precisava de uma forma simples de acompanhar a operação sem depender de planilhas complexas ou conhecimentos técnicos.
+A NAT é uma pequena operação de confeitaria. A usuária principal precisava controlar custos, preços, vendas e rotina sem depender de planilhas complexas, dashboards técnicos ou vários aplicativos desconectados.
 
-A usuária principal não trabalha com dashboards, automações ou sistemas de gestão no dia a dia. Isso definiu a premissa do produto desde o início: **a ferramenta precisava explicar o negócio sem parecer uma ferramenta de BI**.
+Essa restrição definiu o produto: **a ferramenta precisava organizar uma operação real sem exigir que a usuária aprendesse tecnologia para conseguir trabalhar**.
 
-O projeto foi desenvolvido de forma incremental, combinando low-code para ganhar velocidade e código tradicional para garantir regras de negócio, segurança e previsibilidade.
+O projeto nasceu em Lovable para reduzir o tempo entre ideia e validação. Conforme passou a lidar com dinheiro, estoque, clientes e automações reais, recebeu camadas de engenharia em React, TypeScript e PostgreSQL.
+
+---
 
 ## O problema
 
-A operação de uma pequena confeitaria mistura decisões que parecem simples, mas estão conectadas:
+Uma confeitaria pequena mistura decisões que parecem independentes, mas afetam o mesmo resultado:
 
 - comprar ingredientes e embalagens;
-- entender quanto cada receita realmente custa;
-- definir um preço que não destrua a margem;
+- saber quanto cada receita custa;
+- incluir perdas, mão de obra e despesas de produção;
+- definir preço sem destruir margem;
 - registrar vendas rapidamente;
-- acompanhar o que sobrou depois dos custos variáveis;
+- separar faturamento de dinheiro efetivamente recebido;
+- controlar vendas a prazo e cobrança;
+- acompanhar clientes e recorrência;
 - saber o que está acabando;
 - transformar insumo em produto acabado;
-- lembrar compras, entregas e produção.
+- lembrar compras, produção e entregas.
 
-O risco de tratar cada ponto separadamente era criar várias pequenas ferramentas sem uma visão operacional única.
+Construir um módulo isolado para cada problema criaria outro tipo de fragmentação. A proposta passou a ser uma **camada operacional única**, com linguagem simples e regras consistentes por baixo.
+
+---
 
 ## Princípios de produto
 
 ### 1. A linguagem vem antes da tecnologia
 
-Termos como “contribution margin”, “ledger”, “snapshot financeiro” ou “soft delete” não aparecem para a usuária.
+A arquitetura usa termos como snapshot, ledger, idempotência, RLS e SLA. A interface usa expressões como:
 
-Na interface, a pergunta é outra:
+- “Valor da venda”;
+- “Dinheiro recebido”;
+- “A receber”;
+- “Vai pagar depois”;
+- “Marcar como pago”;
+- “Estoque baixo”.
 
-- “Quanto sobra nesta venda?”
-- “Valor realmente recebido”
-- “Pausado”
-- “Estoque baixo”
-- “Definir saldo inicial”
+Complexidade técnica só é justificável quando reduz complexidade para a pessoa que usa o produto.
 
-A arquitetura pode ser sofisticada; a experiência não precisa parecer sofisticada.
+### 2. Mobile-first é uma restrição operacional
 
-### 2. Mobile-first de verdade
+O sistema é usado enquanto a pessoa compra, produz e vende. Por isso o produto prioriza:
 
-O produto foi pensado para uso durante a rotina de produção e venda, principalmente no celular.
+- navegação curta;
+- formulários compatíveis com toque;
+- inputs que não provocam zoom indevido no iPhone;
+- safe areas;
+- diálogos roláveis com teclado aberto;
+- feedback de persistência;
+- PWA e Web Push.
 
-Isso influenciou:
+### 3. Histórico deve explicar o que aconteceu
 
-- navegação inferior curta;
-- formulários com inputs adequados ao iPhone;
-- bottom sheets em ações operacionais;
-- foco e teclado acessíveis;
-- PWA;
-- feedback persistente de salvamento;
-- ausência de diálogos nativos de navegador nos fluxos principais.
+Cancelar não significa apagar. Ajustar estoque não significa sobrescrever. Alterar o custo atual de um ingrediente não deve reescrever a margem de uma venda antiga.
 
-### 3. Histórico deve ser confiável
+O produto preserva fatos históricos por snapshots, movimentos e estados explícitos.
 
-Uma venda cancelada continua existindo como venda cancelada.
+### 4. O backend protege a regra importante
 
-Um evento cancelado continua aparecendo no histórico.
+O frontend orienta, mas não é a única barreira. O Lovable Cloud também valida regras como:
 
-Uma contagem de estoque não sobrescreve silenciosamente o saldo anterior: ela cria um movimento de ajuste.
+- isolamento entre negócios;
+- produto pausado não entra em venda nova;
+- estoque monitorado não pode ficar negativo por operação inválida;
+- produção exige insumo suficiente;
+- venda a prazo exige cliente e promessa de pagamento;
+- recebível e dinheiro em caixa são valores distintos;
+- funções privilegiadas exigem autorização adequada.
 
-Essa decisão trouxe mais rastreabilidade e simplificou auditoria.
-
-### 4. O banco protege as regras importantes
-
-O frontend ajuda e orienta, mas regras críticas também vivem no PostgreSQL.
-
-Exemplos:
-
-- produto pausado não pode ser vendido;
-- venda acima do estoque monitorado é recusada;
-- produção não acontece sem insumo suficiente;
-- custo da venda é recalculado no backend;
-- movimentos automáticos de estoque têm direção validada;
-- tenant errado não consegue acessar dados de outro negócio.
-
-## Estratégia low-code
-
-O Lovable foi usado como acelerador de construção, especialmente na fase de prototipação e evolução visual.
-
-A partir daí, o projeto recebeu camadas adicionais de engenharia para suportar uma operação real.
-
-### Onde o low-code ajudou
-
-- velocidade de prototipação;
-- construção inicial do frontend;
-- iteração rápida de layout;
-- conexão com Lovable Cloud;
-- ciclos curtos de teste com a usuária.
-
-### Onde código sob medida foi necessário
-
-- domínio de custos e precificação;
-- pedidos multiproduto;
-- disponibilidade temporária de produtos;
-- ledger de estoque;
-- transações de produção;
-- idempotência;
-- concorrência otimista;
-- RLS e hardening de RPCs;
-- push notifications;
-- CI com banco descartável;
-- testes de integridade e segurança.
-
-O resultado é uma arquitetura híbrida: **low-code naquilo que acelera e código naquilo que precisa ser garantido**.
+---
 
 ## Evolução do produto
 
-### Etapa 1 — Custos e produtos
+### Etapa 1 — Custos e precificação
 
-O primeiro núcleo respondeu à pergunta mais importante da operação: quanto custa fazer cada doce?
+O primeiro núcleo respondeu à pergunta mais importante: **quanto custa produzir cada item?**
 
 Foram modelados:
 
-- compras;
-- unidades de medida;
-- receitas;
-- rendimento;
+- compras e histórico de preço;
+- unidade de medida e conversão;
+- receita e rendimento;
 - perdas;
 - embalagem;
-- custo de produção;
-- margem mínima e alvo.
+- mão de obra;
+- gás, energia e outros custos de produção;
+- taxa por forma de pagamento;
+- margem mínima e recomendada.
+
+O cálculo de preço deixou de ser um número solto e virou uma regra reproduzível.
 
 ### Etapa 2 — Vendas e resultado
 
-O fluxo de vendas passou a calcular snapshots financeiros no momento da operação.
+As vendas passaram a congelar preço e custo no momento da operação. Depois evoluíram para:
 
-Isso evita que uma alteração futura no custo de um ingrediente reescreva a leitura histórica de uma venda antiga.
+- pedidos multiproduto;
+- desconto/acréscimo com justificativa;
+- confirmação explícita para venda abaixo do custo;
+- cancelamento preservando histórico;
+- custo de entrega;
+- canal de venda;
+- separação entre venda comercial, cortesia, consumo próprio e perda.
 
-Depois, o modelo evoluiu para pedidos com múltiplos produtos e cancelamento sem exclusão do histórico.
+### Etapa 3 — Estoque e produção
 
-### Etapa 3 — Agenda e lembretes
+O estoque foi introduzido sem exigir uma migração brusca da operação.
 
-A agenda ganhou ciclo de vida completo:
+O controle pode ser ativado item por item. A partir daí:
 
-- criar;
-- editar;
-- concluir;
-- reabrir;
-- cancelar;
-- lembrar.
+- compra aumenta saldo;
+- produção consome insumos;
+- produto acabado entra no estoque;
+- venda reduz saldo;
+- cancelamento devolve somente o que realmente saiu;
+- nova contagem registra diferença como ajuste.
 
-Os lembretes são processados em janelas do dia e podem chegar via push no PWA.
+O saldo é consequência de movimentos, não um campo editado silenciosamente.
 
-### Etapa 4 — Estoque
+### Etapa 4 — Agenda e notificações
 
-O estoque foi desenhado para não quebrar a operação existente.
+A agenda ganhou ciclo completo de criar, editar, concluir, reabrir e cancelar. O processamento de lembretes passou a considerar o fuso do negócio e ganhou idempotência, retry e monitoramento operacional.
 
-Por isso, o controle é ativado item por item.
+### Etapa 5 — Clientes, fiado e cobrança
 
-Quando um item passa a ser monitorado:
+Quando apareceu a necessidade real de venda a prazo, o fluxo foi integrado ao modelo financeiro em vez de virar apenas uma observação de texto.
 
-- uma compra aumenta o saldo;
-- uma produção consome os insumos monitorados;
-- o produto acabado entra no estoque;
-- uma venda reduz o produto;
-- um cancelamento devolve apenas aquilo que realmente saiu;
-- uma nova contagem registra a diferença como ajuste.
+Uma venda pode ser:
 
-O saldo é resultado de um ledger, não de um campo editável.
+- **paga agora** — faturamento e caixa entram juntos;
+- **vai pagar depois** — faturamento entra, caixa permanece zerado e surge uma conta a receber.
 
-## Decisões importantes
+Para vender a prazo:
 
-### Produto pausado ≠ produto arquivado
+- o cliente precisa estar identificado;
+- a promessa guarda uma data;
+- quando a promessa é para o mesmo dia, horário também é obrigatório;
+- data futura sem horário usa 09:00 como referência operacional;
+- o sistema acompanha atraso, reincidência e histórico de advertência;
+- a quitação posterior registra a forma de pagamento real;
+- a ficha do cliente reúne contato, compras e comportamento de pagamento.
 
-Um sabor pode ficar indisponível por alguns dias sem perder receita, histórico ou precificação.
+### Etapa 6 — Resumo executivo
 
-Por isso, disponibilidade temporária e arquivamento são estados separados.
+O sistema passou a gerar uma leitura diária compacta com faturamento, resultado, unidades vendidas e clientes em atraso crítico. O envio reutiliza a mesma infraestrutura de notificações resilientes e possui recuperação sem duplicar mensagens já entregues.
 
-### IA foi desativada conscientemente
+---
 
-A infraestrutura de geração de conteúdo foi construída, mas o recurso foi desligado quando deixou de fazer sentido assumir custo de API naquele momento do negócio.
+## Uma decisão financeira importante: faturamento ≠ caixa
 
-Isso é uma decisão de produto: **tecnologia só permanece ativa se gerar valor suficiente para justificar custo e complexidade**.
+A evolução para contas a receber exigiu separar conceitos que pequenos negócios frequentemente misturam:
 
-### Feedback de persistência é parte da UX
+- **faturamento:** valor econômico vendido;
+- **dinheiro recebido:** o que efetivamente entrou;
+- **a receber:** venda concluída ainda não quitada;
+- **aporte:** dinheiro dos proprietários colocado na operação;
+- **reinvestimento:** dinheiro da própria empresa usado novamente;
+- **resultado:** efeito econômico depois de custos e despesas.
 
-Como parte do estado é otimista, a interface passou a deixar explícito quando uma alteração está:
+Essa separação melhora a decisão sem transformar a interface em contabilidade formal.
 
-- salvando;
-- salva;
-- com erro e revertida.
+---
 
-Isso reduz a sensação de incerteza típica de aplicativos que “fecham o modal e torcem para ter salvo”.
+## Estratégia low-code
+
+| Low-code acelerou | Engenharia garantiu |
+| --- | --- |
+| prototipação | regras financeiras |
+| iteração visual | contas a receber |
+| descoberta com a usuária | estoque e produção transacional |
+| conexão inicial com cloud | autorização e integridade |
+| velocidade de MVP | retries, idempotência e concorrência |
+| evolução rápida de UI | CI, banco descartável e E2E |
+
+O projeto não trata low-code como atalho para ignorar engenharia. Trata low-code como **ferramenta de compressão do ciclo de produto**.
+
+---
 
 ## Segurança e confiabilidade
 
-O projeto recebeu uma auditoria progressiva de backend e frontend, seguida de uma auditoria consolidada.
+A aplicação passou por auditorias progressivas e ganhou controles proporcionais ao risco dos dados:
 
-Entre os mecanismos implementados:
-
-- RLS em todas as tabelas públicas;
+- RLS + FORCE RLS;
 - isolamento por `business_id`;
-- membership e MFA/AAL2 para acesso comercial;
+- MFA/AAL2;
 - RPCs autoritativas;
-- transações atômicas;
-- histórico imutável de estoque;
-- proteção contra duplicação por retry;
-- `search_path` controlado em funções privilegiadas;
-- scanner de segredos;
-- testes pgTAP/RLS;
-- reconstrução completa do banco no CI.
+- `search_path` controlado;
+- funções internas sem execução por clientes;
+- idempotência;
+- concorrência otimista;
+- ledger de notificações e dead-letter;
+- retenção e minimização de dados pessoais;
+- rastreabilidade de mudanças;
+- migrations reproduzíveis;
+- pgTAP/RLS/integridade;
+- testes de domínio e navegador.
 
-## Qualidade
+---
 
-O pipeline valida:
+## Qualidade como parte do produto
+
+O pipeline não valida apenas se o frontend compila. Ele verifica:
 
 ```text
 lint
 → TypeScript
-→ segurança estática
+→ boundaries de arquitetura
+→ segurança e privacidade
 → Edge Functions
-→ testes de domínio
+→ domínio
 → build
-→ auditoria de dependências
-→ rebuild Supabase
+→ orçamento de performance
+→ dependências
+→ rebuild do banco
 → migrations
-→ RLS e integridade
-→ lint do schema
+→ pgTAP / RLS / integridade
+→ E2E mobile e autenticado
 ```
+
+Isso permite evoluir rapidamente sem transformar cada nova funcionalidade em uma regressão inesperada.
+
+---
 
 ## O que este case demonstra
 
-Mais do que a aplicação em si, o projeto mostra capacidade de:
+Mais do que uma aplicação de confeitaria, o projeto demonstra capacidade de:
 
-- levantar uma dor operacional real;
-- transformar regra de negócio em experiência simples;
-- trabalhar com low-code sem depender exclusivamente dele;
-- modelar dados e transações;
-- construir UX para público não técnico;
-- evoluir um MVP sem reescrever tudo a cada nova funcionalidade;
-- auditar e endurecer segurança depois da velocidade inicial de construção;
-- equilibrar valor de negócio, custo técnico e manutenção.
+- descobrir uma dor operacional real;
+- transformar regras de negócio em UX simples;
+- separar conceitos financeiros corretamente;
+- usar low-code sem ficar preso a ele;
+- modelar dados, autorização e transações;
+- automatizar tarefas sem perder rastreabilidade;
+- evoluir um MVP de forma incremental;
+- testar e endurecer uma aplicação antes que sua complexidade fique invisível.
 
-## Próximos passos possíveis
+## Próximas evoluções possíveis
 
-A arquitetura deixa espaço para evoluções futuras sem serem necessárias para o funcionamento atual:
+Não são dependências para a operação atual, mas fazem sentido conforme o volume crescer:
 
-- previsão de reposição por histórico de consumo;
-- sugestão de produção por demanda;
-- comparativos de rentabilidade por sabor;
-- dashboards históricos mais analíticos;
-- reativação da IA quando houver justificativa financeira;
-- integrações adicionais com canais de venda.
+- política configurável de limite de crédito por cliente;
+- orçamento mensal de promoções/prospecção;
+- reserva de caixa e meta de capital de giro;
+- categorias contábeis/gerenciais mais detalhadas para despesas;
+- previsão de reposição e sugestão de produção;
+- histórico analítico mais longo por cliente e produto.
 
-Esses itens são possibilidades de produto, não dependências para a operação atual.
+Essas possibilidades entram somente quando o custo de complexidade for menor que o valor operacional gerado.
