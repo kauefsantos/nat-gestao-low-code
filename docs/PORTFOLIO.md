@@ -1,122 +1,112 @@
 # NAT Gestão — Portfolio One-Pager
 
-> **Case de produto low-code com operação real:** uma aplicação mobile-first para transformar custos, vendas, estoque e agenda de uma pequena confeitaria em decisões simples para uma usuária não técnica.
+> **Case de produto low-code com operação real:** uma PWA mobile-first que conecta custos, vendas, caixa, estoque, clientes e agenda de uma pequena confeitaria sem exigir experiência com sistemas de gestão.
 
-## Resumo executivo
+## Em uma frase
 
-A NAT Gestão nasceu de uma necessidade real: a usuária principal precisava administrar uma confeitaria sem depender de planilhas complexas, dashboards técnicos ou controles separados.
+A NAT Gestão começou como uma solução rápida em Lovable e evoluiu para um produto com **React + TypeScript + PostgreSQL no Lovable Cloud**, regras autoritativas no backend, RLS, automações, testes e CI.
 
-O projeto começou com **Lovable** para acelerar prototipação e iteração visual. Conforme a operação ganhou complexidade, foram adicionadas camadas de engenharia em React, TypeScript e PostgreSQL para garantir regras de negócio, segurança, histórico e automações confiáveis.
-
-O resultado é um exemplo de abordagem híbrida: **low-code onde acelera; código sob medida onde a regra precisa ser garantida**.
-
-## Meu papel no projeto
-
-Atuação ponta a ponta, da descoberta à validação técnica:
-
-- levantamento da necessidade e tradução das dores operacionais;
-- desenho dos fluxos e linguagem para público não técnico;
-- prototipação e evolução visual em Lovable;
-- modelagem de custos, receitas, produtos e vendas;
-- desenho do módulo de estoque e produção;
-- automações de agenda e push;
-- integração frontend/backend;
-- modelagem de dados e regras autoritativas no PostgreSQL;
-- RLS, hardening de RPCs e auditoria;
-- testes de domínio, pgTAP/RLS e CI;
-- refinamento mobile-first e acessibilidade.
+O princípio é deliberado: **low-code onde acelera; código sob medida onde a regra precisa ser garantida**.
 
 ## O problema
 
-A operação precisava responder perguntas simples, mas conectadas:
+A operação precisava responder, no mesmo fluxo, perguntas que normalmente ficam espalhadas em planilhas e anotações:
 
-| Pergunta da operação | Como o produto responde |
+| Pergunta | Resposta no produto |
 | --- | --- |
-| Quanto custa cada doce? | Receita + histórico de compras + conversão de unidades |
-| Quanto devo cobrar? | Preço mínimo, recomendado e simulação de margem |
-| Quanto realmente sobrou da venda? | Snapshot financeiro calculado no backend |
-| O que está acabando? | Estoque mínimo e alertas por item |
-| Quanto posso produzir? | Produção consome estoque monitorado de forma transacional |
-| O que preciso fazer hoje? | Agenda com ciclo de vida completo e lembretes push |
+| Quanto custa produzir? | compras + receita + rendimento + perdas + embalagem + mão de obra |
+| Quanto cobrar? | preço mínimo, recomendado e margem |
+| Quanto foi vendido? | faturamento econômico da venda |
+| Quanto realmente entrou? | caixa recebido separado do faturamento |
+| Quem ainda precisa pagar? | contas a receber + promessa + SLA de cobrança |
+| Quem é um bom pagador? | ficha de cliente + histórico de compras e pagamentos |
+| O que está acabando? | ledger de estoque + mínimo + alertas |
+| O que fazer hoje? | agenda + lembretes + resumo executivo diário |
 
-## Destaques de produto
+## Meu papel
 
-### UX para público não técnico
+Atuação ponta a ponta:
 
-A arquitetura pode ser sofisticada, mas a interface evita jargão. Em vez de “contribution margin”, a usuária vê **“Quanto sobra nesta venda”**. Em vez de “inventory reconciliation”, vê **“Ajustar contagem”**.
+- descoberta e tradução das dores da operação;
+- desenho de regras de negócio;
+- UX e linguagem para público não técnico;
+- prototipação e evolução visual no Lovable;
+- frontend em React/TypeScript;
+- modelagem de dados e PostgreSQL;
+- RPCs, jobs e Edge Functions;
+- precificação, custos, estoque e contas a receber;
+- RLS, MFA, privacidade e integridade;
+- testes de domínio, pgTAP e E2E;
+- CI/CD e governança de mudanças.
 
-### Mobile-first operacional
+## Quatro decisões que representam o produto
 
-A aplicação foi pensada para uso durante produção, compra e venda. Navegação curta, bottom sheets, formulários compatíveis com celular, feedback de persistência e PWA fazem parte do fluxo principal.
+### 1. Faturamento não é caixa
 
-### Estoque sem ruptura
+Uma venda a prazo entra no faturamento, mas o dinheiro só entra no caixa quando a quitação acontece. A aplicação preserva os dois conceitos separadamente.
 
-O controle é ativado item por item. Assim, a nova funcionalidade não paralisa a operação existente. O saldo é derivado de um ledger de movimentos, não de um campo editado manualmente.
+### 2. Crédito tem regra, não memória informal
 
-### Histórico confiável
+Venda fiada exige cliente cadastrado e promessa de pagamento. O sistema acompanha SLA, alerta atraso, registra advertência crítica e mantém o histórico na ficha do cliente.
 
-Venda cancelada permanece no histórico. Evento cancelado permanece auditável. Ajuste de estoque gera movimento. Isso preserva rastreabilidade sem complicar a experiência.
+### 3. Estoque é histórico, não um número editável
 
-## Estratégia low-code
+Compras, produção, venda, cancelamento e ajuste geram movimentos. O saldo é consequência desse ledger.
 
-| Low-code | Engenharia sob medida |
-| --- | --- |
-| prototipação rápida | regras de custo e precificação |
-| iteração visual | pedidos multiproduto |
-| validação com usuária | ledger de estoque |
-| conexão inicial com cloud | produção transacional |
-| velocidade de MVP | RLS e segurança |
-| evolução de UI | idempotência e concorrência |
-| | CI e regressões de banco |
+### 4. Dinheiro dos proprietários não vira receita
 
-Essa divisão mostra um princípio importante do case: **não transformar low-code em dependência cega nem código tradicional em fim em si mesmo**.
+Aporte, reinvestimento da empresa, compras e retiradas são dimensões separadas. Isso evita confundir financiamento da operação com resultado comercial.
 
-## Arquitetura em uma frase
+## Arquitetura do case
 
-**React/TypeScript no produto, PostgreSQL como fonte autoritativa das regras críticas, Lovable como acelerador de construção e GitHub Actions como rede de segurança.**
+```text
+PWA / React + TypeScript
+        ↓
+Domínio e validações
+        ↓
+Adaptadores de dados
+        ↓
+RPCs / Edge Functions
+        ↓
+PostgreSQL / Lovable Cloud
+        ↓
+RLS + invariantes + auditoria + jobs
+```
+
+O frontend orienta a experiência; o backend reaplica regras financeiras, autorização e integridade.
+
+## Engenharia proporcional ao risco
+
+O projeto possui:
+
+- RLS + FORCE RLS;
+- isolamento por negócio;
+- MFA/AAL2;
+- idempotência e proteção contra duplicidade;
+- retries e dead-letter para notificações;
+- concorrência otimista;
+- migrations reproduzíveis;
+- pgTAP para RLS/integridade;
+- Playwright autenticado;
+- Chromium, Firefox e WebKit;
+- verificações automatizadas de WCAG 2.2 AA;
+- orçamento de performance;
+- auditoria de dependências.
 
 ## Competências demonstradas
 
-- Product discovery
-- UX mobile-first
-- Low-code / no-code
-- React + TypeScript
-- Modelagem de dados
-- PostgreSQL / Supabase
-- Regras de negócio
-- RLS e segurança
-- Automação
-- PWA e Web Push
-- Testes e CI
-- Refatoração incremental
-- Comunicação para público não técnico
-
-## Evidências técnicas
-
-O pipeline automatizado valida:
-
-`lint → TypeScript → scanner de segurança → Edge Functions → testes de domínio → build → dependências → rebuild do banco → migrations → pgTAP/RLS → lint do schema`
-
-Além do CI, fluxos críticos de Agenda, Push, Estoque e “Outro insumo” foram validados no Lovable Cloud real com testes reversíveis.
-
-## Decisões que representam maturidade de produto
-
-- **Pausar não é arquivar:** indisponibilidade temporária não apaga contexto.
-- **IA não é obrigatória:** a infraestrutura foi preservada, mas o recurso ficou desativado enquanto o custo não se justificava.
-- **Banco é autoritativo:** regra financeira crítica não depende apenas do frontend.
-- **Estoque é opt-in:** adoção gradual vale mais do que impor uma migração brusca.
-- **Feedback de salvamento é parte da UX:** a usuária sabe quando algo está salvando, salvo ou foi revertido.
+`Product Discovery` · `Regras de negócio` · `Low-code` · `UX mobile-first` · `React` · `TypeScript` · `PostgreSQL` · `Lovable Cloud` · `RLS` · `Automação` · `PWA` · `Web Push` · `CI/CD` · `E2E` · `Segurança` · `Governança de dados`
 
 ## O que eu destacaria em uma entrevista
 
-Este projeto não é interessante porque “usa Lovable”. Ele é interessante porque mostra **como usar low-code para encurtar o caminho entre uma dor real e um produto utilizável, sem abandonar modelagem, segurança, testes e responsabilidade técnica quando a solução começa a operar dados reais**.
+O ponto forte deste projeto não é apenas a stack. É a capacidade de **partir de uma operação pequena e real, decidir o que precisa ser simples para a usuária e o que precisa ser rigoroso por baixo da interface, e evoluir de low-code para engenharia sem reescrever o produto inteiro**.
 
 ---
 
-### Leia também
+### Aprofundamento
 
 - [README principal](../README.md)
-- [Case study completo](CASE_STUDY.md)
+- [Case Study](CASE_STUDY.md)
 - [Arquitetura](ARCHITECTURE.md)
 - [Segurança](../SECURITY.md)
-- [Estado técnico do projeto](../PROJECT_STATE.md)
+- [Escopo de publicação](PUBLICATION_NOTES.md)
