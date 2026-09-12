@@ -34,7 +34,8 @@ Deno.serve(async(req)=>{
       targetQuantity=asNumber(body?.targetQuantity);minimumQuantity=asNumber(body?.minimumQuantity);
       if(!Number.isFinite(targetQuantity)||targetQuantity<0||!Number.isFinite(minimumQuantity)||minimumQuantity<0)return json(400,{error:"INVALID_INPUT",message:"Saldo e estoque mínimo precisam ser zero ou maiores."},cors);
       const snapshot=await client.rpc("get_inventory_snapshot" as never,{p_business_id:businessId} as never);if(snapshot.error)throw snapshot.error;
-      const payload=snapshot.data as{items?:SnapshotItem[]}|null;const current=(payload?.items??[]).find((item)=>item.kind==="product"&&item.itemId===productId)?.currentQuantity??0;
+      const payload=snapshot.data as{items?:SnapshotItem[]}|null;const tracked=(payload?.items??[]).find((item)=>item.kind==="product"&&item.itemId===productId);const current=tracked?.currentQuantity??0;
+      if(!tracked){const opening=await client.rpc("set_inventory_balance" as never,{p_business_id:businessId,p_item_kind:"product",p_item_id:productId,p_quantity:0,p_minimum_quantity:minimumQuantity,p_note:"Controle de estoque iniciado automaticamente."} as never);if(opening.error)throw opening.error;}
       unitsProduced=Math.max(0,targetQuantity-current);batches=unitsProduced/batchYield;
       if(unitsProduced===0){const balance=await client.rpc("set_inventory_balance" as never,{p_business_id:businessId,p_item_kind:"product",p_item_id:productId,p_quantity:targetQuantity,p_minimum_quantity:minimumQuantity,p_note:note} as never);if(balance.error)throw balance.error;return json(200,{ok:true,requestId,productId,productName:product.data.name,previousQuantity:current,targetQuantity,unitsProduced:0,batches:0,mode},cors);}
     }else{
