@@ -34,9 +34,9 @@ test("desempenho: CI aplica orçamento de bundle",()=>{
 });
 
 test("escala: análise de clientes agrega vendas em uma única passagem",()=>{
-  const domain=read("src/domain/nat.ts");
+  const domain=read("src/domain/customers.ts");
   const body=domain.slice(domain.indexOf("export function customerInsights"),domain.indexOf("export function customerOverview"));
-  assert.match(body,/for\(const sale of state\.sales\)/);
+  assert.match(body,/for \(const sale of state\.sales\)/);
   assert.doesNotMatch(body,/state\.sales\.filter/);
 });
 
