@@ -1,3 +1,4 @@
+import { businessDate } from "../lib/business-time.js";
 import { saleValue } from "./receivables.js";
 import type { NatState, OwnerCashMovement, Sale, SaleLine, SporadicExpense } from "./types.js";
 
@@ -15,26 +16,23 @@ export function activeSaleLines(sale: Sale): SaleLine[] {
       }];
 }
 
+function businessMonthKey(now: Date) {
+  return businessDate(now).slice(0, 7);
+}
+
 export function monthSales(sales: Sale[], now = new Date()) {
-  return sales.filter((sale) => {
-    if (sale.status === "cancelled") return false;
-    const date = new Date(sale.soldAt);
-    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-  });
+  const monthKey = businessMonthKey(now);
+  return sales.filter((sale) => sale.status !== "cancelled" && businessDate(new Date(sale.soldAt)).slice(0, 7) === monthKey);
 }
 
 function monthExpenses(expenses: SporadicExpense[], now = new Date()) {
-  return expenses.filter((expense) => {
-    const date = new Date(`${expense.spentAt.slice(0, 10)}T12:00:00`);
-    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-  });
+  const monthKey = businessMonthKey(now);
+  return expenses.filter((expense) => expense.spentAt.slice(0, 7) === monthKey);
 }
 
 function monthOwnerCashMovements(movements: OwnerCashMovement[], now = new Date()) {
-  return movements.filter((movement) => {
-    const date = new Date(`${movement.occurredAt.slice(0, 10)}T12:00:00`);
-    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-  });
+  const monthKey = businessMonthKey(now);
+  return movements.filter((movement) => movement.occurredAt.slice(0, 7) === monthKey);
 }
 
 export function dashboardNumbers(state: NatState) {
