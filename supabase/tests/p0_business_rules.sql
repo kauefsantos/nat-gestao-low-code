@@ -22,7 +22,7 @@ select is(has_table_privilege(current_user,'public.customers','INSERT'),false,'c
 select lives_ok($$
   select public.apply_nat_transition_v2(
     '91919191-9191-4919-8919-919191919191',gen_random_uuid(),
-    '[{"type":"save_customer","payload":{"id":"93939393-9393-4939-8939-939393939393","name":"Cliente Ficticio","marketingConsent":false,"active":true}}]'::jsonb
+    '[{"type":"save_customer","payload":{"id":"93939393-9393-4939-8939-939393939393","name":"Cliente Ficticio","phone":"11999999999","source":"WhatsApp","marketingConsent":false,"active":true}}]'::jsonb
   )
 $$,'customer is written through authoritative transition');
 select is((select name from public.customers where id='93939393-9393-4939-8939-939393939393'),'Cliente Ficticio','customer is readable for its business');
