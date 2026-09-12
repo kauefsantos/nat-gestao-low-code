@@ -34,6 +34,7 @@ type SaleExtra = {
   delivery_cost_snapshot: number;
   discount_reason: string | null;
   below_cost_override: boolean;
+  margin_override: boolean;
   sale_value_snapshot: number;
   payment_status: string;
   payment_promised_date: string | null;
