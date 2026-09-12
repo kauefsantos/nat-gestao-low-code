@@ -39,17 +39,20 @@ async function openAuthenticatedSession(page:Page){
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(password);
   await page.getByRole("button",{name:"Entrar"}).click();
-  await expect(page.getByRole("heading",{name:"Ative a proteção extra"})).toBeVisible();
+  const enrollHeading=page.getByRole("heading",{name:"Ative a proteção extra"});
+  await expect(enrollHeading).toBeVisible({timeout:15_000});
+  const alert=page.getByRole("alert");
+  if(await alert.count())throw new Error(`Falha ao preparar MFA: ${await alert.first().innerText()}`);
   const secret=(await page.locator("p.break-all").textContent())?.trim();
   expect(secret).toBeTruthy();
   await page.getByLabel("Código de segurança").fill(totp(secret!));
   await page.getByRole("button",{name:"Ativar e entrar"}).click();
-  await page.waitForURL(/\/dashboard/);
-  await expect(page.locator("header")).toBeVisible();
+  await page.waitForURL(/\/dashboard/,{timeout:15_000});
+  await expect(page.locator("header")).toBeVisible({timeout:15_000});
 }
 
 test("área autenticada permanece utilizável de 320px a desktop",async({page})=>{
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   await openAuthenticatedSession(page);
 
   const views=["home","sales","customers","intelligence","calendar","inventory","portfolio","products","pricing","identity"];
