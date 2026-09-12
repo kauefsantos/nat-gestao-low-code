@@ -38,8 +38,8 @@ jobs:
       - run: npm run build
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
-      - name: Audit complete dependency tree for critical issues
-        run: npm audit --audit-level=critical
+      - name: Audit complete dependency tree for high or critical issues
+        run: npm audit --audit-level=high
 
   database-security:
     runs-on: ubuntu-latest
