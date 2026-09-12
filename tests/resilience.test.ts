@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { isTransientError,resilientRequest } from "../src/lib/resilient-request.js";
-import { businessDate,businessHour,plusCalendarDay } from "../src/lib/business-time.js";
+import { addCalendarDays,businessDate,businessDayStartInstant,businessHour,plusCalendarDay } from "../src/lib/business-time.js";
 
 test("classifica apenas falhas transitórias conhecidas para retry",()=>{
   assert.equal(isTransientError(new Error("Failed to fetch")),true);
@@ -31,6 +31,16 @@ test("data do negócio respeita America/Sao_Paulo na virada UTC",()=>{
   const instant=new Date("2026-09-12T02:30:00Z");
   assert.equal(businessDate(instant),"2026-09-11");
   assert.equal(businessHour(instant),23);
+});
+
+test("início do dia do negócio é calculado pelo fuso IANA",()=>{
+  assert.equal(businessDayStartInstant("2026-09-12"),"2026-09-12T03:00:00.000Z");
+  assert.equal(businessDayStartInstant("2018-11-05"),"2018-11-05T02:00:00.000Z");
+});
+
+test("janela recente atravessa corretamente virada de mês e ano",()=>{
+  assert.equal(addCalendarDays("2027-01-10",-45),"2026-11-26");
+  assert.equal(addCalendarDays("2028-03-01",-2),"2028-02-28");
 });
 
 test("mesmo instante não depende do fuso configurado no aparelho",()=>{
