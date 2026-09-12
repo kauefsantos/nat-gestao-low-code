@@ -96,7 +96,7 @@ test("área autenticada permanece utilizável de 320px a desktop",async({page},t
   const search=page.getByRole("dialog",{name:"Buscar na NAT"});
   await expect(search).toBeVisible();
   await page.setViewportSize({width:320,height:420});
-  await page.getByLabel("Buscar na NAT").focus();
+  await page.getByRole("textbox",{name:"Buscar na NAT"}).focus();
   const searchBox=await search.boundingBox();
   expect(searchBox?.y??-1).toBeGreaterThanOrEqual(0);
   expect((searchBox?.y??0)+(searchBox?.height??0)).toBeLessThanOrEqual(421);
