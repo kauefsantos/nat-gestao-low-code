@@ -70,14 +70,21 @@ jobs:
           insert into private.allowed_auth_emails(email,business_id,role) values
             ('rls-admin-a@example.test','a1000000-0000-4000-8000-000000000001','admin'),
             ('rls-admin-b@example.test','a1000000-0000-4000-8000-000000000002','admin'),
-            ('responsive@example.test','a1000000-0000-4000-8000-000000000001','admin');
+            ('responsive@example.test','a1000000-0000-4000-8000-000000000001','admin'),
+            ('operations@example.test','a1000000-0000-4000-8000-000000000001','admin');
           insert into public.supplies(id,business_id,name,category,active) values
             ('a3000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','ONLY TENANT A','ingredient',true),
             ('a3000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','ONLY TENANT B','ingredient',true);
+          insert into public.supply_purchases(id,business_id,supply_id,package_quantity,package_unit,package_price,purchased_at,funding_source)
+          values('a4000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001',100,'g',10,current_date,'owner');
+          insert into public.products(id,business_id,name,batch_yield,selling_price,loss_percent,labor_cost_per_batch,production_cost_per_batch,minimum_margin_percent,target_margin_percent,active,available)
+          values('a5000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','Produto E2E Venda',10,5,0,0,0,10,20,true,true);
+          insert into public.recipe_items(id,business_id,product_id,supply_id,quantity,unit)
+          values('a6000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','a5000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001',100,'g');
           SQL
           ADMIN_KEY="${SECRET_KEY:-${SERVICE_ROLE_KEY:-}}"
           test -n "$ADMIN_KEY"
-          for EMAIL in rls-admin-a@example.test rls-admin-b@example.test responsive@example.test; do
+          for EMAIL in rls-admin-a@example.test rls-admin-b@example.test responsive@example.test operations@example.test; do
             curl --fail-with-body --silent --show-error \
               -X POST "$API_URL/auth/v1/admin/users" \
               -H "apikey: $ADMIN_KEY" \
@@ -97,3 +104,9 @@ jobs:
           source <(npx --yes supabase@2.117.0 status -o env)
           CLIENT_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
           VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$CLIENT_KEY" npx playwright test e2e/responsive-authenticated.spec.ts --project=mobile-chromium
+      - name: Run operational sale lifecycle E2E
+        shell: bash
+        run: |
+          source <(npx --yes supabase@2.117.0 status -o env)
+          CLIENT_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
+          VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$CLIENT_KEY" npx playwright test e2e/operational-sale.spec.ts --project=desktop-chromium
