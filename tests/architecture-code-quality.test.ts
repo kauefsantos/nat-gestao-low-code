@@ -31,7 +31,7 @@ test("arquitetura: domínio NAT foi dividido mantendo fachada pública",()=>{
   const facade=read("src/domain/nat.ts");
   for(const module of ["types","format","pricing","finance","customers","analytics","sales"]){
     assert.equal(existsSync(`src/domain/${module}.ts`),true);
-    assert.match(facade,new RegExp(`export \\* from \\\"\\./${module}\\.js\\\"`));
+    assert.equal(facade.includes(`export * from "./${module}.js";`),true);
   }
   assert.doesNotMatch(facade,/\bfunction\s+/);
 });
