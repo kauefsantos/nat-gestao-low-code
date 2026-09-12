@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { resilientRequest } from "@/lib/resilient-request";
 
 export type PushState = "unsupported" | "install_required" | "denied" | "prompt" | "enabled" | "disabled";
 
@@ -50,8 +51,11 @@ export async function enableNatPush(businessId: string): Promise<PushState> {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return permission === "denied" ? "denied" : "prompt";
 
-  const keyResult = await supabase.rpc("get_push_public_key", { p_business_id: businessId });
-  if (keyResult.error) throw keyResult.error;
+  const keyResult = await resilientRequest(async()=>{
+    const result=await supabase.rpc("get_push_public_key", { p_business_id: businessId });
+    if(result.error)throw result.error;
+    return result;
+  },{attempts:3,timeoutMs:8000});
   if (!keyResult.data) throw new Error("Chave pública de notificações não encontrada.");
 
   const registration = await getRegistration();
@@ -66,13 +70,16 @@ export async function enableNatPush(businessId: string): Promise<PushState> {
   const auth = json.keys?.auth;
   if (!p256dh || !auth) throw new Error("O iPhone não retornou as chaves da notificação.");
 
-  const saved = await supabase.rpc("save_push_subscription", {
-    p_business_id: businessId,
-    p_endpoint: subscription.endpoint,
-    p_p256dh: p256dh,
-    p_auth: auth,
-  });
-  if (saved.error) throw saved.error;
+  await resilientRequest(async()=>{
+    const saved = await supabase.rpc("save_push_subscription", {
+      p_business_id: businessId,
+      p_endpoint: subscription.endpoint,
+      p_p256dh: p256dh,
+      p_auth: auth,
+    });
+    if(saved.error)throw saved.error;
+    return saved;
+  },{attempts:3,timeoutMs:10000});
   return "enabled";
 }
 
@@ -82,12 +89,20 @@ export async function disableNatPush(businessId: string): Promise<PushState> {
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return "disabled";
 
-  const removed = await supabase.rpc("delete_push_subscription", {
-    p_business_id: businessId,
-    p_endpoint: subscription.endpoint,
-  });
-  if (removed.error) throw removed.error;
+  await resilientRequest(async()=>{
+    const removed = await supabase.rpc("delete_push_subscription", {
+      p_business_id: businessId,
+      p_endpoint: subscription.endpoint,
+    });
+    if(removed.error)throw removed.error;
+    return removed;
+  },{attempts:3,timeoutMs:10000});
 
-  await subscription.unsubscribe();
+  const unsubscribed=await subscription.unsubscribe();
+  if(!unsubscribed){
+    // The server-side subscription is already disabled; surfacing this state lets the UI
+    // advise a reload instead of silently claiming the browser was fully detached.
+    throw new Error("Os avisos foram desativados no servidor, mas este navegador não confirmou a remoção local. Recarregue a página e tente novamente.");
+  }
   return "disabled";
 }
