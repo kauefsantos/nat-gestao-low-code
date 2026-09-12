@@ -1,0 +1,1 @@
+This branch closes the nine privacy findings from the September 2026 audit. See `PRIVACY_AUDIT_CLOSURE_2026-09.md` for the item-by-item closure and `PRIVACY_AND_RETENTION.md` for the operational policy.
