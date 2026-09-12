@@ -1,11 +1,18 @@
 import { activeSaleLines, type NatState, type Sale } from "./nat.js";
 
-function localDateKey(value: string | Date) {
+export const BUSINESS_TIME_ZONE = "America/Sao_Paulo";
+const BUSINESS_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
+
+export function businessDateKey(value: string | Date) {
   const date = value instanceof Date ? value : new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const parts = Object.fromEntries(BUSINESS_DATE_FORMATTER.formatToParts(date).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function shiftDateKey(key: string, days: number) {
+  const [year,month,day] = key.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year,month-1,day+days));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth()+1).padStart(2,"0")}-${String(shifted.getUTCDate()).padStart(2,"0")}`;
 }
 
 function activeMovements(state: NatState) {
@@ -17,8 +24,8 @@ function activeSales(state: NatState) {
 }
 
 export function todaySalesSummary(state: NatState, now = new Date()) {
-  const key = localDateKey(now);
-  const movements = activeMovements(state).filter((sale) => localDateKey(sale.soldAt) === key);
+  const key = businessDateKey(now);
+  const movements = activeMovements(state).filter((sale) => businessDateKey(sale.soldAt) === key);
   const sales = movements.filter((sale) => (sale.transactionType ?? "sale") === "sale");
   return {
     sales,
@@ -29,16 +36,16 @@ export function todaySalesSummary(state: NatState, now = new Date()) {
   };
 }
 
-function salesBetween(sales: Sale[], start: Date, end: Date) {
+function salesBetweenDateKeys(sales: Sale[], startKey: string, endKey: string) {
   return sales.filter((sale) => {
-    const date = new Date(sale.soldAt);
-    return date >= start && date < end;
+    const key = businessDateKey(sale.soldAt);
+    return key >= startKey && key <= endKey;
   });
 }
 
 export function insightReadiness(state: NatState) {
   const sales = activeSales(state);
-  const distinctSalesDays = new Set(sales.map((sale) => localDateKey(sale.soldAt))).size;
+  const distinctSalesDays = new Set(sales.map((sale) => businessDateKey(sale.soldAt))).size;
   const minimumSales = 10;
   const minimumDays = 7;
   return {
@@ -70,13 +77,14 @@ export function businessInsights(state: NatState, now = new Date()) {
   }
   const topProduct = [...productMap.values()].sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)[0] ?? null;
   const dayMap = new Map<string, number>();
-  for (const sale of sales) { const key = localDateKey(sale.soldAt); dayMap.set(key, (dayMap.get(key) ?? 0) + sale.totalReceived); }
+  for (const sale of sales) { const key = businessDateKey(sale.soldAt); dayMap.set(key, (dayMap.get(key) ?? 0) + sale.totalReceived); }
   const bestDayEntry = [...dayMap.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
-  const end = new Date(now); end.setHours(24, 0, 0, 0);
-  const currentStart = new Date(end); currentStart.setDate(currentStart.getDate() - 7);
-  const previousStart = new Date(currentStart); previousStart.setDate(previousStart.getDate() - 7);
-  const currentRevenue = salesBetween(sales, currentStart, end).reduce((sum, sale) => sum + sale.totalReceived, 0);
-  const previousRevenue = salesBetween(sales, previousStart, currentStart).reduce((sum, sale) => sum + sale.totalReceived, 0);
+  const todayKey = businessDateKey(now);
+  const currentStartKey = shiftDateKey(todayKey,-6);
+  const previousEndKey = shiftDateKey(todayKey,-7);
+  const previousStartKey = shiftDateKey(todayKey,-13);
+  const currentRevenue = salesBetweenDateKeys(sales,currentStartKey,todayKey).reduce((sum, sale) => sum + sale.totalReceived, 0);
+  const previousRevenue = salesBetweenDateKeys(sales,previousStartKey,previousEndKey).reduce((sum, sale) => sum + sale.totalReceived, 0);
   const weeklyChangePercent = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : null;
   return { readiness,averageTicket,topProduct,bestDay:bestDayEntry?{date:bestDayEntry[0],revenue:bestDayEntry[1]}:null,currentRevenue,previousRevenue,weeklyChangePercent };
 }

@@ -10,6 +10,13 @@ Esta pasta separa a apresentação de portfólio da documentação técnica de e
 | [CASE_STUDY.md](CASE_STUDY.md) | contexto, problema, evolução e decisões de produto |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | arquitetura, responsabilidades e desenho técnico |
 
+## Governança
+
+| Documento | Conteúdo |
+| --- | --- |
+| [DATA_GOVERNANCE.md](DATA_GOVERNANCE.md) | responsáveis pelos dados, mudanças, acessos, linhagem e revisão periódica |
+| [METRIC_CATALOG.md](METRIC_CATALOG.md) | definição oficial, origem e regras dos indicadores |
+
 ## Para auditoria e manutenção
 
 | Documento | Conteúdo |
@@ -25,6 +32,7 @@ Esta pasta separa a apresentação de portfólio da documentação técnica de e
 2. **Portfolio One-Pager** — valor do case e competências demonstradas.
 3. **Case Study** — raciocínio de produto.
 4. **Architecture** — decisões técnicas.
-5. **Security / Project State** — profundidade de engenharia.
+5. **Data Governance / Metric Catalog** — responsabilidade, origem e significado dos dados.
+6. **Security / Project State** — profundidade de engenharia.
 
 Essa organização mantém o repositório acessível para quem quer apenas entender o case, sem esconder a profundidade técnica de quem deseja auditá-lo.
