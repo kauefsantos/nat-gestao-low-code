@@ -12,9 +12,13 @@
 
 :root { font-family: "Lato", ui-sans-serif, system-ui, sans-serif; color:#35150A; background:#F8EEE9; font-synthesis:none; color-scheme:light; font-variant-numeric:tabular-nums; }
 * { box-sizing:border-box; }
+html,body,#root { width:100%; max-width:100%; overflow-x:hidden; }
+@supports (overflow:clip) { html,body,#root { overflow-x:clip; } }
 html { background:#F8EEE9; min-height:100%; scroll-padding-bottom:calc(env(safe-area-inset-bottom) + 96px); }
 body { margin:0; min-width:320px; min-height:100vh; min-height:100dvh; background:#F8EEE9; padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); overflow-wrap:anywhere; line-height:1.55; }
 body > main.min-h-screen { min-height:100dvh; }
+main,section,.nat-card,.metric-card { min-width:0; max-width:100%; }
+img,canvas,svg { max-width:100%; }
 button,input,select,textarea { font:inherit; }
 button { cursor:pointer; }
 button:disabled { cursor:not-allowed; opacity:.55; }

@@ -19,9 +19,8 @@ export const BROWNIE_CATALOG: CatalogItem[] = [
 export const BRIGADEIRO_CATALOG: CatalogItem[] = [
   { key: "brigadeiro-ninho-nutella", family: "brigadeiro", flavor: "Ninho com Nutella", name: "Brigadeiro • Ninho com Nutella" },
   { key: "brigadeiro-tradicional", family: "brigadeiro", flavor: "Tradicional", name: "Brigadeiro • Tradicional" },
-  { key: "brigadeiro-tradicional-disqueti", family: "brigadeiro", flavor: "Tradicional com Disqueti", name: "Brigadeiro • Tradicional • Disqueti" },
   { key: "brigadeiro-oreo", family: "brigadeiro", flavor: "Oreo", name: "Brigadeiro • Oreo" },
-  { key: "brigadeiro-uva", family: "brigadeiro", flavor: "Surpresa de uva", name: "Brigadeiro • Surpresa de uva" },
+  { key: "surpresa-uva", family: "brigadeiro", flavor: "Surpresa de Uva", name: "Surpresa de Uva" },
   { key: "brigadeiro-ninho", family: "brigadeiro", flavor: "Ninho", name: "Brigadeiro • Ninho" },
   { key: "brigadeiro-beijinho", family: "brigadeiro", flavor: "Beijinho", name: "Brigadeiro • Beijinho" },
   { key: "brigadeiro-dois-amores", family: "brigadeiro", flavor: "2 Amores", name: "Brigadeiro • 2 Amores" },
