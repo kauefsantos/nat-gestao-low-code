@@ -97,7 +97,7 @@ Atuação ponta a ponta:
 
 ### Competências demonstradas
 
-`Product Discovery` · `Low-code` · `UX mobile-first` · `React` · `TypeScript` · `PostgreSQL` · `Supabase` · `RLS` · `Automação` · `PWA` · `Web Push` · `CI/CD` · `Testes` · `Segurança`
+`Product Discovery` · `Low-code` · `UX mobile-first` · `React` · `TypeScript` · `PostgreSQL` · `Lovable Cloud` · `RLS` · `Automação` · `PWA` · `Web Push` · `CI/CD` · `Testes` · `Segurança`
 
 ---
 
@@ -221,7 +221,7 @@ Fluxos críticos de **Agenda, Push, Estoque e Outros insumos** também foram val
 | --- | --- |
 | **Low-code / produto** | Lovable, Lovable Cloud |
 | **Frontend** | React 19, TypeScript, TanStack Router/Start, Tailwind CSS, Vite |
-| **Dados e backend** | PostgreSQL, Supabase APIs, RPCs, Edge Functions, Cron |
+| **Dados e backend** | PostgreSQL no Lovable Cloud, APIs/RPCs, Edge Functions, Cron |
 | **Mobile** | PWA, Service Worker, Web Push |
 | **Qualidade** | ESLint, TypeScript, Node Test Runner, Playwright, pgTAP, GitHub Actions |
 
@@ -235,7 +235,7 @@ src/
 ├─ domain/              # regras de negócio e tipos
 ├─ data/                # adaptadores de persistência
 ├─ hooks/               # estado, sincronização e operações
-└─ integrations/        # integração com Lovable Cloud / Supabase
+└─ integrations/        # integração com Lovable Cloud
 
 supabase/
 ├─ migrations/          # schema, RLS, RPCs, estoque e hardening
