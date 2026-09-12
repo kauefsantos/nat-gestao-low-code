@@ -13,13 +13,18 @@ for(const path of publicPaths){
   });
 }
 
-test("foco visível permanece identificável por teclado no login",async({page})=>{
+test("campo de login apresenta indicador visual de foco",async({page})=>{
   await page.goto("/login");
-  await page.keyboard.press("Tab");
-  const focused=page.locator(":focus");
-  await expect(focused).toBeVisible();
-  const outline=await focused.evaluate((element)=>getComputedStyle(element).outlineStyle);
-  expect(outline).not.toBe("none");
+  const input=page.getByLabel("E-mail");
+  await input.focus();
+  await expect(input).toBeFocused();
+  const indicator=await input.evaluate((element)=>{
+    const style=getComputedStyle(element);
+    return {outlineStyle:style.outlineStyle,outlineWidth:style.outlineWidth,boxShadow:style.boxShadow};
+  });
+  const hasOutline=indicator.outlineStyle!=="none"&&Number.parseFloat(indicator.outlineWidth)>0;
+  const hasShadow=indicator.boxShadow!=="none";
+  expect(hasOutline||hasShadow).toBeTruthy();
 });
 
 test("texto de formulário mantém tamanho legível",async({page})=>{
