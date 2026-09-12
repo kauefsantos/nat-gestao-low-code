@@ -2,6 +2,11 @@ import { id, preferredUsageUnit, type RecipeItem, type Supply, type Unit } from 
 
 export type RecipeCsvResult = { items: RecipeItem[]; errors: string[] };
 
+const MAX_CSV_CHARS = 500_000;
+const MAX_CSV_LINES = 500;
+const MAX_CSV_LINE_CHARS = 2_000;
+const MAX_CSV_FIELD_CHARS = 200;
+
 function normalize(value: string) {
   return value.trim().toLocaleLowerCase("pt-BR").normalize("NFD").replace(/\p{Diacritic}/gu, "");
 }
@@ -40,7 +45,12 @@ function quantityValue(raw: string, delimiter: string) {
 }
 
 export function parseRecipeCsv(text: string, supplies: Supply[]): RecipeCsvResult {
-  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (text.length > MAX_CSV_CHARS) return { items: [], errors: ["O conteúdo do CSV deve ter no máximo 500 mil caracteres."] };
+  if (text.includes("\0")) return { items: [], errors: ["O arquivo contém dados binários e não parece ser um CSV de texto válido."] };
+  const rawLines = text.split(/\r?\n/);
+  if (rawLines.length > MAX_CSV_LINES) return { items: [], errors: [`O CSV deve ter no máximo ${MAX_CSV_LINES} linhas.`] };
+  if (rawLines.some((line) => line.length > MAX_CSV_LINE_CHARS)) return { items: [], errors: ["O CSV contém uma linha longa demais."] };
+  const lines = rawLines.map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return { items: [], errors: ["Cole ou envie um CSV com pelo menos uma linha."] };
   const delimiter = delimiterFor(lines[0]);
   const first = splitLine(lines[0], delimiter).map(normalize);
@@ -53,7 +63,8 @@ export function parseRecipeCsv(text: string, supplies: Supply[]): RecipeCsvResul
   dataLines.forEach((line, offset) => {
     const lineNumber = offset + (hasHeader ? 2 : 1);
     const cells = splitLine(line, delimiter);
-    if (cells.length < 2) { errors.push(`Linha ${lineNumber}: use Ingrediente;Quantidade;Unidade.`); return; }
+    if (cells.length < 2 || cells.length > 3) { errors.push(`Linha ${lineNumber}: use somente Ingrediente;Quantidade;Unidade.`); return; }
+    if (cells.some((cell) => cell.length > MAX_CSV_FIELD_CHARS)) { errors.push(`Linha ${lineNumber}: um campo excede ${MAX_CSV_FIELD_CHARS} caracteres.`); return; }
     const supply = supplyByName.get(normalize(cells[0]));
     if (!supply) { errors.push(`Linha ${lineNumber}: “${cells[0]}” não está cadastrado em Ingredientes e embalagens.`); return; }
     const quantity = quantityValue(cells[1], delimiter);
