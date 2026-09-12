@@ -21,8 +21,8 @@ begin
     'name',job_name,'lastStartedAt',last_started_at,'lastSucceededAt',last_succeeded_at,
     'lastFailedAt',last_failed_at,'status',last_status,
     'stale',case
-      when job_name='nat-push-local-tick' then coalesce(last_started_at,'epoch'::timestamptz)<now()-interval '2 hours'
-      when job_name='nat-receivables-tick' then coalesce(last_started_at,'epoch'::timestamptz)<now()-interval '30 minutes'
+      when job_name in('nat-push-local-tick','nat-executive-summary-recovery') then coalesce(last_started_at,'epoch'::timestamptz)<now()-interval '2 hours'
+      when job_name in('nat-receivables-tick','nat-receivables-status') then coalesce(last_started_at,'epoch'::timestamptz)<now()-interval '30 minutes'
       else coalesce(last_started_at,'epoch'::timestamptz)<now()-interval '15 minutes'
     end
   ) order by job_name),'[]'::jsonb) into v_jobs from private.nat_job_heartbeats;
