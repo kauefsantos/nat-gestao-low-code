@@ -92,6 +92,7 @@ async function deliver(admin: SupabaseClient, subscription: Subscription, busine
   } catch (error) {
     const status = statusCodeOf(error);
     const permanent = status === 404 || status === 410;
+    const retryable = transientStatus(status);
     if (permanent) {
       await admin.from("push_subscriptions").update({ enabled: false, updated_at: new Date().toISOString() }).eq("id", subscription.id);
     }
@@ -99,10 +100,10 @@ async function deliver(admin: SupabaseClient, subscription: Subscription, busine
       p_id: claimed.id,
       p_permanent: permanent,
       p_provider_status: status,
-      p_error_code: permanent ? "SUBSCRIPTION_EXPIRED" : transientStatus(status) ? "TRANSIENT_PUSH_ERROR" : "PUSH_ERROR",
+      p_error_code: permanent ? "SUBSCRIPTION_EXPIRED" : retryable ? "TRANSIENT_PUSH_ERROR" : "PUSH_ERROR",
       p_error_message: error instanceof Error ? error.message : "Push provider error",
-      p_retry_after_seconds: retryAfterOf(error),
-      p_max_attempts: 5,
+      p_retry_after_seconds: retryable ? retryAfterOf(error) : null,
+      p_max_attempts: retryable ? 5 : (claimed.attemptCount ?? 1),
     });
     if (failed.error) throw failed.error;
     const outcome = failed.data as { status?: string } | null;
@@ -139,16 +140,13 @@ Deno.serve(async (req) => {
     if (![9, 12, 16, 21].includes(slot)) return new Response(JSON.stringify({ error: "INVALID_SLOT" }), { status: 400, headers: { "Content-Type": "application/json" } });
 
     const counters: Counters = { sent: 0, skipped: 0, retry_scheduled: 0, expired: 0, dead_letter: 0 };
-
-    // Fresh deliveries are calculated per business timezone. Sao Paulo remains the default.
     const settings = await admin.from("business_settings").select("business_id,timezone");
     if (settings.error) throw settings.error;
     for (const setting of settings.data ?? []) {
       const timeZone = typeof setting.timezone === "string" && setting.timezone ? setting.timezone : "America/Sao_Paulo";
       const today = localDate(timeZone);
       const targetDate = slot === 21 ? plusOneDay(today) : today;
-      const eventsResult = await admin.from("calendar_events")
-        .select("event_time").eq("business_id", setting.business_id).eq("event_date", targetDate).eq("status", "planned").eq("reminder_enabled", true);
+      const eventsResult = await admin.from("calendar_events").select("event_time").eq("business_id", setting.business_id).eq("event_date", targetDate).eq("status", "planned").eq("reminder_enabled", true);
       if (eventsResult.error) throw eventsResult.error;
       const events = (eventsResult.data ?? []).filter((event) => belongsToSlot(slot, event.event_time));
       if (!events.length) continue;
@@ -157,7 +155,6 @@ Deno.serve(async (req) => {
       for (const subscription of (subsResult.data ?? []) as Subscription[]) await deliver(admin, subscription, setting.business_id, targetDate, slot, events.length, counters);
     }
 
-    // Due retries are independent from today's current slot and reuse the same idempotency ledger.
     const retries = await admin.rpc("list_due_push_retries", { p_limit: 200 });
     if (retries.error) throw retries.error;
     for (const retry of (retries.data ?? []) as Array<{ business_id: string; subscription_id: string; user_id: string; local_date: string; slot: number; event_count: number }>) {
