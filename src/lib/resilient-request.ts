@@ -6,7 +6,7 @@ export type RetryPolicy={
   retryable?:(error:unknown)=>boolean;
 };
 
-const sleep=(ms:number)=>new Promise((resolve)=>setTimeout(resolve,ms));
+const sleep=(ms:number)=>new Promise((resolve)=>globalThis.setTimeout(resolve,ms));
 
 export function isTransientError(error:unknown){
   const message=error instanceof Error?error.message:String(error??"");
@@ -23,9 +23,9 @@ export async function resilientRequest<T>(operation:(context:{attempt:number;sig
   let lastError:unknown;
   for(let attempt=1;attempt<=attempts;attempt+=1){
     const controller=new AbortController();
-    let timeout:number|undefined;
+    let timeout:ReturnType<typeof setTimeout>|undefined;
     const deadline=new Promise<never>((_,reject)=>{
-      timeout=window.setTimeout(()=>{
+      timeout=globalThis.setTimeout(()=>{
         const error=new DOMException("Request timed out","TimeoutError");
         controller.abort(error);
         reject(error);
@@ -40,7 +40,7 @@ export async function resilientRequest<T>(operation:(context:{attempt:number;sig
       const jitter=Math.floor(Math.random()*Math.max(50,Math.round(exponential*0.2)));
       await sleep(exponential+jitter);
     }finally{
-      if(timeout!==undefined)window.clearTimeout(timeout);
+      if(timeout!==undefined)globalThis.clearTimeout(timeout);
     }
   }
   throw lastError;
