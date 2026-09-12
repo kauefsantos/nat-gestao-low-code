@@ -36,6 +36,8 @@ jobs:
         run: deno lint --config supabase/functions/deno.json supabase/functions
       - run: npm run test:domain
       - run: npm run build
+      - name: Enforce performance budget
+        run: npm run perf:budget
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
       - name: Audit complete dependency tree for high or critical issues
