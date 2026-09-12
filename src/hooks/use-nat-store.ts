@@ -2,11 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { initialState, type NatState } from "@/domain/nat";
 import { useAuth } from "@/hooks/use-auth";
 import { emptyNatVersions, loadNatCloudState, persistNatTransition, setProductAvailabilityCloud, type NatVersions } from "@/data/nat-repository";
+import { loadNatOperationalState } from "@/data/nat-operational-repository";
 import { supabase } from "@/integrations/supabase/client";
 import { classifyApiError } from "@/lib/api-error";
 
 export type NatSyncNotice = { tone:"saving"|"saved"|"error"; message:string } | null;
 const devError = (message: string,error?: unknown) => { if (import.meta.env.DEV) console.error(message,error); };
+
+type LoadedState=Awaited<ReturnType<typeof loadNatCloudState>>;
 
 export function useNatStore() {
   const { user } = useAuth();
@@ -15,18 +18,34 @@ export function useNatStore() {
   const [loadError,setLoadError] = useState<string|null>(null);
   const [syncNotice,setSyncNotice] = useState<NatSyncNotice>(null);
   const [syncRevision,setSyncRevision] = useState(0);
+  const [historyLoaded,setHistoryLoaded] = useState(false);
   const stateRef = useRef<NatState>(initialState);
   const businessIdRef = useRef<string | null>(null);
   const versionsRef = useRef<NatVersions>(emptyNatVersions());
+  const historyLoadedRef=useRef(false);
+  const historyPromiseRef=useRef<Promise<void>|null>(null);
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
   const writeSequence = useRef(0);
   const noticeTimer = useRef<number|null>(null);
 
   const applyState = useCallback((next: NatState) => { stateRef.current = next; setState(next); },[]);
-  const applyLoaded = useCallback((loaded: Awaited<ReturnType<typeof loadNatCloudState>>) => {
+  const applyLoaded = useCallback((loaded: LoadedState) => {
     businessIdRef.current=loaded.businessId; versionsRef.current=loaded.versions; applyState(loaded.state); setLoadError(null);
   },[applyState]);
-  const reloadFromCloud = useCallback(async () => { const loaded = await loadNatCloudState(); applyLoaded(loaded); setReady(true); },[applyLoaded]);
+  const reloadFromCloud = useCallback(async () => {
+    const loaded=historyLoadedRef.current?await loadNatCloudState():await loadNatOperationalState();
+    applyLoaded(loaded);setReady(true);
+  },[applyLoaded]);
+
+  const ensureFullHistory=useCallback(async()=>{
+    if(historyLoadedRef.current)return;
+    if(historyPromiseRef.current)return historyPromiseRef.current;
+    historyPromiseRef.current=(async()=>{
+      const loaded=await loadNatCloudState();
+      applyLoaded(loaded);historyLoadedRef.current=true;setHistoryLoaded(true);
+    })().finally(()=>{historyPromiseRef.current=null;});
+    return historyPromiseRef.current;
+  },[applyLoaded]);
 
   const clearSyncNotice=useCallback(()=>{
     if(noticeTimer.current!==null)window.clearTimeout(noticeTimer.current);
@@ -41,12 +60,12 @@ export function useNatStore() {
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
-      if (!user) { setReady(false); setLoadError(null); businessIdRef.current=null; versionsRef.current=emptyNatVersions(); return; }
+      if (!user) { setReady(false); setLoadError(null); businessIdRef.current=null; versionsRef.current=emptyNatVersions();historyLoadedRef.current=false;setHistoryLoaded(false); return; }
       try {
         setReady(false); setLoadError(null);
         const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel(); if (assurance.error) throw assurance.error;
         if (assurance.data.currentLevel !== "aal2") { if (typeof window !== "undefined") window.location.replace("/login?mfa=1"); return; }
-        const loaded = await loadNatCloudState(); if (cancelled) return; applyLoaded(loaded); setReady(true);
+        const loaded = await loadNatOperationalState(); if (cancelled) return; applyLoaded(loaded);historyLoadedRef.current=false;setHistoryLoaded(false);setReady(true);
       } catch (error) {
         devError("[NAT] Falha ao carregar dados protegidos",error);
         if(!cancelled){setLoadError("Não foi possível carregar os dados da NAT. Confira a conexão e tente novamente.");setReady(true);}
@@ -99,5 +118,5 @@ export function useNatStore() {
     });
   },[reloadFromCloud]);
 
-  return { state,update,setProductAvailability,refresh,ready,loadError,syncNotice,clearSyncNotice,syncRevision,businessId:businessIdRef.current };
+  return { state,update,setProductAvailability,refresh,ensureFullHistory,historyLoaded,ready,loadError,syncNotice,clearSyncNotice,syncRevision,businessId:businessIdRef.current };
 }
