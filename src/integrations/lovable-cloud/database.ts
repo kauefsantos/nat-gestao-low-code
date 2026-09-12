@@ -40,6 +40,7 @@ type AiGenerationLogExtra = {
   provider_called_at: string | null;
   provider_attempt_count: number;
   cost_quota_consumed: boolean;
+  correlation_id: string | null;
 };
 type NotificationDeliveryExtra = {
   status: string;
@@ -146,10 +147,9 @@ type RuntimeFunctions = {
 /**
  * Effective application schema for Lovable Cloud.
  *
- * `src/integrations/supabase/types.ts` remains the last generated snapshot.
- * This overlay contains fields/RPCs confirmed against Lovable Cloud and contracts
- * introduced by migrations in this stacked branch, until an authorized generator
- * can refresh the generated snapshot.
+ * `src/integrations/supabase/types.ts` is the generated schema snapshot. This
+ * overlay keeps runtime fields and RPC contracts that are already present in
+ * Lovable Cloud explicit until the next authorized type regeneration.
  */
 export type Database = Omit<GeneratedDatabase, "public"> & {
   public: Omit<PublicSchema, "Tables" | "Functions"> & {
