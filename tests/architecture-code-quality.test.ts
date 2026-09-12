@@ -6,9 +6,12 @@ const read=(path:string)=>readFileSync(path,"utf8");
 
 test("arquitetura: loader operacional legado duplicado foi removido",()=>{
   assert.equal(existsSync("src/data/nat-operational-repository.ts"),false);
+  assert.equal(existsSync("src/data/nat-operational-v3.ts"),false);
+  assert.equal(existsSync("src/data/nat-operational.ts"),true);
   const store=read("src/hooks/use-nat-store.ts");
-  assert.match(store,/loadNatOperationalStateV3/);
-  assert.match(store,/loadNatHistoryPageV3/);
+  assert.match(store,/loadNatOperationalState/);
+  assert.match(store,/loadNatHistoryPage/);
+  assert.doesNotMatch(store,/loadNatOperationalStateV3|loadNatHistoryPageV3/);
 });
 
 test("arquitetura: telas usam adaptadores sem acessar Lovable Cloud diretamente",()=>{
