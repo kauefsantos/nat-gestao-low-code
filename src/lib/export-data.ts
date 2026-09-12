@@ -1,4 +1,7 @@
 import { paymentLabel, type NatState } from "../domain/nat.js";
+import { buildPrivacySafeBackup } from "../domain/privacy.js";
+
+export { buildPrivacySafeBackup } from "../domain/privacy.js";
 
 function csvCell(value: unknown) {
   const text = value == null ? "" : String(value);
@@ -18,22 +21,6 @@ function download(name: string, content: string, type: string) {
 }
 
 function today() { return new Date().toISOString().slice(0, 10); }
-
-export function buildPrivacySafeBackup(state: NatState) {
-  const customers = (state.customers ?? []).map((customer)=>({
-    id:customer.id,
-    pseudonym:`cliente-${customer.id.slice(0,8)}`,
-    active:customer.active,
-    createdAt:customer.createdAt,
-    updatedAt:customer.updatedAt,
-  }));
-  return {
-    exportedAt:new Date().toISOString(),
-    format:"nat-gestao-backup-v2-privacy-safe",
-    privacyNotice:"Dados identificáveis de clientes, observações e consentimento de marketing não são exportados.",
-    state:{...state,customers},
-  };
-}
 
 export function exportNatCsv(state: NatState) {
   const headers = ["tipo", "data", "nome", "categoria", "quantidade", "unidade", "valor", "pagamento", "status", "observacao"];
