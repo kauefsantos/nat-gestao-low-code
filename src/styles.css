@@ -26,6 +26,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,s
 .skip-link:focus { transform:translateY(0); }
 
 [aria-labelledby="inventory-balance-title"],[aria-labelledby="inventory-production-title"] { max-height:100dvh; overflow-y:auto; overscroll-behavior:contain; }
+article.opacity-55,article.opacity-70 { opacity:1!important; }
 
 .app-safe-top { padding-top:env(safe-area-inset-top); }
 .app-safe-nav { padding-left:max(8px,env(safe-area-inset-left)); padding-right:max(8px,env(safe-area-inset-right)); }
