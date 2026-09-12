@@ -10,7 +10,8 @@
 - Regra/definição nova:
 - Fonte(s) de dados afetada(s):
 - Impacto esperado para a usuária:
-- Responsável de negócio que validou a regra:
+- Validação da Business Owner (Natalia), quando houver mudança funcional/regra de negócio:
+- Responsável técnico pela implementação/validação (Kauê):
 - `docs/METRIC_CATALOG.md` precisa ser atualizado? [ ] sim [ ] não
 
 ## Risco e rollback
@@ -20,6 +21,7 @@
 - [ ] `npm run check` passou quando aplicável
 - [ ] Alterações de banco vieram com migration e regressão em `supabase/tests`
 - [ ] Alterações de indicador preservam `America/Sao_Paulo` e têm teste de borda de data quando aplicável
+- [ ] Mudanças de regra de negócio, cálculo, fluxo operacional ou indicador foram validadas pela Business Owner quando aplicável
 - [ ] Alterações de acesso/autorização foram conferidas contra a matriz de permissões e revisão de acesso
 - [ ] UX foi conferida em mobile quando a interface mudou
 - [ ] Nenhum segredo, dado pessoal, dado de cliente ou receita operacional real foi incluído
