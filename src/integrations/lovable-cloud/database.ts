@@ -42,7 +42,6 @@ type SaleExtra = {
   paid_at: string | null;
   payment_critical_at: string | null;
 };
-type CustomerExtra = { credit_status: string };
 type FundingExtra = { funding_source: string };
 type AiGenerationLogExtra = {
   provider_called_at: string | null;
@@ -60,6 +59,52 @@ type NotificationDeliveryExtra = {
   locked_at: string | null;
   sent_at: string | null;
   updated_at: string;
+};
+
+type CustomerTable = {
+  Row: {
+    id: string;
+    business_id: string;
+    name: string;
+    phone: string | null;
+    instagram: string | null;
+    source: string | null;
+    marketing_consent: boolean;
+    notes: string | null;
+    active: boolean;
+    credit_status: string;
+    created_at: string;
+    updated_at: string;
+  };
+  Insert: {
+    id?: string;
+    business_id: string;
+    name: string;
+    phone?: string | null;
+    instagram?: string | null;
+    source?: string | null;
+    marketing_consent?: boolean;
+    notes?: string | null;
+    active?: boolean;
+    credit_status?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Update: {
+    id?: string;
+    business_id?: string;
+    name?: string;
+    phone?: string | null;
+    instagram?: string | null;
+    source?: string | null;
+    marketing_consent?: boolean;
+    notes?: string | null;
+    active?: boolean;
+    credit_status?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Relationships: [];
 };
 
 type CustomerMarketingConsentTable = {
@@ -188,7 +233,6 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
       Tables,
       | "ai_generation_log"
       | "business_settings"
-      | "customers"
       | "notification_delivery_log"
       | "products"
       | "sale_items"
@@ -198,7 +242,7 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
     > & {
       ai_generation_log: TableWith<"ai_generation_log", AiGenerationLogExtra>;
       business_settings: TableWith<"business_settings", BusinessSettingsExtra>;
-      customers: TableWith<"customers", CustomerExtra>;
+      customers: CustomerTable;
       notification_delivery_log: TableWith<"notification_delivery_log", NotificationDeliveryExtra>;
       products: TableWith<"products", ProductExtra>;
       sale_items: TableWith<"sale_items", SaleItemExtra>;
@@ -207,7 +251,7 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
       supply_purchases: TableWith<"supply_purchases", FundingExtra>;
       customer_marketing_consents: CustomerMarketingConsentTable;
     };
-    Functions: Functions & RuntimeFunctions;
+    Functions: Omit<Functions, keyof RuntimeFunctions> & RuntimeFunctions;
   };
 };
 
