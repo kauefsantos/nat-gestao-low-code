@@ -8,6 +8,7 @@ import type { CatalogItem, StarterSupply } from "@/domain/catalog";
 import { AppShell, Brand, type NatView } from "@/components/nat/AppShell";
 import { HomeView, PricingView } from "@/components/nat/Views";
 import { HomeOperations } from "@/components/nat/HomeOperations";
+import { IntegrationHealthPanel } from "@/components/nat/IntegrationHealthPanel";
 import { ProductsView, type ProductTab } from "@/components/nat/ProductsView";
 import { SalesHistoryView } from "@/components/nat/SalesHistoryView";
 import { SaleOrderSheet } from "@/components/nat/SaleOrderSheet";
@@ -63,7 +64,7 @@ export function NatApp({ view,onView }: { view:NatView; onView:(view:NatView)=>v
 
   return <AppShell view={view} onView={onView} onSale={()=>setSheet({type:"sale"})} onSettings={()=>setSheet({type:"settings"})} onLogout={logout}>
     <StatusToast notice={notice} onDismiss={dismissNotice}/>
-    {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")}/><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")} onCashMovement={()=>setSheet({type:"ownerCash"})}/></div>}
+    {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")}/><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")} onCashMovement={()=>setSheet({type:"ownerCash"})}/><IntegrationHealthPanel businessId={businessId}/></div>}
     {view==="sales"&&<SalesHistoryView state={state} onNew={()=>setSheet({type:"sale"})} onCancel={(saleId,reason)=>update((current)=>({...current,sales:current.sales.map((sale)=>sale.id===saleId?{...sale,status:"cancelled",cancelReason:reason,cancelledAt:new Date().toISOString()}:sale)}))}/>} 
     {view==="customers"&&<CustomersView state={state} onSave={saveCustomer}/>} 
     {view==="intelligence"&&<IntelligenceView state={state} inventory={inventory.snapshot} businessId={businessId}/>} 
