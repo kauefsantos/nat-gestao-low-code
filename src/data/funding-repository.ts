@@ -2,13 +2,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { businessDate } from "@/lib/business-time";
 import { type FundingSource, type FundingSummary } from "@/domain/funding";
 
-type RpcResult={data:unknown;error:{message:string}|null};
 const numeric=(value:unknown)=>Number.isFinite(Number(value))?Number(value):0;
 function fundingMap(value:unknown):Record<string,FundingSource>{if(!value||typeof value!=="object"||Array.isArray(value))return{};return Object.fromEntries(Object.entries(value as Record<string,unknown>).map(([key,source])=>[key,source==="business"?"business":"owner"]));}
 const cache=new Map<string,{expires:number,promise:Promise<FundingSummary>}>();
 
 async function fetchFundingSummary(businessId:string,monthStart:string):Promise<FundingSummary>{
-  const result=await supabase.rpc("get_financial_funding_snapshot" as never,{p_business_id:businessId,p_month_start:monthStart} as never) as unknown as RpcResult;
+  const result=await supabase.rpc("get_financial_funding_snapshot",{p_business_id:businessId,p_month_start:monthStart});
   if(result.error)throw new Error(`Não foi possível carregar a origem do dinheiro: ${result.error.message}`);
   const row=(result.data&&typeof result.data==="object"&&!Array.isArray(result.data)?result.data:{}) as Record<string,unknown>;
   const fixedCostFundingSource:FundingSource=row.fixedCostFundingSource==="business"?"business":"owner";
