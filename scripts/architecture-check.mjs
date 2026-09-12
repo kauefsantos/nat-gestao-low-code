@@ -11,6 +11,8 @@ const componentIntegrationExceptions=new Set([
   "src/components/nat/IntegrationHealthPanel.tsx",
   // External-provider integration surface; AI is currently disabled in product UI.
   "src/components/nat/ContentStudio.tsx",
+  // Privacy consent lookup and anonymization entrypoint; extract when CustomerEditor is split from the view.
+  "src/components/nat/CustomersView.tsx",
 ]);
 
 function walk(dir){
