@@ -1,0 +1,1 @@
+Database hardening was applied directly to the Lovable Cloud database for project `nat-gestao`. Frontend and Edge Function source changes are carried by the `fix/privacy-lgpd-hardening` branch and must be merged through the repository CI before becoming the canonical main-branch source.

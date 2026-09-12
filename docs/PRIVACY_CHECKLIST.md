@@ -1,0 +1,9 @@
+- [x] Erasure/anonymization flow
+- [x] Customer audit PII redaction
+- [x] Retention policy and cleanup
+- [x] Marketing consent ledger
+- [x] AI PII guard in source
+- [x] Privacy notice and rights channel
+- [x] Notes minimization
+- [x] Privacy-safe backup
+- [x] Diagnostic TTL/redaction/clear
