@@ -136,23 +136,27 @@ Deno.serve(async (req) => {
     webpush.setVapidDetails(config.subject || "mailto:admin@nat-gestao.local", config.vapidPublic, config.vapidPrivate);
 
     const body = await req.json().catch(() => ({}));
+    const retryOnly = body?.retryOnly === true;
     const slot = Number(body?.slot);
-    if (![9, 12, 16, 21].includes(slot)) return new Response(JSON.stringify({ error: "INVALID_SLOT" }), { status: 400, headers: { "Content-Type": "application/json" } });
+    if (!retryOnly && ![9, 12, 16, 21].includes(slot)) return new Response(JSON.stringify({ error: "INVALID_SLOT" }), { status: 400, headers: { "Content-Type": "application/json" } });
 
     const counters: Counters = { sent: 0, skipped: 0, retry_scheduled: 0, expired: 0, dead_letter: 0 };
-    const settings = await admin.from("business_settings").select("business_id,timezone");
-    if (settings.error) throw settings.error;
-    for (const setting of settings.data ?? []) {
-      const timeZone = typeof setting.timezone === "string" && setting.timezone ? setting.timezone : "America/Sao_Paulo";
-      const today = localDate(timeZone);
-      const targetDate = slot === 21 ? plusOneDay(today) : today;
-      const eventsResult = await admin.from("calendar_events").select("event_time").eq("business_id", setting.business_id).eq("event_date", targetDate).eq("status", "planned").eq("reminder_enabled", true);
-      if (eventsResult.error) throw eventsResult.error;
-      const events = (eventsResult.data ?? []).filter((event) => belongsToSlot(slot, event.event_time));
-      if (!events.length) continue;
-      const subsResult = await admin.from("push_subscriptions").select("id,user_id,endpoint,p256dh,auth").eq("business_id", setting.business_id).eq("enabled", true);
-      if (subsResult.error) throw subsResult.error;
-      for (const subscription of (subsResult.data ?? []) as Subscription[]) await deliver(admin, subscription, setting.business_id, targetDate, slot, events.length, counters);
+
+    if (!retryOnly) {
+      const settings = await admin.from("business_settings").select("business_id,timezone");
+      if (settings.error) throw settings.error;
+      for (const setting of settings.data ?? []) {
+        const timeZone = typeof setting.timezone === "string" && setting.timezone ? setting.timezone : "America/Sao_Paulo";
+        const today = localDate(timeZone);
+        const targetDate = slot === 21 ? plusOneDay(today) : today;
+        const eventsResult = await admin.from("calendar_events").select("event_time").eq("business_id", setting.business_id).eq("event_date", targetDate).eq("status", "planned").eq("reminder_enabled", true);
+        if (eventsResult.error) throw eventsResult.error;
+        const events = (eventsResult.data ?? []).filter((event) => belongsToSlot(slot, event.event_time));
+        if (!events.length) continue;
+        const subsResult = await admin.from("push_subscriptions").select("id,user_id,endpoint,p256dh,auth").eq("business_id", setting.business_id).eq("enabled", true);
+        if (subsResult.error) throw subsResult.error;
+        for (const subscription of (subsResult.data ?? []) as Subscription[]) await deliver(admin, subscription, setting.business_id, targetDate, slot, events.length, counters);
+      }
     }
 
     const retries = await admin.rpc("list_due_push_retries", { p_limit: 200 });
@@ -164,7 +168,7 @@ Deno.serve(async (req) => {
       await deliver(admin, subResult.data as Subscription, retry.business_id, retry.local_date, retry.slot, retry.event_count, counters);
     }
 
-    return new Response(JSON.stringify({ ok: true, slot, ...counters }), { headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, mode: retryOnly ? "retry" : "slot", slot: retryOnly ? null : slot, ...counters }), { headers: { "Content-Type": "application/json" } });
   } catch (error) {
     console.error("nat-push-dispatch", error instanceof Error ? error.message : "unknown");
     return new Response(JSON.stringify({ error: "INTERNAL_ERROR" }), { status: 500, headers: { "Content-Type": "application/json" } });
