@@ -1,11 +1,30 @@
-import { existsSync, readFileSync } from "node:fs";
+import { createHmac } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import type { Session } from "@supabase/supabase-js";
 
-const supabaseUrl=process.env.VITE_SUPABASE_URL;
-const responsiveSessionPath=".test-build/responsive-aal2-session.json";
+const email="responsive@example.test";
+const password="NAT-RLS-e2e-2026!";
 
 test.describe.configure({retries:0});
+
+function decodeBase32(value:string){
+  const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const normalized=value.toUpperCase().replace(/=+$/g,"").replace(/\s+/g,"");
+  let bits="";
+  for(const char of normalized){const index=alphabet.indexOf(char);if(index<0)throw new Error("Invalid base32 secret");bits+=index.toString(2).padStart(5,"0");}
+  const bytes:number[]=[];
+  for(let index=0;index+8<=bits.length;index+=8)bytes.push(Number.parseInt(bits.slice(index,index+8),2));
+  return Buffer.from(bytes);
+}
+
+function totp(secret:string,now=Date.now()){
+  const counter=Math.floor(now/1000/30);
+  const buffer=Buffer.alloc(8);
+  buffer.writeBigUInt64BE(BigInt(counter));
+  const digest=createHmac("sha1",decodeBase32(secret)).update(buffer).digest();
+  const offset=digest[digest.length-1]&0x0f;
+  const code=((digest[offset]&0x7f)<<24)|((digest[offset+1]&0xff)<<16)|((digest[offset+2]&0xff)<<8)|(digest[offset+3]&0xff);
+  return String(code%1_000_000).padStart(6,"0");
+}
 
 async function expectNoHorizontalOverflow(page:Page){
   const layout=await page.evaluate(()=>({width:window.innerWidth,scrollWidth:document.documentElement.scrollWidth}));
@@ -21,19 +40,34 @@ async function expectMainTouchTargets(page:Page){
 }
 
 async function openAuthenticatedSession(page:Page){
-  expect(supabaseUrl).toBeTruthy();
-  expect(existsSync(responsiveSessionPath),"A sessão AAL2 deve ser preparada pelo E2E de autorização antes do teste responsivo.").toBe(true);
-  const session=JSON.parse(readFileSync(responsiveSessionPath,"utf8")) as Session;
-  expect(session.access_token).toBeTruthy();
-  expect(session.refresh_token).toBeTruthy();
-  expect(session.user?.id).toBeTruthy();
+  await page.goto("/login",{waitUntil:"domcontentloaded"});
+  await expect(page.getByRole("heading",{name:"Bem-vinda de volta"})).toBeVisible({timeout:30_000});
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha").fill(password);
+  await page.getByRole("button",{name:"Entrar"}).click();
 
-  const storageKey=`sb-${new URL(supabaseUrl!).hostname.split(".")[0]}-auth-token`;
-  await page.addInitScript(({key,value})=>{
-    window.localStorage.setItem(key,JSON.stringify(value));
-  },{key:storageKey,value:session});
+  const detectState=async()=>{
+    if(/\/dashboard/.test(page.url()))return "dashboard";
+    const alert=page.getByRole("alert");
+    if(await alert.isVisible().catch(()=>false))return `error:${await alert.innerText()}`;
+    if(await page.getByRole("heading",{name:"Ative a proteção extra"}).isVisible().catch(()=>false))return "enroll";
+    if(await page.getByRole("heading",{name:"Confirme que é você"}).isVisible().catch(()=>false))return "challenge";
+    if(await page.getByRole("heading",{name:"Protegendo seu acesso"}).isVisible().catch(()=>false))return "checking";
+    return "pending";
+  };
 
-  await page.goto("/dashboard?view=home",{waitUntil:"domcontentloaded"});
+  await expect.poll(detectState,{timeout:30_000,message:"O login não avançou para MFA nem dashboard."}).not.toBe("pending");
+  const state=await detectState();
+  if(state.startsWith("error:"))throw new Error(`Falha ao preparar MFA: ${state.slice(6)}`);
+  if(state==="challenge")throw new Error("A conta descartável de responsividade já possuía MFA verificado antes do teste.");
+  if(state==="enroll"){
+    const secret=(await page.locator("p.break-all").textContent())?.trim();
+    expect(secret).toBeTruthy();
+    await page.getByLabel("Código de segurança").fill(totp(secret!));
+    await page.getByRole("button",{name:"Ativar e entrar"}).click();
+  }
+
+  await page.waitForURL(/\/dashboard/,{timeout:30_000});
   await expect(page.locator("header")).toBeVisible({timeout:30_000});
 }
 
