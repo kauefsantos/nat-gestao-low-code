@@ -43,8 +43,11 @@ select is((public.fail_push_delivery((select id from public.notification_deliver
 select ok((public.claim_push_delivery('aaaa0000-0000-4000-8000-000000000001'::uuid,'cccc0000-0000-4000-8000-000000000001'::uuid,'bbbb0000-0000-4000-8000-000000000001'::uuid,'2099-12-30'::date,12::smallint,1,120)->>'claimed')::boolean,'second test delivery claim succeeds');
 select is((public.fail_push_delivery((select id from public.notification_delivery_log where subscription_id='cccc0000-0000-4000-8000-000000000001' and local_date='2099-12-30'),true,410,'SUBSCRIPTION_EXPIRED','gone',null,5)->>'status'),'expired','410/permanent failure is expired');
 
-select ok(private.is_valid_timezone('America/Sao_Paulo'),'Sao Paulo timezone is valid');
-select ok(not private.is_valid_timezone('Mars/Olympus'),'invalid IANA timezone is rejected');
+select is((select timezone from public.business_settings where business_id='aaaa0000-0000-4000-8000-000000000001'),'America/Sao_Paulo'::text,'Sao Paulo is the default business timezone');
+select throws_ok(
+  $$update public.business_settings set timezone='Mars/Olympus' where business_id='aaaa0000-0000-4000-8000-000000000001'$$,
+  '23514',null,'invalid IANA timezone is rejected by the constraint'
+);
 
 select public.claim_content_ai_quota('aaaa0000-0000-4000-8000-000000000001','bbbb0000-0000-4000-8000-000000000001','feed',100) as ai_log_id \gset
 select ok(public.claim_content_ai_provider_quota(:'ai_log_id',100),'provider quota can be claimed once');
