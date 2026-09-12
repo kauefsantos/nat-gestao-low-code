@@ -4,6 +4,8 @@ import { expect, test, type Page } from "@playwright/test";
 const email="operations@example.test";
 const password="NAT-RLS-e2e-2026!";
 
+test.describe.configure({retries:0});
+
 function decodeBase32(value:string){
   const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   const normalized=value.toUpperCase().replace(/=+$/g,"").replace(/\s+/g,"");
@@ -47,8 +49,8 @@ test("venda persiste após reload e cancelamento também persiste",async({page})
   await page.getByRole("button",{name:"Registrar venda ou saída"}).click();
   const dialog=page.getByRole("dialog",{name:"Registrar venda ou saída"});
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("Produto 1").selectOption({label:"Produto E2E Venda"});
-  await dialog.getByLabel("Quantidade do produto 1").fill("2");
+  await dialog.getByLabel("Produto 1",{exact:true}).selectOption({label:"Produto E2E Venda"});
+  await dialog.getByLabel("Quantidade do produto 1",{exact:true}).fill("2");
   await expect(dialog.getByText("Resumo antes de salvar")).toBeVisible({timeout:20_000});
   const save=dialog.getByRole("button",{name:"Registrar venda"});
   await expect(save).toBeEnabled({timeout:20_000});
@@ -63,7 +65,7 @@ test("venda persiste após reload e cancelamento também persiste",async({page})
   await page.getByRole("button",{name:"Cancelar Produto E2E Venda"}).click();
   const cancel=page.getByRole("dialog",{name:"Cancelar venda ou saída"});
   await expect(cancel).toBeVisible();
-  await cancel.getByLabel("Motivo do cancelamento").fill("Validação E2E de cancelamento");
+  await cancel.getByLabel("Motivo do cancelamento",{exact:true}).fill("Validação E2E de cancelamento");
   await cancel.getByRole("button",{name:"Cancelar movimento"}).click();
   await expect(cancel).toBeHidden({timeout:30_000});
 
