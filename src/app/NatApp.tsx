@@ -1,76 +1,65 @@
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { signOutCurrentSession } from "@/data/business-context-repository";
 import { useNatStore } from "@/hooks/use-nat-store";
+import { useNatCommands } from "@/hooks/use-nat-commands";
 import { useInventory } from "@/hooks/use-inventory";
 import { useCalendar } from "@/hooks/use-calendar";
-import { dashboardNumbers, id, type Customer, type OwnerCashMovement, type Product, type Settings, type SporadicExpense, type Supply } from "@/domain/nat";
+import { useFundingSummary } from "@/hooks/use-funding-summary";
+import { dashboardNumbers, money, type OwnerCashMovement, type Product, type Sale, type Settings, type SporadicExpense, type Supply } from "@/domain/nat";
+import type { FundingSource } from "@/domain/funding";
 import type { CatalogItem, StarterSupply } from "@/domain/catalog";
 import { AppShell, Brand, type NatView } from "@/components/nat/AppShell";
-import { HomeView, PricingView } from "@/components/nat/Views";
+import type { ProductTab } from "@/components/nat/ProductsView";
 import { HomeOperations } from "@/components/nat/HomeOperations";
-import { ProductsView, type ProductTab } from "@/components/nat/ProductsView";
-import { SalesHistoryView } from "@/components/nat/SalesHistoryView";
-import { SaleOrderSheet } from "@/components/nat/SaleOrderSheet";
-import { CustomersView } from "@/components/nat/CustomersView";
-import { IntelligenceView } from "@/components/nat/IntelligenceView";
-import { PortfolioHierarchyView } from "@/components/nat/PortfolioHierarchyView";
-import { BrandGuideView } from "@/components/nat/BrandGuideView";
-import { CalendarView } from "@/components/nat/CalendarView";
-import { InventoryView } from "@/components/nat/InventoryView";
 import { StatusToast, type AppNotice } from "@/components/nat/Feedback";
-import { SupplySheet } from "@/components/nat/SupplySheet";
-import { ExpenseSheet, ProductSheet, SettingsSheet } from "@/components/nat/Sheets";
-import { OwnerCashMovementSheet } from "@/components/nat/OwnerCashMovementSheet";
 import { installGlobalDiagnostics, recordDiagnostic } from "@/lib/telemetry";
 
-type Sheet =
-  | { type:"sale" }
-  | { type:"supply"; value?:Supply; preset?:StarterSupply }
-  | { type:"product"; value?:Product; preset?:CatalogItem }
-  | { type:"expense"; value?:SporadicExpense; presetName?:string }
-  | { type:"ownerCash"; value?:OwnerCashMovement }
-  | { type:"settings" }
-  | null;
+const HomeView=lazy(()=>import("@/components/nat/Views").then((m)=>({default:m.HomeView})));
+const PricingView=lazy(()=>import("@/components/nat/Views").then((m)=>({default:m.PricingView})));
+const IntegrationHealthPanel=lazy(()=>import("@/components/nat/IntegrationHealthPanel").then((m)=>({default:m.IntegrationHealthPanel})));
+const GlobalSearchSheet=lazy(()=>import("@/components/nat/GlobalSearchSheet").then((m)=>({default:m.GlobalSearchSheet})));
+const ProductsView=lazy(()=>import("@/components/nat/ProductsView").then((m)=>({default:m.ProductsView})));
+const SalesHistoryView=lazy(()=>import("@/components/nat/SalesHistoryView").then((m)=>({default:m.SalesHistoryView})));
+const SaleOrderSheet=lazy(()=>import("@/components/nat/SaleOrderSheet").then((m)=>({default:m.SaleOrderSheet})));
+const CustomersView=lazy(()=>import("@/components/nat/CustomersView").then((m)=>({default:m.CustomersView})));
+const IntelligenceWorkbench=lazy(()=>import("@/components/nat/IntelligenceWorkbench").then((m)=>({default:m.IntelligenceWorkbench})));
+const PortfolioHierarchyView=lazy(()=>import("@/components/nat/PortfolioHierarchyView").then((m)=>({default:m.PortfolioHierarchyView})));
+const BrandGuideView=lazy(()=>import("@/components/nat/BrandGuideView").then((m)=>({default:m.BrandGuideView})));
+const CalendarView=lazy(()=>import("@/components/nat/CalendarView").then((m)=>({default:m.CalendarView})));
+const InventoryView=lazy(()=>import("@/components/nat/InventoryView").then((m)=>({default:m.InventoryView})));
+const SupplySheet=lazy(()=>import("@/components/nat/SupplySheet").then((m)=>({default:m.SupplySheet})));
+const SettingsSheet=lazy(()=>import("@/components/nat/Sheets").then((m)=>({default:m.SettingsSheet})));
+const ProductEditorSheet=lazy(()=>import("@/components/nat/ProductEditorSheet").then((m)=>({default:m.ProductEditorSheet})));
+const ExpenseEditorSheet=lazy(()=>import("@/components/nat/ExpenseEditorSheet").then((m)=>({default:m.ExpenseEditorSheet})));
+const OwnerCashMovementSheet=lazy(()=>import("@/components/nat/OwnerCashMovementSheet").then((m)=>({default:m.OwnerCashMovementSheet})));
 
-export function NatApp({ view,onView }: { view:NatView; onView:(view:NatView)=>void }) {
-  const { state,update,setProductAvailability,refresh,ready,loadError,syncNotice,clearSyncNotice,syncRevision,businessId }=useNatStore();
-  const inventory=useInventory(businessId,syncRevision);
-  const homeCalendar=useCalendar(view==="home");
-  const [productTab,setProductTab]=useState<ProductTab>("products");
-  const [sheet,setSheet]=useState<Sheet>(null);
-  const [localNotice,setLocalNotice]=useState<AppNotice>(null);
-  const numbers=useMemo(()=>dashboardNumbers(state),[state]);
-  useEffect(()=>installGlobalDiagnostics(),[]);
-  useEffect(()=>{if(loadError)recordDiagnostic(`Falha ao carregar dados: ${loadError}`);},[loadError]);
+type Sheet=|{type:"sale";preset?:Sale}|{type:"supply";value?:Supply;preset?:StarterSupply}|{type:"product";value?:Product;preset?:CatalogItem}|{type:"expense";value?:SporadicExpense;presetName?:string}|{type:"ownerCash";value?:OwnerCashMovement}|{type:"settings"}|{type:"search"}|null;
+const historyViews:NatView[]=["sales","customers","intelligence"];
+const LoadingChunk=()=> <div className="nat-card text-center text-base text-caramel" role="status">Carregando esta área...</div>;
 
-  if(!ready) return <div className="min-h-screen grid place-items-center bg-cream"><div className="space-y-4 text-center"><Brand/><p className="text-sm text-caramel" role="status">Carregando dados protegidos...</p></div></div>;
-  if(loadError) return <div className="min-h-screen grid place-items-center bg-cream p-5"><div className="nat-card max-w-md text-center"><div className="mx-auto w-fit"><Brand/></div><h1 className="mt-6 font-display text-3xl">Não conseguimos abrir seus dados</h1><p className="mt-2 text-sm leading-6 text-caramel">{loadError}</p><button type="button" className="primary-button mt-5 w-full justify-center" onClick={refresh}>Tentar novamente</button></div></div>;
+function FundingOverview({owner,reinvested,monthReinvested,loading}:{owner:number;reinvested:number;monthReinvested:number;loading:boolean}){
+  return <div className="nat-card"><p className="eyebrow">Origem do dinheiro</p><h2 className="section-title">Dinheiro pessoal × dinheiro da NAT</h2><p className="mt-2 text-base leading-6 text-caramel">Aporte pessoal é dinheiro colocado por vocês. Reinvestimento é quando uma compra ou gasto é pago com dinheiro que a própria NAT gerou.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-soft p-4"><p className="text-sm font-bold text-caramel">Dinheiro colocado pelos donos</p><p className="mt-1 text-2xl font-bold">{loading?"…":money(owner)}</p></div><div className="rounded-2xl bg-soft p-4"><p className="text-sm font-bold text-caramel">Reinvestimento acumulado</p><p className="mt-1 text-2xl font-bold">{loading?"…":money(reinvested)}</p></div><div className="rounded-2xl bg-soft p-4"><p className="text-sm font-bold text-caramel">Reinvestido neste mês</p><p className="mt-1 text-2xl font-bold">{loading?"…":money(monthReinvested)}</p></div></div></div>;
+}
 
-  const homeState={...state,sales:state.sales.filter((sale)=>sale.status!=="cancelled")};
-  const openProducts=(tab:ProductTab)=>{setProductTab(tab);onView("products");};
-  const logout=()=>void supabase.auth.signOut().finally(()=>{window.location.href="/";});
-  const notice=localNotice??inventory.notice??syncNotice;
-  const dismissNotice=()=>{if(localNotice)setLocalNotice(null);else if(inventory.notice)inventory.clearNotice();else clearSyncNotice();};
-  const saveCustomer=(customer:Customer)=>update((current)=>({...current,customers:(current.customers??[]).some((item)=>item.id===customer.id)?(current.customers??[]).map((item)=>item.id===customer.id?customer:item):[...(current.customers??[]),customer]}));
-  const saveOwnerCash=(movement:OwnerCashMovement)=>update((current)=>({...current,ownerCashMovements:(current.ownerCashMovements??[]).some((item)=>item.id===movement.id)?(current.ownerCashMovements??[]).map((item)=>item.id===movement.id?movement:item):[movement,...(current.ownerCashMovements??[])]}));
-
-  return <AppShell view={view} onView={onView} onSale={()=>setSheet({type:"sale"})} onSettings={()=>setSheet({type:"settings"})} onLogout={logout}>
-    <StatusToast notice={notice} onDismiss={dismissNotice}/>
-    {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")}/><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")} onCashMovement={()=>setSheet({type:"ownerCash"})}/></div>}
-    {view==="sales"&&<SalesHistoryView state={state} onNew={()=>setSheet({type:"sale"})} onCancel={(saleId,reason)=>update((current)=>({...current,sales:current.sales.map((sale)=>sale.id===saleId?{...sale,status:"cancelled",cancelReason:reason,cancelledAt:new Date().toISOString()}:sale)}))}/>} 
-    {view==="customers"&&<CustomersView state={state} onSave={saveCustomer}/>} 
-    {view==="intelligence"&&<IntelligenceView state={state} inventory={inventory.snapshot} businessId={businessId}/>} 
-    {view==="calendar"&&<CalendarView/>}
-    {view==="inventory"&&<InventoryView state={state} snapshot={inventory.snapshot} loading={inventory.loading} error={inventory.error} onRetry={inventory.reload} onSetBalance={inventory.setBalance} onProduction={inventory.registerProduction}/>} 
-    {view==="portfolio"&&<PortfolioHierarchyView state={state} onConfigure={(preset)=>setSheet({type:"product",preset})} onEdit={(value)=>setSheet({type:"product",value})} onAvailability={(product,available)=>setProductAvailability(product.id,available)} onPricing={()=>onView("pricing")}/>} 
-    {view==="products"&&<ProductsView state={state} tab={productTab} onTab={setProductTab} onNewSupply={(preset)=>setSheet({type:"supply",preset})} onEditSupply={(value)=>setSheet({type:"supply",value})} onDeleteSupply={(supplyId)=>{const used=state.products.some((product)=>product.recipe.some((item)=>item.supplyId===supplyId));if(used){setLocalNotice({tone:"error",message:"Esse item está em uma receita ativa. Retire-o do produto antes de arquivar."});return;}update((current)=>({...current,supplies:current.supplies.filter((supply)=>supply.id!==supplyId)}));}} onNewProduct={(preset)=>setSheet({type:"product",preset})} onEditProduct={(value)=>setSheet({type:"product",value})} onDuplicateProduct={(product)=>update((current)=>({...current,products:[...current.products,{...product,id:id("product"),name:`${product.name} (cópia)`,portfolioKey:null,available:true}]}))} onDeleteProduct={(productId)=>update((current)=>({...current,products:current.products.filter((product)=>product.id!==productId)}))} onNewExpense={(presetName)=>setSheet({type:"expense",presetName})} onEditExpense={(value)=>setSheet({type:"expense",value})} onDeleteExpense={(expenseId)=>update((current)=>({...current,expenses:current.expenses.filter((expense)=>expense.id!==expenseId)}))}/>} 
-    {view==="pricing"&&<PricingView state={state} onProducts={()=>openProducts("products")}/>} 
-    {view==="identity"&&<BrandGuideView/>}
-    {sheet?.type==="sale"&&<SaleOrderSheet state={state} businessId={businessId} onClose={()=>setSheet(null)} onSave={(sale)=>{update((current)=>({...current,sales:[sale,...current.sales]}));setSheet(null);}}/>}
-    {sheet?.type==="supply"&&<SupplySheet value={sheet.value} preset={sheet.preset} recentSupplies={state.supplies} onClose={()=>setSheet(null)} onSave={(supply)=>{update((current)=>({...current,supplies:current.supplies.some((item)=>item.id===supply.id)?current.supplies.map((item)=>item.id===supply.id?supply:item):[...current.supplies,supply]}));setSheet(null);}}/>}
-    {sheet?.type==="product"&&<ProductSheet state={state} value={sheet.value} preset={sheet.preset} onClose={()=>setSheet(null)} onSave={(product)=>{update((current)=>({...current,products:current.products.some((item)=>item.id===product.id)?current.products.map((item)=>item.id===product.id?{...product,available:item.available}:item):[...current.products,{...product,available:true}]}));setSheet(null);}}/>}
-    {sheet?.type==="expense"&&<ExpenseSheet value={sheet.value} presetName={sheet.presetName} onClose={()=>setSheet(null)} onSave={(expense)=>{update((current)=>({...current,expenses:current.expenses.some((item)=>item.id===expense.id)?current.expenses.map((item)=>item.id===expense.id?expense:item):[expense,...current.expenses]}));setSheet(null);}}/>}
-    {sheet?.type==="ownerCash"&&<OwnerCashMovementSheet value={sheet.value} onClose={()=>setSheet(null)} onSave={(movement)=>{saveOwnerCash(movement);setSheet(null);}}/>}
-    {sheet?.type==="settings"&&<SettingsSheet value={state.settings} onClose={()=>setSheet(null)} onSave={(settings:Settings)=>{update((current)=>({...current,settings}));setSheet(null);}} onRefresh={refresh}/>} 
-  </AppShell>;
+export function NatApp({view,onView}:{view:NatView;onView:(view:NatView)=>void}){
+  const{state,update,setProductAvailability,refresh,loadMoreHistory,historyLoaded,historyLoading,ready,loadError,syncNotice,clearSyncNotice,inventoryRevision,fundingRevision,businessId}=useNatStore();
+  const inventory=useInventory(businessId,inventoryRevision);const funding=useFundingSummary(businessId,fundingRevision);const homeCalendar=useCalendar(view==="home");const[productTab,setProductTab]=useState<ProductTab>("products");const[sheet,setSheet]=useState<Sheet>(null);const[localNotice,setLocalNotice]=useState<AppNotice>(null);const numbers=useMemo(()=>dashboardNumbers(state),[state]);
+  const{acceptOnce,saveCustomer,saveOwnerCash,deleteSupply,deleteProduct,deleteExpense,cancelSale,duplicateProduct}=useNatCommands({state,update,setLocalNotice});
+  useEffect(()=>installGlobalDiagnostics(),[]);useEffect(()=>{if(loadError)recordDiagnostic(`Falha ao carregar dados: ${loadError}`);},[loadError]);
+  if(!ready)return <div className="min-h-screen grid place-items-center bg-cream"><div className="space-y-4 text-center"><Brand/><p className="text-base text-caramel" role="status">Carregando seus dados...</p></div></div>;
+  if(loadError)return <div className="min-h-screen grid place-items-center bg-cream p-5"><div className="nat-card max-w-md text-center"><div className="mx-auto w-fit"><Brand/></div><h1 className="mt-6 font-display text-3xl">Não conseguimos abrir seus dados</h1><p className="mt-2 text-base leading-6 text-caramel">{loadError}</p><button type="button" className="primary-button mt-5 w-full justify-center" onClick={refresh}>Tentar novamente</button></div></div>;
+  const homeState={...state,sales:state.sales.filter((sale)=>sale.status!=="cancelled")};const openProducts=(tab:ProductTab)=>{setProductTab(tab);onView("products");};const logout=()=>void signOutCurrentSession().finally(()=>{window.location.href="/";});const notice=localNotice??inventory.notice??syncNotice;const dismissNotice=()=>{if(localNotice)setLocalNotice(null);else if(inventory.notice)inventory.clearNotice();else clearSyncNotice();};
+  const showHistoryControl=historyViews.includes(view)&&!historyLoaded;
+  return <AppShell view={view} onView={onView} onSale={()=>setSheet({type:"sale"})} onSearch={()=>setSheet({type:"search"})} onSettings={()=>setSheet({type:"settings"})} onLogout={logout}><StatusToast notice={notice} onDismiss={dismissNotice}/><Suspense fallback={<LoadingChunk/>}>
+    {showHistoryControl&&<div className="nat-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold">Mostrando primeiro os dados mais recentes</p><p className="mt-1 text-sm text-caramel">O histórico antigo é carregado aos poucos para manter a NAT rápida no celular.</p></div><button type="button" className="secondary-button justify-center" disabled={historyLoading} onClick={()=>void loadMoreHistory().catch((error)=>{recordDiagnostic(`Falha ao carregar mais histórico: ${error instanceof Error?error.message:"erro desconhecido"}`);setLocalNotice({tone:"error",message:"Não foi possível carregar mais histórico agora."});})}>{historyLoading?"Carregando...":"Carregar mais histórico"}</button></div>}
+    {view==="home"&&<div className="space-y-6"><HomeOperations state={homeState} events={homeCalendar.events} inventory={inventory.snapshot} onSale={()=>setSheet({type:"sale"})} onRepeatSale={(sale)=>setSheet({type:"sale",preset:sale})} onSearch={()=>setSheet({type:"search"})} onSupplies={()=>openProducts("supplies")} onProducts={()=>openProducts("products")} onPricing={()=>onView("pricing")} onCalendar={()=>onView("calendar")} onInventory={()=>onView("inventory")} onCustomers={()=>onView("customers")}/><FundingOverview owner={funding.summary.ownerContributions} reinvested={funding.summary.businessReinvestment} monthReinvested={funding.summary.monthBusinessReinvestment} loading={funding.loading}/><details className="nat-card"><summary className="cursor-pointer font-bold">Financeiro detalhado <span className="font-normal text-caramel">(opcional)</span></summary><div className="mt-5"><HomeView state={homeState} numbers={numbers} onSale={()=>setSheet({type:"sale"})} onPricing={()=>onView("pricing")} onCashMovement={()=>setSheet({type:"ownerCash"})}/></div></details><details className="nat-card"><summary className="cursor-pointer text-base font-bold text-caramel">Status do sistema <span className="font-normal">(opcional)</span></summary><div className="mt-2 text-sm text-caramel">Use esta área somente se algo parecer não funcionar ou se o responsável técnico pedir.</div><div className="mt-4"><IntegrationHealthPanel businessId={businessId}/></div></details></div>}
+    {view==="sales"&&<SalesHistoryView state={state} onNew={()=>setSheet({type:"sale"})} onCancel={cancelSale}/>} 
+    {view==="customers"&&<CustomersView state={state} onSave={saveCustomer}/>} {view==="intelligence"&&<IntelligenceWorkbench state={state} inventory={inventory.snapshot} businessId={businessId}/>} {view==="calendar"&&<CalendarView/>}{view==="inventory"&&<InventoryView state={state} snapshot={inventory.snapshot} loading={inventory.loading} error={inventory.error} onRetry={inventory.reload} onSetBalance={inventory.setBalance} onProduction={inventory.registerProduction}/>} {view==="portfolio"&&<PortfolioHierarchyView state={state} onConfigure={(preset)=>setSheet({type:"product",preset})} onEdit={(value)=>setSheet({type:"product",value})} onAvailability={(product,available)=>setProductAvailability(product.id,available)} onPricing={()=>onView("pricing")}/>} 
+    {view==="products"&&<ProductsView state={state} tab={productTab} onTab={setProductTab} onNewSupply={(preset)=>setSheet({type:"supply",preset})} onEditSupply={(value)=>setSheet({type:"supply",value})} onDeleteSupply={deleteSupply} onNewProduct={(preset)=>setSheet({type:"product",preset})} onEditProduct={(value)=>setSheet({type:"product",value})} onDuplicateProduct={(product)=>duplicateProduct(product,(copy)=>setSheet({type:"product",value:copy}))} onDeleteProduct={deleteProduct} onNewExpense={(presetName)=>setSheet({type:"expense",presetName})} onEditExpense={(value)=>setSheet({type:"expense",value})} onDeleteExpense={deleteExpense}/>} {view==="pricing"&&<PricingView state={state} onProducts={()=>openProducts("products")}/>} {view==="identity"&&<BrandGuideView/>}
+    {sheet?.type==="sale"&&<SaleOrderSheet state={state} businessId={businessId} preset={sheet.preset} onClose={()=>setSheet(null)} onSave={(sale)=>{if(!acceptOnce(`sale:${sale.id}`))return;update((current)=>({...current,sales:[sale,...current.sales]}),{message:(sale.transactionType??"sale")==="sale"?`Venda registrada: ${money(sale.totalReceived)}.`:"Saída registrada.",actionLabel:"Ver histórico",onAction:()=>onView("sales")});setSheet(null);}}/>}
+    {sheet?.type==="supply"&&<SupplySheet value={sheet.value} preset={sheet.preset} recentSupplies={state.supplies} onClose={()=>setSheet(null)} onSave={(supply,fundingSource:FundingSource)=>{const fingerprint=`supply:${supply.name}:${supply.packageQuantity}:${supply.packagePrice}:${supply.purchasedAt}:${fundingSource}`;if(!acceptOnce(fingerprint))return;const isNew=!state.supplies.some((item)=>item.id===supply.id);update((current)=>({...current,supplies:current.supplies.some((item)=>item.id===supply.id)?current.supplies.map((item)=>item.id===supply.id?supply:item):[...current.supplies,supply]}),{message:`Compra de ${supply.name} salva.`,actionLabel:isNew?"Usar em uma receita":undefined,onAction:isNew?()=>openProducts("products"):undefined},{fundingSource});setSheet(null);}}/>}
+    {sheet?.type==="product"&&<ProductEditorSheet state={state} value={sheet.value} preset={sheet.preset} onClose={()=>setSheet(null)} onSave={(product)=>{const fingerprint=`product:${product.id}:${product.name}:${product.batchYield}:${product.sellingPrice}:${product.recipe.length}`;if(!acceptOnce(fingerprint))return;update((current)=>({...current,products:current.products.some((item)=>item.id===product.id)?current.products.map((item)=>item.id===product.id?{...product,available:item.available}:item):[...current.products,{...product,available:true}]}),{message:`Produto ${product.name} salvo.`,actionLabel:"Conferir preço",onAction:()=>onView("pricing")});setSheet(null);}}/>}
+    {sheet?.type==="expense"&&<ExpenseEditorSheet value={sheet.value} presetName={sheet.presetName} onClose={()=>setSheet(null)} onSave={(expense,fundingSource:FundingSource)=>{const fingerprint=`expense:${expense.id}:${expense.name}:${expense.amount}:${expense.spentAt}:${fundingSource}`;if(!acceptOnce(fingerprint))return;update((current)=>({...current,expenses:current.expenses.some((item)=>item.id===expense.id)?current.expenses.map((item)=>item.id===expense.id?expense:item):[expense,...current.expenses]}),{message:`Gasto “${expense.name}” salvo.`},{fundingSource});setSheet(null);}}/>}
+    {sheet?.type==="ownerCash"&&<OwnerCashMovementSheet value={sheet.value} onClose={()=>setSheet(null)} onSave={(movement)=>{saveOwnerCash(movement);setSheet(null);}}/>}{sheet?.type==="settings"&&<SettingsSheet value={state.settings} onClose={()=>setSheet(null)} onSave={(settings:Settings,fixedCostFundingSource:FundingSource)=>{update((current)=>({...current,settings}),{message:"Configurações salvas."},{fixedCostFundingSource});setSheet(null);}} onRefresh={refresh}/>} {sheet?.type==="search"&&<GlobalSearchSheet state={state} onClose={()=>setSheet(null)} onView={onView} onSale={()=>setSheet({type:"sale"})} onSupply={()=>setSheet({type:"supply"})}/>} 
+  </Suspense></AppShell>;
 }

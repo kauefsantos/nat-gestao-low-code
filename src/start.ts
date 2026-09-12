@@ -10,6 +10,11 @@ function generateCspNonce() {
 }
 
 function buildContentSecurityPolicy(nonce: string) {
+  const production = process.env.NODE_ENV === "production";
+  const connectSrc = production
+    ? "connect-src 'self' https://*.supabase.co wss://*.supabase.co"
+    : "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:* https://*.supabase.co wss://*.supabase.co";
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -22,9 +27,9 @@ function buildContentSecurityPolicy(nonce: string) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `script-src 'self' 'nonce-${nonce}'`,
     "script-src-attr 'none'",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    connectSrc,
     "worker-src 'self' blob:",
-    "upgrade-insecure-requests",
+    ...(production ? ["upgrade-insecure-requests"] : []),
   ].join("; ");
 }
 

@@ -28,14 +28,18 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
+      - name: Check architecture boundaries
+        run: npm run architecture:check
       - run: npm run security:static
       - run: npm run security:privacy
       - name: Typecheck Edge Functions
-        run: deno check --config supabase/functions/deno.json supabase/functions/nat-content-ai/index.ts supabase/functions/nat-push-dispatch/index.ts
+        run: deno check --config supabase/functions/deno.json supabase/functions/nat-content-ai/index.ts supabase/functions/nat-push-dispatch/index.ts supabase/functions/nat-inventory-production/index.ts
       - name: Lint Edge Functions
         run: deno lint --config supabase/functions/deno.json supabase/functions
       - run: npm run test:domain
       - run: npm run build
+      - name: Enforce performance budget
+        run: npm run perf:budget
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
       - name: Audit complete dependency tree for high or critical issues

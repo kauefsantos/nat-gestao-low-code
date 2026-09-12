@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Heart } from "lucide-react";
-import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { isAuthConfigured, sendPasswordRecovery } from "@/data/auth-repository";
 
 export const Route=createFileRoute("/forgot-password")({ssr:false,component:ForgotPasswordPage});
 
 function ForgotPasswordPage(){
-  const configured=isSupabaseConfigured();
+  const configured=isAuthConfigured();
   const [email,setEmail]=useState("");
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState("");
@@ -16,7 +16,7 @@ function ForgotPasswordPage(){
     setLoading(true);
     setMessage("");
     const redirectTo=`${window.location.origin}/reset-password`;
-    await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo});
+    await sendPasswordRecovery(email,redirectTo);
     setLoading(false);
     setMessage("Se este e-mail estiver cadastrado, enviaremos um link para criar uma nova senha. Confira também a pasta de spam.");
   }

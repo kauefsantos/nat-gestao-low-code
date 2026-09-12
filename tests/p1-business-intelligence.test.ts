@@ -50,11 +50,14 @@ test("cortesia aparece como interação, mas não altera RFM ou recompra",()=>{
   assert.ok(insight.rfmTotal>0);
 });
 
-test("Oreo e Tradicional com Disqueti fazem parte do catálogo oficial e dos relatórios comerciais",()=>{
+test("Oreo permanece no catálogo e Disqueti sai do portfólio sem apagar o histórico",()=>{
   assert.ok(BRIGADEIRO_CATALOG.some((item)=>item.key==="brigadeiro-oreo"));
-  assert.ok(BRIGADEIRO_CATALOG.some((item)=>item.key==="brigadeiro-tradicional-disqueti"));
-  const sale=buildSaleOrder({items:[{product,quantity:2}],supplies:[ingredient,other,packaging],paymentFeePercent:0,totalReceived:12,paymentMethod:"pix",soldAt:"2026-09-11T12:00:00Z"});
-  const courtesy={...sale,id:"courtesy",transactionType:"courtesy" as const,totalReceived:0,contributionSnapshot:-sale.unitCostSnapshot};
-  const analytics=portfolioAnalytics(stateOf({sales:[sale,courtesy]}));
+  assert.equal(BRIGADEIRO_CATALOG.some((item)=>item.key==="brigadeiro-tradicional-disqueti"),false);
+  const currentSale=buildSaleOrder({items:[{product,quantity:2}],supplies:[ingredient,other,packaging],paymentFeePercent:0,totalReceived:12,paymentMethod:"pix",soldAt:"2026-09-11T12:00:00Z"});
+  const discontinuedProduct:Product={...product,id:"prod-disqueti",name:"Brigadeiro • Tradicional • Disqueti",portfolioKey:"brigadeiro-tradicional-disqueti"};
+  const historicalSale={...buildSaleOrder({items:[{product:discontinuedProduct,quantity:1}],supplies:[ingredient,other,packaging],paymentFeePercent:0,totalReceived:6,paymentMethod:"pix",soldAt:"2026-09-10T12:00:00Z"}),id:"historical-disqueti"};
+  const courtesy={...currentSale,id:"courtesy",transactionType:"courtesy" as const,totalReceived:0,contributionSnapshot:-currentSale.unitCostSnapshot};
+  const analytics=portfolioAnalytics(stateOf({sales:[currentSale,historicalSale,courtesy]}));
   assert.equal(analytics.allTime.find((row)=>row.key==="brigadeiro-oreo")?.quantity,2);
+  assert.equal(analytics.allTime.find((row)=>row.key==="brigadeiro-tradicional-disqueti")?.quantity,1);
 });

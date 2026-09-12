@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { emptyInventorySnapshot, type InventoryBaseUnit, type InventoryCategory, type InventoryItem, type InventoryItemKind, type InventoryMovement, type InventoryMovementType, type InventorySnapshot } from "@/domain/inventory";
 
-type RpcResult = { data: unknown; error: { message: string } | null };
 type UnknownRecord = Record<string,unknown>;
 
 const record = (value:unknown):UnknownRecord => value && typeof value==="object" && !Array.isArray(value) ? value as UnknownRecord : {};
@@ -41,7 +40,7 @@ function fail(context:string,error:{message:string}|null) { if(error) throw new 
 function retryable(message:string){return /fetch|network|timeout|Failed to fetch/i.test(message);}
 
 export async function loadInventorySnapshot(businessId:string):Promise<InventorySnapshot> {
-  const result=await supabase.rpc("get_inventory_snapshot" as never,{p_business_id:businessId} as never) as unknown as RpcResult;
+  const result=await supabase.rpc("get_inventory_snapshot",{p_business_id:businessId});
   fail("Não foi possível carregar o estoque",result.error);
   const payload=record(result.data);
   if(!Object.keys(payload).length) return emptyInventorySnapshot();
@@ -49,9 +48,16 @@ export async function loadInventorySnapshot(businessId:string):Promise<Inventory
 }
 
 export async function setInventoryBalance(args:{businessId:string;kind:InventoryItemKind;itemId:string;quantity:number;minimumQuantity:number;note?:string}) {
-  const result=await supabase.rpc("set_inventory_balance" as never,{
+  if(args.kind==="product"){
+    const requestId=crypto.randomUUID();
+    const result=await supabase.functions.invoke("nat-inventory-production",{body:{mode:"set_product_stock",businessId:args.businessId,productId:args.itemId,targetQuantity:args.quantity,minimumQuantity:args.minimumQuantity,note:args.note?.trim()||null,requestId}});
+    if(result.error)throw new Error(`Não foi possível atualizar o estoque: ${result.error.message}`);
+    const payload=record(result.data);if(payload.ok!==true)throw new Error(`Não foi possível atualizar o estoque: ${text(payload.message,"revise a receita e o saldo dos ingredientes.")}`);
+    return;
+  }
+  const result=await supabase.rpc("set_inventory_balance",{
     p_business_id:args.businessId,p_item_kind:args.kind,p_item_id:args.itemId,p_quantity:args.quantity,p_minimum_quantity:args.minimumQuantity,p_note:args.note?.trim()||null,
-  } as never) as unknown as RpcResult;
+  });
   fail("Não foi possível atualizar o estoque",result.error);
 }
 
@@ -59,12 +65,10 @@ export async function recordInventoryProduction(args:{businessId:string;productI
   const requestId=crypto.randomUUID();
   let lastError:{message:string}|null=null;
   for(let attempt=0;attempt<2;attempt+=1){
-    const result=await supabase.rpc("record_inventory_production_v2" as never,{
-      p_business_id:args.businessId,p_request_id:requestId,p_product_id:args.productId,p_batches:args.batches,p_produced_at:args.producedAt,p_note:args.note?.trim()||null,
-    } as never) as unknown as RpcResult;
-    if(!result.error)return result.data;
-    lastError=result.error;
-    if(!retryable(result.error.message))break;
+    const result=await supabase.functions.invoke("nat-inventory-production",{body:{mode:"production",businessId:args.businessId,productId:args.productId,batches:args.batches,producedAt:args.producedAt,note:args.note?.trim()||null,requestId}});
+    if(!result.error){const payload=record(result.data);if(payload.ok===true)return payload.productionId??null;lastError={message:text(payload.message,"Não foi possível registrar a produção.")};}
+    else lastError={message:result.error.message};
+    if(!lastError||!retryable(lastError.message))break;
   }
   fail("Não foi possível registrar a produção",lastError);
   return null;

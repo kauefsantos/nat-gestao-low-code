@@ -44,11 +44,11 @@ export function useInventory(businessId:string|null,syncRevision=0) {
 
   const setBalance=useCallback(async(args:{kind:InventoryItemKind;itemId:string;quantity:number;minimumQuantity:number;note?:string})=>{
     if(!businessId)throw new Error("Empresa não carregada.");
-    showNotice({tone:"saving",message:"Salvando estoque..."});
+    showNotice({tone:"saving",message:args.kind==="product"?"Atualizando produtos e ingredientes...":"Salvando estoque..."});
     try {
       await setInventoryBalance({businessId,...args});
       await reload();
-      showNotice({tone:"saved",message:"Estoque atualizado."},true);
+      showNotice({tone:"saved",message:args.kind==="product"?"Estoque atualizado. Se houve nova produção, os ingredientes da receita foram descontados.":"Estoque atualizado."},true);
     } catch(cause) {
       const message=cause instanceof Error?cause.message:"Não foi possível atualizar o estoque.";
       showNotice({tone:"error",message});
@@ -58,11 +58,11 @@ export function useInventory(businessId:string|null,syncRevision=0) {
 
   const registerProduction=useCallback(async(args:{productId:string;batches:number;producedAt:string;note?:string})=>{
     if(!businessId)throw new Error("Empresa não carregada.");
-    showNotice({tone:"saving",message:"Registrando produção..."});
+    showNotice({tone:"saving",message:"Registrando produção e baixando ingredientes..."});
     try {
       await recordInventoryProduction({businessId,...args});
       await reload();
-      showNotice({tone:"saved",message:"Produção registrada e estoque atualizado."},true);
+      showNotice({tone:"saved",message:"Produção registrada. Os ingredientes da receita foram descontados."},true);
     } catch(cause) {
       const message=cause instanceof Error?cause.message:"Não foi possível registrar a produção.";
       showNotice({tone:"error",message});

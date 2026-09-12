@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function useDialogA11y<T extends HTMLElement = HTMLDivElement>({ open = true, onClose }: { open?: boolean; onClose: () => void }) {
+export function useDialogA11y<T extends HTMLElement = HTMLDivElement>({ open = true, onClose, initialFocusRef }: { open?: boolean; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null> }) {
   const panelRef = useRef<T | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -17,7 +17,8 @@ export function useDialogA11y<T extends HTMLElement = HTMLDivElement>({ open = t
     const panel = panelRef.current;
     const getFocusable = () => Array.from(panel?.querySelectorAll<HTMLElement>(focusableSelector) ?? []);
     const frame = window.requestAnimationFrame(() => {
-      const first = getFocusable()[0];
+      const preferred = initialFocusRef?.current;
+      const first = preferred && !preferred.hasAttribute("disabled") ? preferred : getFocusable()[0];
       if (first) first.focus();
       else panel?.focus();
     });
@@ -53,7 +54,7 @@ export function useDialogA11y<T extends HTMLElement = HTMLDivElement>({ open = t
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };
-  }, [open]);
+  }, [initialFocusRef, open]);
 
   return panelRef;
 }
