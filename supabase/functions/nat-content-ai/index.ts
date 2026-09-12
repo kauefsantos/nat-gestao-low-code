@@ -35,7 +35,7 @@ function jwtPayload(token: string) {
     if (!part) return null;
     const normalized = part.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
-    return JSON.parse(atob(padded)) as { aal?: string };
+    return JSON.parse(atob(padded)) as { aal?: string; session_id?: string };
   } catch {
     return null;
   }
@@ -85,7 +85,9 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
     if (!token) return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
-    if (jwtPayload(token)?.aal !== "aal2") return new Response(JSON.stringify({ error: "MFA_REQUIRED" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
+    const claims = jwtPayload(token);
+    if (claims?.aal !== "aal2") return new Response(JSON.stringify({ error: "MFA_REQUIRED" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
+    if (!claims.session_id) return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
 
     const url = Deno.env.get("SUPABASE_URL");
     if (!url) throw new Error("Supabase URL is unavailable.");
@@ -93,6 +95,11 @@ Deno.serve(async (req) => {
 
     const userResult = await admin.auth.getUser(token);
     if (userResult.error || !userResult.data.user) return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+    const sessionResult = await admin.rpc("is_active_auth_session_for_user", {
+      p_user_id: userResult.data.user.id,
+      p_session_id: claims.session_id,
+    });
+    if (sessionResult.error || sessionResult.data !== true) return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
 
     const body = await req.json();
     const businessId = typeof body?.businessId === "string" ? body.businessId : "";
