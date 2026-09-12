@@ -1,3 +1,5 @@
+import { pruneTimedRecords, redactSensitiveText } from "../domain/privacy.js";
+
 type DiagnosticEvent = {
   at: string;
   kind: "error" | "rejection" | "manual";
@@ -7,21 +9,8 @@ type DiagnosticEvent = {
 };
 
 const STORAGE_KEY = "nat:diagnostics:v1";
-const LIMIT = 30;
-const TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
-const REDACTIONS: Array<[RegExp,string]> = [
-  [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,"[email removido]"],
-  [/(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?9?\d{4}[-\s]?\d{4}/g,"[telefone removido]"],
-  [/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b/g,"[cpf removido]"],
-  [/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b|\b\d{14}\b/g,"[cnpj removido]"],
-  [/(bearer\s+)[a-z0-9._-]+/gi,"$1[token removido]"],
-  [/(api[_-]?key|secret|token|authorization)(\s*[:=]\s*)[^\s,;]+/gi,"$1$2[segredo removido]"],
-];
-
-export function redactDiagnosticText(value: string) {
-  return REDACTIONS.reduce((text,[pattern,replacement])=>text.replace(pattern,replacement),value);
-}
+export const redactDiagnosticText = redactSensitiveText;
 
 function safeText(value: unknown) {
   if (value instanceof Error) return redactDiagnosticText(value.message);
@@ -30,10 +19,7 @@ function safeText(value: unknown) {
 }
 
 export function pruneDiagnostics(events: DiagnosticEvent[], now = Date.now()) {
-  return events.filter((event)=>{
-    const at = new Date(event.at).getTime();
-    return Number.isFinite(at) && now - at <= TTL_MS;
-  }).slice(-LIMIT);
+  return pruneTimedRecords(events,now);
 }
 
 export function readDiagnostics(): DiagnosticEvent[] {
