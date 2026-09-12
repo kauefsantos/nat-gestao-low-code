@@ -23,6 +23,16 @@ test("WCAG 2.2 AA: estilos preservam contraste, foco, legibilidade e forced colo
   assert.match(css,/@media \(forced-colors:active\)/);
 });
 
+test("Tipografia: hierarquia mantém display editorial e números tabulares",()=>{
+  const css=read("src/styles.css");
+  assert.match(css,/font-variant-numeric:tabular-nums/);
+  assert.match(css,/body[^}]*line-height:1\.55/s);
+  assert.match(css,/\.font-display[^}]*GFS Didot[^}]*font-weight:400/s);
+  assert.match(css,/\.section-title[^}]*font-size:clamp\(/s);
+  assert.match(css,/\.primary-button[^}]*font-weight:700/s);
+  assert.match(css,/\.field-label[^}]*font-weight:700/s);
+});
+
 test("WCAG 2.2 AA: busca anuncia resultados e define foco inicial",()=>{
   const source=read("src/components/nat/GlobalSearchSheet.tsx");
   assert.match(source,/role="status"/);
