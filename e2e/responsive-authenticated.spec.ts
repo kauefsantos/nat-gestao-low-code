@@ -1,63 +1,11 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 
-const email="responsive@example.test";
-const password="NAT-RLS-e2e-2026!";
 const supabaseUrl=process.env.VITE_SUPABASE_URL;
-const supabaseKey=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const responsiveSessionPath=".test-build/responsive-aal2-session.json";
 
 test.describe.configure({retries:0});
-
-function decodeBase32(value:string){
-  const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const normalized=value.toUpperCase().replace(/=+$/g,"").replace(/\s+/g,"");
-  let bits="";
-  for(const char of normalized){const index=alphabet.indexOf(char);if(index<0)throw new Error("Invalid base32 secret");bits+=index.toString(2).padStart(5,"0");}
-  const bytes:number[]=[];
-  for(let index=0;index+8<=bits.length;index+=8)bytes.push(Number.parseInt(bits.slice(index,index+8),2));
-  return Buffer.from(bytes);
-}
-
-function totp(secret:string,now=Date.now()){
-  const counter=Math.floor(now/1000/30);const buffer=Buffer.alloc(8);buffer.writeBigUInt64BE(BigInt(counter));
-  const digest=createHmac("sha1",decodeBase32(secret)).update(buffer).digest();const offset=digest[digest.length-1]&0x0f;
-  const code=((digest[offset]&0x7f)<<24)|((digest[offset+1]&0xff)<<16)|((digest[offset+2]&0xff)<<8)|(digest[offset+3]&0xff);
-  return String(code%1_000_000).padStart(6,"0");
-}
-
-async function createResponsiveSession(){
-  expect(supabaseUrl).toBeTruthy();
-  expect(supabaseKey).toBeTruthy();
-  const client=createClient(supabaseUrl!,supabaseKey!,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
-  const signedIn=await client.auth.signInWithPassword({email,password});
-  expect(signedIn.error?.message??null).toBeNull();
-
-  const factors=await client.auth.mfa.listFactors();
-  expect(factors.error?.message??null).toBeNull();
-  for(const factor of factors.data?.totp??[]){
-    const removed=await client.auth.mfa.unenroll({factorId:factor.id});
-    expect(removed.error?.message??null).toBeNull();
-  }
-
-  const enrolled=await client.auth.mfa.enroll({factorType:"totp",friendlyName:`NAT Responsivo ${randomUUID()}`});
-  expect(enrolled.error?.message??null).toBeNull();
-  const challenge=await client.auth.mfa.challenge({factorId:enrolled.data!.id});
-  expect(challenge.error?.message??null).toBeNull();
-  const verified=await client.auth.mfa.verify({factorId:enrolled.data!.id,challengeId:challenge.data!.id,code:totp(enrolled.data!.totp.secret)});
-  expect(verified.error?.message??null).toBeNull();
-
-  const assurance=await client.auth.mfa.getAuthenticatorAssuranceLevel();
-  expect(assurance.error?.message??null).toBeNull();
-  expect(assurance.data?.currentLevel).toBe("aal2");
-  const bootstrap=await client.rpc("bootstrap_nat_business");
-  expect(bootstrap.error?.message??null).toBeNull();
-
-  const session=(await client.auth.getSession()).data.session;
-  expect(session?.access_token).toBeTruthy();
-  expect(session?.refresh_token).toBeTruthy();
-  return session!;
-}
 
 async function expectNoHorizontalOverflow(page:Page){
   const layout=await page.evaluate(()=>({width:window.innerWidth,scrollWidth:document.documentElement.scrollWidth}));
@@ -73,9 +21,18 @@ async function expectMainTouchTargets(page:Page){
 }
 
 async function openAuthenticatedSession(page:Page){
-  const session=await createResponsiveSession();
+  expect(supabaseUrl).toBeTruthy();
+  expect(existsSync(responsiveSessionPath),"A sessão AAL2 deve ser preparada pelo E2E de autorização antes do teste responsivo.").toBe(true);
+  const session=JSON.parse(readFileSync(responsiveSessionPath,"utf8")) as Session;
+  expect(session.access_token).toBeTruthy();
+  expect(session.refresh_token).toBeTruthy();
+  expect(session.user?.id).toBeTruthy();
+
   const storageKey=`sb-${new URL(supabaseUrl!).hostname.split(".")[0]}-auth-token`;
-  await page.addInitScript(({key,value})=>localStorage.setItem(key,JSON.stringify(value)),{key:storageKey,value:session});
+  await page.addInitScript(({key,value})=>{
+    window.localStorage.setItem(key,JSON.stringify(value));
+  },{key:storageKey,value:session});
+
   await page.goto("/dashboard?view=home",{waitUntil:"domcontentloaded"});
   await expect(page.locator("header")).toBeVisible({timeout:30_000});
 }
