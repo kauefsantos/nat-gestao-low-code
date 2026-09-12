@@ -56,7 +56,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,s
 .choice-button.active { border-color:#EAAC93; background:#F2C5B5; color:#35150A; }
 .field-label { display:block; margin-bottom:7px; color:#55281B; font-size:13px; font-weight:900; }
 .field-help { margin-top:6px; color:#855342; font-size:12px; line-height:1.5; }
-.nat-input { width:100%; min-height:48px; border:1px solid #D9C2B9; border-radius:15px; outline:none; background:white; color:#35150A; padding:10px 13px; font-size:14px; scroll-margin-block:24px 140px; }
+.nat-input { width:100%; min-width:0; min-height:48px; border:1px solid #D9C2B9; border-radius:15px; outline:none; background:white; color:#35150A; padding:10px 13px; font-size:14px; scroll-margin-block:24px 140px; }
 .nat-input:focus { border-color:#EAAC93; box-shadow:0 0 0 4px rgba(234,172,147,.18); }
 
 @media (pointer:coarse){.nat-input{font-size:16px;}}
