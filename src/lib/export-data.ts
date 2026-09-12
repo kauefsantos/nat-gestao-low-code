@@ -1,4 +1,4 @@
-import { paymentLabel, type NatState } from "@/domain/nat";
+import { paymentLabel, type NatState } from "../domain/nat";
 
 function csvCell(value: unknown) {
   const text = value == null ? "" : String(value);
