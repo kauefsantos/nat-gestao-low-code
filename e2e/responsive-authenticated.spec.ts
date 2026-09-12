@@ -1,16 +1,10 @@
 import { createHmac } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 
+const email="responsive@example.test";
 const password="NAT-RLS-e2e-2026!";
 
 test.describe.configure({retries:0});
-
-const emailByProject:Record<string,string>={
-  "mobile-chromium":"responsive-chromium@example.test",
-  "mobile-webkit":"responsive-webkit-mobile@example.test",
-  "desktop-webkit":"responsive-webkit-desktop@example.test",
-  "desktop-firefox":"responsive-firefox@example.test",
-};
 
 function decodeBase32(value:string){
   const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -42,32 +36,26 @@ async function expectMainTouchTargets(page:Page){
   }
 }
 
-async function openAuthenticatedSession(page:Page,projectName:string){
-  const email=emailByProject[projectName];
-  if(!email)throw new Error(`Projeto Playwright sem usuário responsivo dedicado: ${projectName}`);
+async function openAuthenticatedSession(page:Page){
   await page.goto("/login",{waitUntil:"domcontentloaded"});
   await expect(page.getByRole("heading",{name:"Bem-vinda de volta"})).toBeVisible({timeout:30_000});
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(password);
   await page.getByRole("button",{name:"Entrar"}).click();
 
-  const state=await expect.poll(async()=>{
+  const detectState=async()=>{
     if(/\/dashboard/.test(page.url()))return "dashboard";
     const alert=page.getByRole("alert");
     if(await alert.isVisible().catch(()=>false))return `error:${await alert.innerText()}`;
     if(await page.getByRole("heading",{name:"Ative a proteção extra"}).isVisible().catch(()=>false))return "enroll";
     if(await page.getByRole("heading",{name:"Confirme que é você"}).isVisible().catch(()=>false))return "challenge";
     return "pending";
-  },{timeout:30_000,message:"O login não avançou para MFA nem dashboard."}).not.toBe("pending").then(async()=>{
-    if(/\/dashboard/.test(page.url()))return "dashboard";
-    if(await page.getByRole("heading",{name:"Ative a proteção extra"}).isVisible().catch(()=>false))return "enroll";
-    if(await page.getByRole("heading",{name:"Confirme que é você"}).isVisible().catch(()=>false))return "challenge";
-    const alert=page.getByRole("alert");
-    return await alert.isVisible().catch(()=>false)?`error:${await alert.innerText()}`:"pending";
-  });
+  };
 
+  await expect.poll(detectState,{timeout:30_000,message:"O login não avançou para MFA nem dashboard."}).not.toBe("pending");
+  const state=await detectState();
   if(state.startsWith("error:"))throw new Error(`Falha ao preparar MFA: ${state.slice(6)}`);
-  if(state==="challenge")throw new Error("O usuário responsivo já possuía MFA verificado; o ambiente descartável deveria criar um usuário novo por navegador.");
+  if(state==="challenge")throw new Error("A conta descartável já possuía MFA verificado antes do teste responsivo.");
   if(state==="enroll"){
     const secret=(await page.locator("p.break-all").textContent())?.trim();
     expect(secret).toBeTruthy();
@@ -80,7 +68,7 @@ async function openAuthenticatedSession(page:Page,projectName:string){
 
 test("área autenticada permanece utilizável de 320px a desktop",async({page},testInfo)=>{
   test.setTimeout(180_000);
-  await openAuthenticatedSession(page,testInfo.project.name);
+  await openAuthenticatedSession(page);
 
   const views=["home","sales","customers","intelligence","calendar","inventory","portfolio","products","pricing","identity"];
   await page.setViewportSize({width:320,height:568});
@@ -132,7 +120,7 @@ test("área autenticada permanece utilizável de 320px a desktop",async({page},t
     }
     await page.goto("/dashboard?view=home");
     const screenshot=await page.screenshot({fullPage:true});
-    await testInfo.attach(`dashboard-${viewport.width}x${viewport.height}-${testInfo.project.name}`,{body:screenshot,contentType:"image/png"});
+    await testInfo.attach(`dashboard-${viewport.width}x${viewport.height}`,{body:screenshot,contentType:"image/png"});
   }
 
   await page.setViewportSize({width:844,height:390});
@@ -143,14 +131,12 @@ test("área autenticada permanece utilizável de 320px a desktop",async({page},t
   expect((landscapeBox?.y??0)+(landscapeBox?.height??0)).toBeLessThanOrEqual(391);
   await page.getByRole("button",{name:"Fechar menu"}).click();
 
-  if(Boolean(testInfo.project.use.hasTouch)){
-    await page.setViewportSize({width:768,height:1024});
-    await page.goto("/dashboard?view=products");
-    const touchInput=page.locator(".nat-input:visible").first();
-    if(await touchInput.count()){
-      const fontSize=await touchInput.evaluate((element)=>Number.parseFloat(getComputedStyle(element).fontSize));
-      expect(fontSize).toBeGreaterThanOrEqual(16);
-    }
+  await page.setViewportSize({width:768,height:1024});
+  await page.goto("/dashboard?view=products");
+  const touchInput=page.locator(".nat-input:visible").first();
+  if(await touchInput.count()){
+    const fontSize=await touchInput.evaluate((element)=>Number.parseFloat(getComputedStyle(element).fontSize));
+    expect(fontSize).toBeGreaterThanOrEqual(16);
   }
 
   await page.setViewportSize({width:640,height:800});
