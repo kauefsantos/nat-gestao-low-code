@@ -2,139 +2,130 @@
 
 ## Escopo
 
-Auditoria da NAT Gestão a partir do head da funcionalidade de ROI, cobrindo organização, responsabilidades, duplicação, dependências, facilidade de manutenção, regras de ROI e tipografia. O backend de produção é o Lovable Cloud.
+Auditoria da NAT Gestão baseada na funcionalidade de ROI, cobrindo organização, separação de responsabilidades, duplicação, dependências, manutenção, regras financeiras e tipografia. O backend e banco de dados da aplicação são o **Lovable Cloud**.
+
+As correções foram feitas em branch isolada. Esta etapa não realiza merge, não publica frontend, não publica Edge Functions e não altera dados de produção.
 
 ## Resumo executivo
 
-A arquitetura-base é saudável: domínio TypeScript, camada de dados, hooks/UI e Lovable Cloud autoritativo para regras críticas. O principal risco encontrado não é uma falha estrutural de fundação, mas o acúmulo de responsabilidades e versões paralelas conforme a aplicação cresceu.
+A arquitetura foi fortalecida em quatro frentes: domínio dividido em módulos menores, acesso ao Lovable Cloud concentrado em `src/data`, comandos de negócio extraídos da composição principal e CI com regras arquiteturais explícitas. O ROI permanece baseado em snapshots históricos e passou a respeitar de forma explícita o fuso `America/Sao_Paulo`.
 
-As correções desta auditoria foram feitas em branch isolada e não alteram produção, não publicam frontend e não publicam Edge Functions.
+Não permanecem exceções de UI autorizadas para acesso direto ao cliente do Lovable Cloud. Componentes, `NatApp` e rotas de autenticação usam adaptadores semânticos.
 
 ## Achados e correções
 
 ### A1 — ROI mensal dependia do fuso do dispositivo
 
 **Gravidade:** alta  
-**Prioridade:** P1
+**Prioridade:** P1  
+**Status:** corrigido
 
-**Evidência:** `src/domain/roi.ts` usava o recorte mensal herdado de `monthSales`, que classifica `Date` pelo fuso local do runtime. Uma venda próxima da virada do mês poderia entrar no mês incorreto em um dispositivo configurado fora do fuso da NAT.
+Uma venda próxima da virada do mês poderia ser classificada no mês incorreto em dispositivo com fuso diferente. `businessRoi` agora usa `businessDate()` e o fuso de negócio `America/Sao_Paulo`. Existe teste explícito para a virada UTC/São Paulo em `tests/roi-analytics.test.ts`.
 
-**Reprodução:** criar venda em `2026-10-01T01:30:00Z`. Em `America/Sao_Paulo`, ainda é 30/09. Um recorte por UTC/dispositivo pode classificá-la como outubro.
-
-**Correção aplicada:** `businessRoi` agora usa `businessDate()` e, portanto, o fuso de negócio `America/Sao_Paulo` para determinar o mês.
-
-**Teste:** adicionado caso explícito de virada UTC/horário de São Paulo em `tests/roi-analytics.test.ts`.
-
-### A2 — Inteligência acessava Lovable Cloud diretamente
+### A2 — Telas acessavam o Lovable Cloud diretamente
 
 **Gravidade:** média-alta  
-**Prioridade:** P1
+**Prioridade:** P1  
+**Status:** corrigido
 
-**Evidência:** `src/components/nat/IntelligenceView.tsx` importava o cliente de infraestrutura e consultava `supply_purchases`, contrariando a arquitetura documentada em `docs/ARCHITECTURE.md`, que define `src/data` como adaptador de persistência.
+Foram extraídos adaptadores para Inteligência, cotação autoritativa de venda, diagnóstico de integrações, privacidade de clientes e IA. As telas deixaram de importar o cliente de infraestrutura diretamente.
 
-**Reprodução:** localizar import do cliente do Lovable Cloud em `IntelligenceView.tsx` e a consulta a `supply_purchases` dentro do efeito React.
-
-**Correção aplicada:** criada `src/data/intelligence-repository.ts`; a tela agora consome `loadSupplyPurchaseInsights` e não conhece detalhes de persistência.
-
-**Teste:** `tests/architecture-code-quality.test.ts` garante que a tela não importe o cliente de infraestrutura e que a consulta permaneça na camada `data`.
+As rotas `login`, `signup`, `forgot-password` e `reset-password` também passaram a usar `src/data/auth-repository.ts`, mantendo sessão, MFA, recuperação e troca de senha fora da camada de apresentação.
 
 ### A3 — Loader operacional legado duplicava responsabilidade
 
 **Gravidade:** média  
-**Prioridade:** P1
+**Prioridade:** P1  
+**Status:** corrigido
 
-**Evidência:** coexistiam `nat-operational-repository.ts`, `nat-operational-v2.ts` e `nat-operational-v3.ts`. O store ativo usa V2/V3; o arquivo não versionado tinha aproximadamente 16 KB de implementação paralela.
+`src/data/nat-operational-repository.ts` foi removido. O store usa apenas o fluxo operacional ativo V2/V3, e há regressão automatizada para impedir o retorno do loader antigo.
 
-**Reprodução:** comparar `src/data/` e confirmar que `use-nat-store.ts` importa apenas V2/V3.
-
-**Correção aplicada:** removido `src/data/nat-operational-repository.ts`.
-
-**Teste:** teste arquitetural confirma que o arquivo legado não existe e que o store permanece ligado ao fluxo ativo V3.
-
-### A4 — Tipos gerados do Lovable Cloud estão atrasados
+### A4 — Snapshot gerado de tipos do Lovable Cloud estava atrasado
 
 **Gravidade:** média-alta  
-**Prioridade:** P1
+**Prioridade:** P1  
+**Status:** mitigado de forma segura
 
-**Evidência:** produção possui campos como `business_settings.timezone`, `fixed_cost_funding_source`, `sales.customer_id`, `transaction_type`, `sale_channel`, `delivery_cost_snapshot`, `discount_reason`, `below_cost_override`, `sale_items.labor_cost_snapshot` e `funding_source` em compras/gastos. O snapshot gerado em `src/integrations/supabase/types.ts` não representa integralmente esse schema, obrigando casts de compatibilidade em loaders.
+O schema real possui campos e contratos mais recentes que o último snapshot gerado versionado. A integração disponível não autorizou uma regeneração completa automática. Para não editar manualmente um arquivo gerado, foi criada `src/integrations/lovable-cloud/database.ts`, uma camada de schema efetivo baseada nos campos confirmados no Lovable Cloud e nos contratos introduzidos pelas migrations da branch.
 
-**Reprodução:** comparar `information_schema.columns` do Lovable Cloud com o tipo `Database` versionado.
+O cliente usa esse schema efetivo, e casts frágeis foram removidos das áreas críticas. A regeneração integral do snapshot continua recomendada quando houver acesso autorizado ao gerador, mas não bloqueia esta etapa arquitetural.
 
-**Correção recomendada:** regenerar o arquivo inteiro a partir do schema real do Lovable Cloud em uma mudança isolada; depois remover casts e extensões temporárias. Não editar manualmente apenas alguns campos, para não transformar um arquivo gerado em fonte híbrida.
-
-**Resultado nesta auditoria:** validado e documentado, mas não alterado por segurança.
-
-### A5 — Concentração excessiva de responsabilidades em arquivos grandes
+### A5 — Concentração excessiva de responsabilidades
 
 **Gravidade:** média  
-**Prioridade:** P2
+**Prioridade:** P2  
+**Status:** corrigido no núcleo e protegido contra regressão
 
-**Evidência:** `src/domain/nat.ts` concentra tipos, unidades, custos, pricing, dashboard, CRM/RFM, analytics e construção de vendas. `NatApp.tsx` concentra composição, sheets, comandos, deduplicação, undo e feedback. Há ainda telas de 13–18 KB.
+`src/domain/nat.ts` foi transformado em uma fachada de reexports. Regras foram separadas em módulos de tipos, formatação, pricing, finanças, clientes, analytics e vendas, preservando a API pública usada pelo restante do app.
 
-**Impacto:** maior área de regressão por mudança, conflitos de merge e dificuldade para testar uma responsabilidade isoladamente.
+Comandos de cliente, caixa, arquivamento, cancelamento, duplicação e proteção contra ações duplicadas saíram de `NatApp` para `useNatCommands`. O componente principal fica mais próximo de composição/navegação.
 
-**Correção recomendada:** decomposição incremental, preservando APIs públicas por reexports: `domain/types`, `pricing`, `sales`, `customers`, `analytics`; e extração de comandos/orquestração do `NatApp` para hooks/use-cases. Prioridade de telas: `SaleOrderSheet`, `CalendarView`, `InventoryView`, `CustomersView` e `ProductsView`.
+O architecture gate rejeita arquivos de primeira parte acima de 30 KB, evitando nova concentração excessiva.
 
-**Proteção aplicada:** novo gate de arquitetura rejeita arquivos de primeira parte acima de 30 KB e impede dependências invertidas entre camadas. O limite é uma trava de crescimento, não uma meta de tamanho ideal.
-
-### A6 — Exceções explícitas de infraestrutura ainda existem na UI
-
-**Gravidade:** média  
-**Prioridade:** P2
-
-**Evidência:** três superfícies permanecem como entrypoints de integração direta: `SaleOrderSheet` para cotação autoritativa, `IntegrationHealthPanel` para diagnóstico técnico e `ContentStudio` para integração de IA. `NatApp` usa o cliente somente para logout.
-
-**Correção recomendada:** ao dividir essas telas, mover os detalhes de RPC/Functions para adaptadores em `src/data`/`src/lib` e expor funções semânticas à UI.
-
-**Proteção aplicada:** o architecture gate mantém allowlist explícita dessas três exceções. Qualquer novo componente tentando importar o cliente do Lovable Cloud falha no CI.
-
-### A7 — CI não tinha gate arquitetural
+### A6 — Exceções de infraestrutura na UI
 
 **Gravidade:** média  
-**Prioridade:** P1
+**Prioridade:** P2  
+**Status:** corrigido
 
-**Evidência:** lint e TypeScript garantiam sintaxe/tipos, mas não impediam domínio depender de UI, componente acessar banco diretamente ou retorno de arquivos legados.
+A allowlist de componentes foi removida. O gate agora bloqueia qualquer acesso direto ao cliente do Lovable Cloud em `src/components`, `src/app` e `src/routes`. O acesso autorizado à infraestrutura fica concentrado na camada `src/data` e nos adaptadores técnicos.
 
-**Correção aplicada:** criado `scripts/architecture-check.mjs`, script `architecture:check` e etapa `Check architecture boundaries` no workflow principal.
+### A7 — CI não protegia arquitetura
 
-**Teste:** `tests/architecture-code-quality.test.ts` valida que o gate está ligado ao `package.json` e ao CI.
+**Gravidade:** média  
+**Prioridade:** P1  
+**Status:** corrigido
+
+Foi criado `scripts/architecture-check.mjs`, conectado ao `package.json` e ao workflow principal. O gate verifica, entre outros pontos:
+
+- domínio não depende de data/hooks/UI/integrations;
+- data não depende de UI/hooks;
+- UI e rotas não acessam o cliente do Lovable Cloud diretamente;
+- `nat.ts` permanece fachada leve;
+- loader legado não retorna;
+- arquivos de primeira parte não ultrapassam 30 KB.
+
+### A8 — Tipografia e leitura de dados financeiros
+
+**Gravidade:** baixa  
+**Prioridade:** P3  
+**Status:** melhorado
+
+A identidade `GFS Didot` + `Lato` foi preservada. Foram adotados números tabulares para KPIs/valores financeiros, pesos de interface mais consistentes e títulos responsivos com `clamp()`. GFS Didot permanece voltada a títulos e marca; Lato permanece como fonte de leitura e interface.
 
 ## ROI — regra validada
 
-- ROI por sabor usa `unitCostSnapshot` e `unitPriceSnapshot` históricos da venda.
-- Taxa e entrega são rateadas pela participação de receita de cada linha.
+- ROI por sabor usa `unitCostSnapshot` e `unitPriceSnapshot` históricos.
+- Taxa e entrega são rateadas pela participação da receita da linha.
 - Venda cancelada e movimentação não comercial não entram no ROI de venda.
 - ROI consolidado mensal inclui custo vendido, taxa, entrega, custos fixos e gastos esporádicos.
-- Aporte pessoal e reinvestimento NAT não são somados novamente como custo.
-- O mês é determinado pelo fuso da NAT.
-- Financeiro mostra ROI consolidado; Inteligência mostra consolidado + ROI por sabor.
-- O título de ROI ganhou um controle acessível `i`, explicando fórmula e diferença entre margem e ROI.
+- Aporte pessoal e reinvestimento da NAT são fontes de dinheiro e não são somados novamente como custo.
+- O mês é determinado pelo fuso `America/Sao_Paulo`.
+- Financeiro mostra ROI consolidado; Inteligência mostra consolidado e ROI por sabor.
+- ROI possui ajuda contextual acessível por um `i`, incluindo a diferença entre margem e retorno sobre o investimento.
 
-## Tipografia — recomendações
+## Validação exigida para encerramento
 
-A combinação atual `GFS Didot` + `Lato` é adequada à identidade da NAT, mas deve seguir uma hierarquia mais rígida:
+O head final deve passar integralmente pelos workflows da branch, incluindo:
 
-1. manter GFS Didot somente em marca, H1/H2 e títulos de destaque; não usar em dados densos;
-2. usar Lato 400 para corpo, 700 para labels/ações e reservar 900 para ênfases pequenas, evitando excesso de peso visual;
-3. aplicar `font-variant-numeric: tabular-nums` em KPIs financeiros, ROI, margem e preços para facilitar comparação vertical;
-4. manter informação essencial em pelo menos 14 px; `text-xs` deve ficar restrito a metadado secundário;
-5. adotar `clamp()` nos maiores títulos para transição mais suave entre celulares pequenos e desktop;
-6. preservar line-height de corpo na faixa de 1.5–1.6 e títulos em aproximadamente 1.1–1.2.
+- lint;
+- TypeScript;
+- architecture gate;
+- segurança estática e privacidade;
+- typecheck/lint das Edge Functions;
+- testes de domínio e ROI;
+- build;
+- budget de performance;
+- auditoria de dependências;
+- reconstrução descartável do banco pelas migrations, RLS e integridade;
+- E2E autenticado, MFA e isolamento entre empresas;
+- matriz Chromium/Firefox/WebKit;
+- responsividade e WCAG automatizado.
 
-Não foi feita troca de fonte nesta auditoria porque acessibilidade e tipografia já tinham sido validadas anteriormente e uma mudança de família tipográfica teria impacto visual amplo sem necessidade funcional.
+## Limitações restantes
 
-## Validação realizada
+A única dívida arquitetural deliberadamente mantida nesta etapa é o snapshot gerado antigo de tipos: ele não foi adulterado manualmente. A camada de schema efetivo do Lovable Cloud cobre o drift conhecido até que uma regeneração completa e autorizada possa substituir o snapshot.
 
-- código da branch baseada no head da PR de ROI;
-- arquitetura documentada e dependências entre `domain`, `data`, hooks e componentes;
-- regra de ROI e snapshots históricos;
-- fuso horário de negócio;
-- schema real do Lovable Cloud para campos críticos recentes;
-- CI, lint, typecheck, testes de domínio, build, budget de performance e E2E via workflow da branch, após abertura da PR;
-- ausência de merge/publicação durante a auditoria.
+## Segurança da mudança
 
-## Limitações
-
-- Os tipos gerados do Lovable Cloud não foram regenerados nesta mudança porque isso deve ser feito como snapshot completo e controlado.
-- As três exceções de integração direta na UI foram documentadas e bloqueadas contra expansão, mas a extração completa fica para refatoração incremental.
-- A decomposição de arquivos grandes foi recomendada e protegida contra piora, não executada como big-bang para evitar regressão funcional desnecessária.
+A PR permanece draft e empilhada sobre a branch de ROI. Nenhuma alteração desta auditoria é considerada publicada em produção até merge e publicação explícitos.
