@@ -31,7 +31,7 @@ jobs:
       - run: npm run security:static
       - run: npm run security:privacy
       - name: Typecheck Edge Functions
-        run: deno check --config supabase/functions/deno.json supabase/functions/nat-content-ai/index.ts supabase/functions/nat-push-dispatch/index.ts
+        run: deno check --config supabase/functions/deno.json supabase/functions/nat-content-ai/index.ts supabase/functions/nat-push-dispatch/index.ts supabase/functions/nat-inventory-production/index.ts
       - name: Lint Edge Functions
         run: deno lint --config supabase/functions/deno.json supabase/functions
       - run: npm run test:domain
