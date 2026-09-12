@@ -3,6 +3,7 @@ import { initialState, type NatState } from "@/domain/nat";
 import { useAuth } from "@/hooks/use-auth";
 import { emptyNatVersions, loadNatCloudState, persistNatTransition, setProductAvailabilityCloud, type NatVersions } from "@/data/nat-repository";
 import { supabase } from "@/integrations/supabase/client";
+import { classifyApiError } from "@/lib/api-error";
 
 export type NatSyncNotice = { tone:"saving"|"saved"|"error"; message:string } | null;
 const devError = (message: string,error?: unknown) => { if (import.meta.env.DEV) console.error(message,error); };
@@ -57,10 +58,10 @@ export function useNatStore() {
 
   const handleWriteError=useCallback(async(error:unknown,sequence:number,fallback:string)=>{
     devError("[NAT] Falha ao persistir alteração",error);
+    const classified=classifyApiError(error);
     try { await reloadFromCloud(); setSyncRevision((value)=>value+1); } catch (reloadError) { devError("[NAT] Falha ao recarregar após erro",reloadError); }
     if(sequence!==writeSequence.current)return;
-    const conflict=error instanceof Error&&error.message.includes("CONFLICT");
-    showSyncNotice({tone:"error",message:conflict?"Esse item mudou em outro aparelho. Recarregamos a versão mais recente; refaça a alteração.":fallback});
+    showSyncNotice({tone:"error",message:classified.code==="INTERNAL_ERROR"?fallback:classified.message});
   },[reloadFromCloud,showSyncNotice]);
 
   const update = useCallback((recipe: (current: NatState) => NatState) => {
