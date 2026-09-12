@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(21);
 
 select has_column('public','sales','sale_value_snapshot','sales stores economic sale value');
 select has_column('public','sales','payment_status','sales stores payment status');
