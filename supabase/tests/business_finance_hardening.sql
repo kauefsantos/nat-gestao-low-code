@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
 select has_column('public','sales','margin_override','sales records explicit margin exceptions');
 
