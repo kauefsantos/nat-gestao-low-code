@@ -1,0 +1,1 @@
+Consulte `PRIVACY_AND_RETENTION.md` para a política operacional de privacidade, retenção, direitos do titular, compartilhamentos e ciclo de exclusão/anonymização da NAT Gestão.
