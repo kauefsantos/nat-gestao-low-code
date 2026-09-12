@@ -78,6 +78,20 @@ O conteúdo do CSV **não é armazenado**. A aplicação registra somente:
 
 A etapa de importação cria um registro temporário em `private.pending_recipe_imports`. Quando o produto é efetivamente salvo, um trigger converte esse registro em `public.recipe_import_batches`, ligando a origem ao produto. Registros temporários com mais de duas horas não são associados automaticamente.
 
+## Contexto da trilha de auditoria
+
+O `audit_log` preserva `before_data` e `after_data` e, além disso, registra contexto suficiente para explicar a alteração:
+
+- `source`: fluxo que originou a mudança, como `ui_transition`, `csv_import`, `access_review`, `application` ou `system`;
+- `request_id`: identificador de correlação das alterações realizadas na mesma transação idempotente;
+- `change_reason`: motivo quando o fluxo fornece uma justificativa, como cancelamento ou revisão de acesso;
+- `actor_type`: `user`, `system` ou `service`;
+- `app_version`: versão do aplicativo quando o chamador disponibilizar esse contexto.
+
+Transições normais da interface propagam o mesmo `request_id` para os registros gerados pelo fluxo. Importações de receita registram `csv_import`; revisões de acesso registram `access_review` e a justificativa da decisão. Alterações sem usuário autenticado são classificadas como `system`.
+
+O campo `app_version` é intencionalmente opcional: a estrutura já está preparada, mas não deve receber uma versão inventada quando o runtime não fornece um identificador confiável de release.
+
 ## Indicadores
 
 O significado oficial de cada KPI está em [`METRIC_CATALOG.md`](METRIC_CATALOG.md). O fuso operacional oficial é **America/Sao_Paulo**.
