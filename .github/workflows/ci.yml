@@ -28,6 +28,8 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
+      - name: Check architecture boundaries
+        run: npm run architecture:check
       - run: npm run security:static
       - run: npm run security:privacy
       - name: Typecheck Edge Functions
