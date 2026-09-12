@@ -68,6 +68,7 @@ test("venda persiste após reload e cancelamento também persiste",async({page})
   await cancel.getByLabel("Motivo do cancelamento",{exact:true}).fill("Validação E2E de cancelamento");
   await cancel.getByRole("button",{name:"Cancelar movimento"}).click();
   await expect(cancel).toBeHidden({timeout:30_000});
+  await expect(page.getByText("Venda ou saída cancelada e mantida no histórico.",{exact:true})).toBeVisible({timeout:20_000});
 
   await page.reload({waitUntil:"domcontentloaded"});
   await expect(page.getByRole("heading",{name:"Vendas e saídas"})).toBeVisible({timeout:30_000});
