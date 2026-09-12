@@ -63,12 +63,22 @@ test("matriz E2E cobre celular compacto tablet desktop paisagem WebKit e Firefox
   assert.match(workflow,/responsive-authenticated\.spec\.ts/);
 });
 
-test("páginas públicas esperam CSS antes de medir toque e geram evidência visual",()=>{
+test("páginas públicas usam prontidão semântica e geram evidência visual",()=>{
   const mobile=source("e2e/mobile.spec.ts");
-  assert.match(mobile,/--color-cream/);
+  assert.match(mobile,/locator\("main"\).*toBeVisible/);
   assert.match(mobile,/fontSize="200%"/);
   assert.match(mobile,/testInfo\.attach/);
+  assert.doesNotMatch(mobile,/--color-cream/);
   assert.doesNotMatch(mobile,/locator\("body"\)\.toBeVisible/);
+});
+
+test("CSP permanece estrito em produção e libera apenas loopback no E2E local",()=>{
+  const start=source("src/start.ts");
+  assert.match(start,/process\.env\.NODE_ENV === "production"/);
+  assert.match(start,/connect-src 'self' https:\/\/\*\.supabase\.co wss:\/\/\*\.supabase\.co/);
+  assert.match(start,/http:\/\/127\.0\.0\.1:\*/);
+  assert.match(start,/http:\/\/localhost:\*/);
+  assert.match(start,/production \? \["upgrade-insecure-requests"\] : \[\]/);
 });
 
 test("importação CSV usa confirmação acessível e trava repetição durante aplicação",()=>{
