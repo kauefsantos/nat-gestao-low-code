@@ -67,7 +67,19 @@ async function openAuthenticatedSession(page:Page){
   }
 
   await page.waitForURL(/\/dashboard/,{timeout:30_000});
-  await expect(page.locator("header")).toBeVisible({timeout:30_000});
+  const detectDashboardState=async()=>{
+    if(await page.locator("header").isVisible().catch(()=>false))return "ready";
+    if(/\/login/.test(page.url()))return `auth-bounce:${page.url()}`;
+    const dataError=page.getByRole("heading",{name:"Não conseguimos abrir seus dados"});
+    if(await dataError.isVisible().catch(()=>false)){
+      const text=await page.locator("main,body").innerText().catch(()=>"");
+      return `data-error:${text.slice(0,600)}`;
+    }
+    if(await page.getByText("Carregando seus dados...").isVisible().catch(()=>false))return "loading-data";
+    if(await page.getByText("Verificando acesso...").isVisible().catch(()=>false))return "verifying-access";
+    return `pending:${page.url()}`;
+  };
+  await expect.poll(detectDashboardState,{timeout:30_000,message:"O dashboard não ficou pronto após o MFA."}).toBe("ready");
 }
 
 test("área autenticada permanece utilizável de 320px a desktop",async({page},testInfo)=>{
