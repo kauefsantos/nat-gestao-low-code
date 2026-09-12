@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { emptyInventorySnapshot, type InventoryBaseUnit, type InventoryCategory, type InventoryItem, type InventoryItemKind, type InventoryMovement, type InventoryMovementType, type InventorySnapshot } from "@/domain/inventory";
 
-type RpcResult = { data: unknown; error: { message: string } | null };
 type UnknownRecord = Record<string,unknown>;
 
 const record = (value:unknown):UnknownRecord => value && typeof value==="object" && !Array.isArray(value) ? value as UnknownRecord : {};
@@ -41,7 +40,7 @@ function fail(context:string,error:{message:string}|null) { if(error) throw new 
 function retryable(message:string){return /fetch|network|timeout|Failed to fetch/i.test(message);}
 
 export async function loadInventorySnapshot(businessId:string):Promise<InventorySnapshot> {
-  const result=await supabase.rpc("get_inventory_snapshot" as never,{p_business_id:businessId} as never) as unknown as RpcResult;
+  const result=await supabase.rpc("get_inventory_snapshot",{p_business_id:businessId});
   fail("Não foi possível carregar o estoque",result.error);
   const payload=record(result.data);
   if(!Object.keys(payload).length) return emptyInventorySnapshot();
@@ -56,9 +55,9 @@ export async function setInventoryBalance(args:{businessId:string;kind:Inventory
     const payload=record(result.data);if(payload.ok!==true)throw new Error(`Não foi possível atualizar o estoque: ${text(payload.message,"revise a receita e o saldo dos ingredientes.")}`);
     return;
   }
-  const result=await supabase.rpc("set_inventory_balance" as never,{
+  const result=await supabase.rpc("set_inventory_balance",{
     p_business_id:args.businessId,p_item_kind:args.kind,p_item_id:args.itemId,p_quantity:args.quantity,p_minimum_quantity:args.minimumQuantity,p_note:args.note?.trim()||null,
-  } as never) as unknown as RpcResult;
+  });
   fail("Não foi possível atualizar o estoque",result.error);
 }
 
