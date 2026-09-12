@@ -1,7 +1,70 @@
 begin;
 
+-- Pending receivables are economic revenue, but not cash. Enforce this in Lovable Cloud
+-- independently from the frontend payload and calculate their contribution without a
+-- payment fee until the actual payment method is known.
+create or replace function private.normalize_pending_receivable_financials()
+returns trigger
+language plpgsql
+set search_path=''
+as $$
+declare v_cost numeric:=0;
+begin
+  if new.transaction_type='sale' and new.payment_status='pending' then
+    select coalesce(sum(si.unit_cost_snapshot*si.quantity),0)
+      into v_cost
+    from public.sale_items si
+    where si.business_id=new.business_id and si.sale_id=new.id;
+    new.total_received:=0;
+    new.payment_method:='other';
+    new.variable_fee_snapshot:=0;
+    new.contribution_snapshot:=coalesce(new.sale_value_snapshot,0)-v_cost-coalesce(new.delivery_cost_snapshot,0);
+    new.paid_at:=null;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists sales_normalize_pending_receivable on public.sales;
+create trigger sales_normalize_pending_receivable
+before update of payment_status,sale_value_snapshot,total_received,payment_method,variable_fee_snapshot,delivery_cost_snapshot
+on public.sales
+for each row execute function private.normalize_pending_receivable_financials();
+
+-- Critical status is a business rule, not a side effect of push delivery. This job keeps
+-- the customer status correct even if Web Push or the Edge Function is temporarily down.
+create or replace function private.refresh_receivable_critical_statuses()
+returns integer
+language plpgsql
+security definer
+set search_path=''
+as $$
+declare v_count integer:=0;
+begin
+  update public.sales
+  set payment_critical_at=coalesce(payment_critical_at,now()),updated_at=now()
+  where status='completed'
+    and transaction_type='sale'
+    and payment_status='pending'
+    and payment_due_at is not null
+    and payment_due_at<=now()-interval '48 hours'
+    and payment_critical_at is null;
+  get diagnostics v_count=row_count;
+  perform private.record_nat_job_heartbeat('nat-receivables-status','success',jsonb_build_object('markedCritical',v_count));
+  return v_count;
+exception when others then
+  perform private.record_nat_job_heartbeat('nat-receivables-status','failed',jsonb_build_object('error',left(sqlerrm,180)));
+  raise;
+end $$;
+
+revoke all on function private.refresh_receivable_critical_statuses() from public,anon,authenticated;
+
+do $$ declare r record;begin
+  for r in select jobid from cron.job where jobname='nat-receivables-status' loop perform cron.unschedule(r.jobid);end loop;
+  perform cron.schedule('nat-receivables-status','*/15 * * * *','select private.refresh_receivable_critical_statuses();');
+end $$;
+
 -- Settlement must use the actual payment method chosen at collection time.
--- The economic sale value remains frozen; only cash, fee and contribution are updated.
+-- The economic sale value remains frozen; cash, fee and contribution are updated.
 create or replace function public.mark_sale_paid_v1(
   p_business_id uuid,
   p_sale_id uuid,
