@@ -65,3 +65,27 @@ test("backend: snapshot de estoque agrega movimentos antes de montar itens",()=>
   assert.match(migration,/with balances as \(/i);
   assert.match(migration,/sum\(quantity_delta\)/i);
 });
+
+test("estoque: contagem maior de produto pronto passa pela Edge Function e consome a receita ligada",()=>{
+  const repository=read("src/data/inventory-repository.ts");
+  const edge=read("supabase/functions/nat-inventory-production/index.ts");
+  assert.match(repository,/args\.kind==="product"/);
+  assert.match(repository,/mode:"set_product_stock"/);
+  assert.match(repository,/nat-inventory-production/);
+  assert.match(edge,/targetQuantity-current/);
+  assert.match(edge,/record_inventory_production_v2/);
+  assert.match(edge,/unitsProduced\/batchYield/);
+});
+
+test("estoque: redução por contagem física não devolve ingredientes e insumos continuam usando ajuste direto",()=>{
+  const repository=read("src/data/inventory-repository.ts");
+  const edge=read("supabase/functions/nat-inventory-production/index.ts");
+  assert.match(edge,/Math\.max\(0,targetQuantity-current\)/);
+  assert.match(edge,/if\(unitsProduced===0\).*set_inventory_balance/s);
+  assert.match(repository,/p_item_kind:args\.kind/);
+});
+
+test("estoque: Edge Function de produção entra no typecheck do CI",()=>{
+  const ci=read(".github/workflows/ci.yml");
+  assert.match(ci,/nat-inventory-production\/index\.ts/);
+});
