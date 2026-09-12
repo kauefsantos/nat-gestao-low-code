@@ -56,13 +56,13 @@ export function useInventory(businessId:string|null,syncRevision=0) {
     }
   },[businessId,reload,showNotice]);
 
-  const registerProduction=useCallback(async(args:{productId:string;batches:number;producedAt:string;note?:string})=>{
+  const registerProduction=useCallback(async(args:{productId:string;unitsProduced:number;producedAt:string;note?:string})=>{
     if(!businessId)throw new Error("Empresa não carregada.");
-    showNotice({tone:"saving",message:"Registrando produção..."});
+    showNotice({tone:"saving",message:"Registrando produção e baixando ingredientes..."});
     try {
       await recordInventoryProduction({businessId,...args});
       await reload();
-      showNotice({tone:"saved",message:"Produção registrada e estoque atualizado."},true);
+      showNotice({tone:"saved",message:"Produção registrada. Os ingredientes da receita foram descontados."},true);
     } catch(cause) {
       const message=cause instanceof Error?cause.message:"Não foi possível registrar a produção.";
       showNotice({tone:"error",message});
