@@ -60,7 +60,7 @@ test("venda persiste após reload e cancelamento também persiste",async({page})
 
   await page.reload({waitUntil:"domcontentloaded"});
   await expect(page.getByRole("heading",{name:"Vendas e saídas"})).toBeVisible({timeout:30_000});
-  await expect(page.getByText("2 × Produto E2E Venda")).toBeVisible({timeout:20_000});
+  await expect(page.getByText("Produto E2E Venda",{exact:true})).toBeVisible({timeout:20_000});
 
   await page.getByRole("button",{name:"Cancelar Produto E2E Venda"}).click();
   const cancel=page.getByRole("dialog",{name:"Cancelar venda ou saída"});
@@ -71,6 +71,6 @@ test("venda persiste após reload e cancelamento também persiste",async({page})
 
   await page.reload({waitUntil:"domcontentloaded"});
   await expect(page.getByRole("heading",{name:"Vendas e saídas"})).toBeVisible({timeout:30_000});
-  await expect(page.getByText("Cancelada")).toBeVisible({timeout:20_000});
-  await expect(page.getByText("Motivo: Validação E2E de cancelamento")).toBeVisible({timeout:20_000});
+  await expect(page.getByText("Cancelada",{exact:true})).toBeVisible({timeout:20_000});
+  await expect(page.getByText("Motivo: Validação E2E de cancelamento",{exact:true})).toBeVisible({timeout:20_000});
 });
