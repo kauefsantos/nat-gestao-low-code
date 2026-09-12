@@ -1,170 +1,25 @@
 import { activeSaleLines } from "./finance.js";
+import { saleValue } from "./receivables.js";
 import type { Customer, NatState } from "./types.js";
 
-function recencyScore(days: number | null, orders: number) {
-  if (!orders || days === null) return 0;
-  if (days <= 7) return 5;
-  if (days <= 14) return 4;
-  if (days <= 30) return 3;
-  if (days <= 60) return 2;
-  return 1;
+function recencyScore(days:number|null,orders:number){if(!orders||days===null)return 0;if(days<=7)return 5;if(days<=14)return 4;if(days<=30)return 3;if(days<=60)return 2;return 1;}
+function frequencyScore(orders:number){if(orders>=8)return 5;if(orders>=5)return 4;if(orders>=3)return 3;if(orders>=2)return 2;if(orders>=1)return 1;return 0;}
+function valueScore(value:number){if(value>=500)return 5;if(value>=250)return 4;if(value>=100)return 3;if(value>=50)return 2;if(value>0)return 1;return 0;}
+
+export type CustomerSegment="Novo"|"Recorrente"|"VIP"|"Em risco"|"Inativo"|"Sem compra";
+export type CustomerInsight={customer:Customer;firstPurchase:string|null;lastPurchase:string|null;orders:number;totalSpent:number;averageTicket:number;units:number;daysSinceLast:number|null;recurring:boolean;favoriteProduct:string|null;nonCommercialInteractions:number;recencyScore:number;frequencyScore:number;valueScore:number;rfmTotal:number;contribution:number;marginPercent:number;segment:CustomerSegment};
+function customerSegment(orders:number,totalSpent:number,days:number|null):CustomerSegment{if(!orders)return"Sem compra";if(days!==null&&days>=60)return"Inativo";if(days!==null&&days>=30)return"Em risco";if(orders>=4&&totalSpent>=100)return"VIP";if(orders>=2)return"Recorrente";return"Novo";}
+
+export function customerInsights(state:NatState,now=new Date()):CustomerInsight[]{
+  type Acc={orders:number;totalSpent:number;units:number;contribution:number;nonCommercialInteractions:number;first:string|null;last:string|null;products:Map<string,{name:string;qty:number}>};
+  const activeCustomers=(state.customers??[]).filter((customer)=>customer.active);const activeIds=new Set(activeCustomers.map((customer)=>customer.id));const byCustomer=new Map<string,Acc>();
+  const get=(id:string)=>{const current=byCustomer.get(id);if(current)return current;const created:Acc={orders:0,totalSpent:0,units:0,contribution:0,nonCommercialInteractions:0,first:null,last:null,products:new Map()};byCustomer.set(id,created);return created;};
+  for(const sale of state.sales){if(sale.status==="cancelled"||!sale.customerId||!activeIds.has(sale.customerId))continue;const acc=get(sale.customerId);if((sale.transactionType??"sale")!=="sale"){acc.nonCommercialInteractions+=1;continue;}acc.orders+=1;acc.totalSpent+=saleValue(sale);acc.contribution+=sale.contributionSnapshot;if(!acc.first||+new Date(sale.soldAt)<+new Date(acc.first))acc.first=sale.soldAt;if(!acc.last||+new Date(sale.soldAt)>+new Date(acc.last))acc.last=sale.soldAt;for(const line of activeSaleLines(sale)){acc.units+=line.quantity;const product=acc.products.get(line.productId)??{name:line.productName,qty:0};product.qty+=line.quantity;acc.products.set(line.productId,product);}}
+  return activeCustomers.map((customer)=>{const acc=byCustomer.get(customer.id)??{orders:0,totalSpent:0,units:0,contribution:0,nonCommercialInteractions:0,first:null,last:null,products:new Map<string,{name:string;qty:number}>()};const favorite=[...acc.products.values()].sort((a,b)=>b.qty-a.qty)[0]?.name??null;const daysSinceLast=acc.last?Math.max(0,Math.floor((now.getTime()-new Date(acc.last).getTime())/86_400_000)):null;const r=recencyScore(daysSinceLast,acc.orders);const f=frequencyScore(acc.orders);const v=valueScore(acc.totalSpent);return{customer,firstPurchase:acc.first,lastPurchase:acc.last,orders:acc.orders,totalSpent:acc.totalSpent,averageTicket:acc.orders?acc.totalSpent/acc.orders:0,units:acc.units,daysSinceLast,recurring:acc.orders>=2,favoriteProduct:favorite,nonCommercialInteractions:acc.nonCommercialInteractions,recencyScore:r,frequencyScore:f,valueScore:v,rfmTotal:r+f+v,contribution:acc.contribution,marginPercent:acc.totalSpent>0?acc.contribution/acc.totalSpent*100:0,segment:customerSegment(acc.orders,acc.totalSpent,daysSinceLast)};});
 }
 
-function frequencyScore(orders: number) {
-  if (orders >= 8) return 5;
-  if (orders >= 5) return 4;
-  if (orders >= 3) return 3;
-  if (orders >= 2) return 2;
-  if (orders >= 1) return 1;
-  return 0;
-}
-
-function valueScore(value: number) {
-  if (value >= 500) return 5;
-  if (value >= 250) return 4;
-  if (value >= 100) return 3;
-  if (value >= 50) return 2;
-  if (value > 0) return 1;
-  return 0;
-}
-
-export type CustomerSegment = "Novo" | "Recorrente" | "VIP" | "Em risco" | "Inativo" | "Sem compra paga";
-
-export type CustomerInsight = {
-  customer: Customer;
-  firstPurchase: string | null;
-  lastPurchase: string | null;
-  orders: number;
-  totalSpent: number;
-  averageTicket: number;
-  units: number;
-  daysSinceLast: number | null;
-  recurring: boolean;
-  favoriteProduct: string | null;
-  nonCommercialInteractions: number;
-  recencyScore: number;
-  frequencyScore: number;
-  valueScore: number;
-  rfmTotal: number;
-  contribution: number;
-  marginPercent: number;
-  segment: CustomerSegment;
-};
-
-function customerSegment(orders: number, totalSpent: number, days: number | null): CustomerSegment {
-  if (!orders) return "Sem compra paga";
-  if (days !== null && days >= 60) return "Inativo";
-  if (days !== null && days >= 30) return "Em risco";
-  if (orders >= 4 && totalSpent >= 100) return "VIP";
-  if (orders >= 2) return "Recorrente";
-  return "Novo";
-}
-
-export function customerInsights(state: NatState, now = new Date()): CustomerInsight[] {
-  type Acc = {
-    orders: number;
-    totalSpent: number;
-    units: number;
-    contribution: number;
-    nonCommercialInteractions: number;
-    first: string | null;
-    last: string | null;
-    products: Map<string, { name: string; qty: number }>;
-  };
-
-  const activeCustomers = (state.customers ?? []).filter((customer) => customer.active);
-  const activeIds = new Set(activeCustomers.map((customer) => customer.id));
-  const byCustomer = new Map<string, Acc>();
-  const get = (id: string) => {
-    const current = byCustomer.get(id);
-    if (current) return current;
-    const created: Acc = { orders: 0, totalSpent: 0, units: 0, contribution: 0, nonCommercialInteractions: 0, first: null, last: null, products: new Map() };
-    byCustomer.set(id, created);
-    return created;
-  };
-
-  for (const sale of state.sales) {
-    if (sale.status === "cancelled" || !sale.customerId || !activeIds.has(sale.customerId)) continue;
-    const acc = get(sale.customerId);
-    if ((sale.transactionType ?? "sale") !== "sale") {
-      acc.nonCommercialInteractions += 1;
-      continue;
-    }
-    acc.orders += 1;
-    acc.totalSpent += sale.totalReceived;
-    acc.contribution += sale.contributionSnapshot;
-    if (!acc.first || +new Date(sale.soldAt) < +new Date(acc.first)) acc.first = sale.soldAt;
-    if (!acc.last || +new Date(sale.soldAt) > +new Date(acc.last)) acc.last = sale.soldAt;
-    for (const line of activeSaleLines(sale)) {
-      acc.units += line.quantity;
-      const product = acc.products.get(line.productId) ?? { name: line.productName, qty: 0 };
-      product.qty += line.quantity;
-      acc.products.set(line.productId, product);
-    }
-  }
-
-  return activeCustomers.map((customer) => {
-    const acc = byCustomer.get(customer.id) ?? { orders: 0, totalSpent: 0, units: 0, contribution: 0, nonCommercialInteractions: 0, first: null, last: null, products: new Map<string, { name: string; qty: number }>() };
-    const favorite = [...acc.products.values()].sort((a, b) => b.qty - a.qty)[0]?.name ?? null;
-    const daysSinceLast = acc.last ? Math.max(0, Math.floor((now.getTime() - new Date(acc.last).getTime()) / 86_400_000)) : null;
-    const r = recencyScore(daysSinceLast, acc.orders);
-    const f = frequencyScore(acc.orders);
-    const v = valueScore(acc.totalSpent);
-    return {
-      customer,
-      firstPurchase: acc.first,
-      lastPurchase: acc.last,
-      orders: acc.orders,
-      totalSpent: acc.totalSpent,
-      averageTicket: acc.orders ? acc.totalSpent / acc.orders : 0,
-      units: acc.units,
-      daysSinceLast,
-      recurring: acc.orders >= 2,
-      favoriteProduct: favorite,
-      nonCommercialInteractions: acc.nonCommercialInteractions,
-      recencyScore: r,
-      frequencyScore: f,
-      valueScore: v,
-      rfmTotal: r + f + v,
-      contribution: acc.contribution,
-      marginPercent: acc.totalSpent > 0 ? acc.contribution / acc.totalSpent * 100 : 0,
-      segment: customerSegment(acc.orders, acc.totalSpent, daysSinceLast),
-    };
-  });
-}
-
-export function customerOverview(state: NatState, now = new Date()) {
-  const insights = customerInsights(state, now);
-  const customersWithOrders = insights.filter((row) => row.orders > 0);
-  const recurrent = customersWithOrders.filter((row) => row.recurring);
-  const newThisMonth = customersWithOrders.filter((row) => {
-    if (!row.firstPurchase) return false;
-    const date = new Date(row.firstPurchase);
-    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-  });
-  const orders = customersWithOrders.reduce((sum, row) => sum + row.orders, 0);
-  const sourceMap = new Map<string, { source: string; customers: number; revenue: number; orders: number; recurring: number }>();
-  for (const row of customersWithOrders) {
-    const source = row.customer.source?.trim() || "Não informado";
-    const current = sourceMap.get(source) ?? { source, customers: 0, revenue: 0, orders: 0, recurring: 0 };
-    current.customers += 1;
-    current.revenue += row.totalSpent;
-    current.orders += row.orders;
-    if (row.recurring) current.recurring += 1;
-    sourceMap.set(source, current);
-  }
-
-  return {
-    activeCustomers: insights.length,
-    newThisMonth: newThisMonth.length,
-    recurrent: recurrent.length,
-    repurchaseRate: customersWithOrders.length ? recurrent.length / customersWithOrders.length * 100 : 0,
-    averageTicket: orders ? customersWithOrders.reduce((sum, row) => sum + row.totalSpent, 0) / orders : 0,
-    inactive: customersWithOrders.filter((row) => row.daysSinceLast !== null && row.daysSinceLast >= 30).length,
-    sourceBreakdown: [...sourceMap.values()].map((row) => ({
-      ...row,
-      ticket: row.orders ? row.revenue / row.orders : 0,
-      repurchaseRate: row.customers ? row.recurring / row.customers * 100 : 0,
-    })).sort((a, b) => b.revenue - a.revenue),
-  };
+export function customerOverview(state:NatState,now=new Date()){
+  const insights=customerInsights(state,now);const customersWithOrders=insights.filter((row)=>row.orders>0);const recurrent=customersWithOrders.filter((row)=>row.recurring);const newThisMonth=customersWithOrders.filter((row)=>{if(!row.firstPurchase)return false;const date=new Date(row.firstPurchase);return date.getFullYear()===now.getFullYear()&&date.getMonth()===now.getMonth();});const orders=customersWithOrders.reduce((sum,row)=>sum+row.orders,0);const sourceMap=new Map<string,{source:string;customers:number;revenue:number;orders:number;recurring:number}>();
+  for(const row of customersWithOrders){const source=row.customer.source?.trim()||"Não informado";const current=sourceMap.get(source)??{source,customers:0,revenue:0,orders:0,recurring:0};current.customers+=1;current.revenue+=row.totalSpent;current.orders+=row.orders;if(row.recurring)current.recurring+=1;sourceMap.set(source,current);}
+  return{activeCustomers:insights.length,newThisMonth:newThisMonth.length,recurrent:recurrent.length,repurchaseRate:customersWithOrders.length?recurrent.length/customersWithOrders.length*100:0,averageTicket:orders?customersWithOrders.reduce((sum,row)=>sum+row.totalSpent,0)/orders:0,inactive:customersWithOrders.filter((row)=>row.daysSinceLast!==null&&row.daysSinceLast>=30).length,sourceBreakdown:[...sourceMap.values()].map((row)=>({...row,ticket:row.orders?row.revenue/row.orders:0,repurchaseRate:row.customers?row.recurring/row.customers*100:0})).sort((a,b)=>b.revenue-a.revenue)};
 }
