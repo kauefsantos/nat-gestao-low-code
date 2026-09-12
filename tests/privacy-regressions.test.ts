@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPrivacySafeBackup } from "../src/lib/export-data.js";
-import { pruneDiagnostics, redactDiagnosticText } from "../src/lib/telemetry.js";
+import { buildPrivacySafeBackup, pruneTimedRecords, redactSensitiveText } from "../src/domain/privacy.js";
 import type { NatState } from "../src/domain/nat.js";
 
 test("privacy-safe backup excludes customer identifiers and notes",()=>{
@@ -15,7 +14,7 @@ test("privacy-safe backup excludes customer identifiers and notes",()=>{
 });
 
 test("diagnostics redact common personal data and secrets",()=>{
-  const redacted=redactDiagnosticText("email teste@example.com fone (11) 99999-9999 CPF 123.456.789-00 Authorization: abc123");
+  const redacted=redactSensitiveText("email teste@example.com fone (11) 99999-9999 CPF 123.456.789-00 Authorization: abc123");
   assert.equal(redacted.includes("teste@example.com"),false);
   assert.equal(redacted.includes("99999-9999"),false);
   assert.equal(redacted.includes("123.456.789-00"),false);
@@ -28,5 +27,5 @@ test("diagnostics expire after 14 days",()=>{
     {at:"2026-08-20T12:00:00Z",kind:"manual" as const,message:"old",path:"/"},
     {at:"2026-09-10T12:00:00Z",kind:"manual" as const,message:"new",path:"/"},
   ];
-  assert.deepEqual(pruneDiagnostics(events,now).map((event)=>event.message),["new"]);
+  assert.deepEqual(pruneTimedRecords(events,now).map((event)=>event.message),["new"]);
 });
