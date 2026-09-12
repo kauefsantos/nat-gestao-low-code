@@ -183,7 +183,7 @@ begin
   if v_instagram<>'' and exists (
     select 1 from public.customers c
     where c.business_id=new.business_id and c.id<>new.id
-      and regexp_replace(lower(btrim(coalesce(c.instagram,'')),'^@','','')=v_instagram
+      and regexp_replace(lower(btrim(coalesce(c.instagram,''))),'^@','','')=v_instagram
   ) then raise exception 'Já existe um cliente com este Instagram neste negócio.' using errcode='23505'; end if;
   return new;
 end;
