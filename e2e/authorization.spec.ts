@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
@@ -7,6 +8,7 @@ const tenantB = "a1000000-0000-4000-8000-000000000002";
 const password = "NAT-RLS-e2e-2026!";
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const responsiveSessionPath = ".test-build/responsive-aal2-session.json";
 
 function decodeBase32(value:string){
   const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -102,6 +104,12 @@ test("MFA real mantém leitura e escrita isoladas entre dois negócios",async()=
   expect(resultA.foreignVisibleCount).toBe(0);
   expect(resultA.crossWriteError).toBeTruthy();
 
+  const sessionA=(await clientA.auth.getSession()).data.session;
+  expect(sessionA?.access_token).toBeTruthy();
+  expect(sessionA?.refresh_token).toBeTruthy();
+  mkdirSync(".test-build",{recursive:true});
+  writeFileSync(responsiveSessionPath,JSON.stringify({access_token:sessionA!.access_token,refresh_token:sessionA!.refresh_token}),{encoding:"utf8",mode:0o600});
+
   await createAal2Session(clientB,"rls-admin-b@example.test");
   const resultB=await probe(clientB,tenantA);
   expect(resultB.membershipError).toBeNull();
@@ -114,6 +122,5 @@ test("MFA real mantém leitura e escrita isoladas entre dois negócios",async()=
   expect(resultB.foreignVisibleCount).toBe(0);
   expect(resultB.crossWriteError).toBeTruthy();
 
-  await clientA.auth.signOut();
   await clientB.auth.signOut();
 });
