@@ -3,6 +3,8 @@ import type { FundingSource } from "./funding.js";
 export type SupplyCategory = "ingredient" | "packaging" | "other";
 export type Unit = "g" | "kg" | "ml" | "l" | "unit";
 export type PaymentMethod = "pix" | "cash" | "card" | "other";
+export type PaymentStatus = "paid" | "pending";
+export type CustomerCreditStatus = "normal" | "critical";
 export type SaleStatus = "completed" | "cancelled";
 export type TransactionType = "sale" | "courtesy" | "personal_consumption" | "loss";
 export type OwnerCashMovementType = "contribution" | "withdrawal";
@@ -45,6 +47,7 @@ export type Customer = {
   marketingConsent: boolean;
   notes?: string | null;
   active: boolean;
+  creditStatus?: CustomerCreditStatus;
   createdAt: string;
   updatedAt: string;
 };
@@ -72,7 +75,16 @@ export type Sale = {
   discountReason?: string | null;
   belowCostOverride?: boolean;
   quantity: number;
+  /** Cash effectively received. Pending receivables keep this at zero until settlement. */
   totalReceived: number;
+  /** Economic value of the sale, independent from when cash is collected. */
+  saleValueSnapshot?: number;
+  paymentStatus?: PaymentStatus;
+  paymentPromisedDate?: string | null;
+  paymentPromisedTime?: string | null;
+  paymentDueAt?: string | null;
+  paidAt?: string | null;
+  paymentCriticalAt?: string | null;
   paymentMethod: PaymentMethod;
   soldAt: string;
   unitCostSnapshot: number;

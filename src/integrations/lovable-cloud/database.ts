@@ -34,6 +34,13 @@ type SaleExtra = {
   delivery_cost_snapshot: number;
   discount_reason: string | null;
   below_cost_override: boolean;
+  sale_value_snapshot: number;
+  payment_status: string;
+  payment_promised_date: string | null;
+  payment_promised_time: string | null;
+  payment_due_at: string | null;
+  paid_at: string | null;
+  payment_critical_at: string | null;
 };
 type FundingExtra = { funding_source: string };
 type AiGenerationLogExtra = {
@@ -52,6 +59,52 @@ type NotificationDeliveryExtra = {
   locked_at: string | null;
   sent_at: string | null;
   updated_at: string;
+};
+
+type CustomerTable = {
+  Row: {
+    id: string;
+    business_id: string;
+    name: string;
+    phone: string | null;
+    instagram: string | null;
+    source: string | null;
+    marketing_consent: boolean;
+    notes: string | null;
+    active: boolean;
+    credit_status: string;
+    created_at: string;
+    updated_at: string;
+  };
+  Insert: {
+    id?: string;
+    business_id: string;
+    name: string;
+    phone?: string | null;
+    instagram?: string | null;
+    source?: string | null;
+    marketing_consent?: boolean;
+    notes?: string | null;
+    active?: boolean;
+    credit_status?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Update: {
+    id?: string;
+    business_id?: string;
+    name?: string;
+    phone?: string | null;
+    instagram?: string | null;
+    source?: string | null;
+    marketing_consent?: boolean;
+    notes?: string | null;
+    active?: boolean;
+    credit_status?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Relationships: [];
 };
 
 type CustomerMarketingConsentTable = {
@@ -152,14 +205,27 @@ type RuntimeFunctions = {
     Args: { p_business_id: string; p_request_id: string; p_operations: Json };
     Returns: Json;
   };
+  apply_nat_transition_v4: {
+    Args: { p_business_id: string; p_request_id: string; p_operations: Json };
+    Returns: Json;
+  };
+  mark_sale_paid_v1: {
+    Args: {
+      p_business_id: string;
+      p_sale_id: string;
+      p_payment_method: string;
+      p_expected_updated_at?: string | null;
+    };
+    Returns: Json;
+  };
 };
 
 /**
  * Effective application schema for Lovable Cloud.
  *
  * `src/integrations/supabase/types.ts` is the generated schema snapshot. This
- * overlay keeps runtime fields and RPC contracts that are already present in
- * Lovable Cloud explicit until the next authorized type regeneration.
+ * overlay keeps runtime fields and RPC contracts explicit until the next
+ * authorized type regeneration.
  */
 export type Database = Omit<GeneratedDatabase, "public"> & {
   public: Omit<PublicSchema, "Tables" | "Functions"> & {
@@ -176,6 +242,7 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
     > & {
       ai_generation_log: TableWith<"ai_generation_log", AiGenerationLogExtra>;
       business_settings: TableWith<"business_settings", BusinessSettingsExtra>;
+      customers: CustomerTable;
       notification_delivery_log: TableWith<"notification_delivery_log", NotificationDeliveryExtra>;
       products: TableWith<"products", ProductExtra>;
       sale_items: TableWith<"sale_items", SaleItemExtra>;
@@ -184,7 +251,7 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
       supply_purchases: TableWith<"supply_purchases", FundingExtra>;
       customer_marketing_consents: CustomerMarketingConsentTable;
     };
-    Functions: Functions & RuntimeFunctions;
+    Functions: Omit<Functions, keyof RuntimeFunctions> & RuntimeFunctions;
   };
 };
 
