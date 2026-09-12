@@ -34,7 +34,15 @@ type SaleExtra = {
   delivery_cost_snapshot: number;
   discount_reason: string | null;
   below_cost_override: boolean;
+  sale_value_snapshot: number;
+  payment_status: string;
+  payment_promised_date: string | null;
+  payment_promised_time: string | null;
+  payment_due_at: string | null;
+  paid_at: string | null;
+  payment_critical_at: string | null;
 };
+type CustomerExtra = { credit_status: string };
 type FundingExtra = { funding_source: string };
 type AiGenerationLogExtra = {
   provider_called_at: string | null;
@@ -152,14 +160,27 @@ type RuntimeFunctions = {
     Args: { p_business_id: string; p_request_id: string; p_operations: Json };
     Returns: Json;
   };
+  apply_nat_transition_v4: {
+    Args: { p_business_id: string; p_request_id: string; p_operations: Json };
+    Returns: Json;
+  };
+  mark_sale_paid_v1: {
+    Args: {
+      p_business_id: string;
+      p_sale_id: string;
+      p_payment_method: string;
+      p_expected_updated_at?: string | null;
+    };
+    Returns: Json;
+  };
 };
 
 /**
  * Effective application schema for Lovable Cloud.
  *
  * `src/integrations/supabase/types.ts` is the generated schema snapshot. This
- * overlay keeps runtime fields and RPC contracts that are already present in
- * Lovable Cloud explicit until the next authorized type regeneration.
+ * overlay keeps runtime fields and RPC contracts explicit until the next
+ * authorized type regeneration.
  */
 export type Database = Omit<GeneratedDatabase, "public"> & {
   public: Omit<PublicSchema, "Tables" | "Functions"> & {
@@ -167,6 +188,7 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
       Tables,
       | "ai_generation_log"
       | "business_settings"
+      | "customers"
       | "notification_delivery_log"
       | "products"
       | "sale_items"
@@ -176,6 +198,7 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
     > & {
       ai_generation_log: TableWith<"ai_generation_log", AiGenerationLogExtra>;
       business_settings: TableWith<"business_settings", BusinessSettingsExtra>;
+      customers: TableWith<"customers", CustomerExtra>;
       notification_delivery_log: TableWith<"notification_delivery_log", NotificationDeliveryExtra>;
       products: TableWith<"products", ProductExtra>;
       sale_items: TableWith<"sale_items", SaleItemExtra>;
