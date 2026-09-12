@@ -38,6 +38,7 @@ function movementFrom(value:unknown):InventoryMovement {
 }
 
 function fail(context:string,error:{message:string}|null) { if(error) throw new Error(`${context}: ${error.message}`); }
+function retryable(message:string){return /fetch|network|timeout|Failed to fetch/i.test(message);}
 
 export async function loadInventorySnapshot(businessId:string):Promise<InventorySnapshot> {
   const result=await supabase.rpc("get_inventory_snapshot" as never,{p_business_id:businessId} as never) as unknown as RpcResult;
@@ -55,9 +56,16 @@ export async function setInventoryBalance(args:{businessId:string;kind:Inventory
 }
 
 export async function recordInventoryProduction(args:{businessId:string;productId:string;batches:number;producedAt:string;note?:string}) {
-  const result=await supabase.rpc("record_inventory_production" as never,{
-    p_business_id:args.businessId,p_product_id:args.productId,p_batches:args.batches,p_produced_at:args.producedAt,p_note:args.note?.trim()||null,
-  } as never) as unknown as RpcResult;
-  fail("Não foi possível registrar a produção",result.error);
-  return result.data;
+  const requestId=crypto.randomUUID();
+  let lastError:{message:string}|null=null;
+  for(let attempt=0;attempt<2;attempt+=1){
+    const result=await supabase.rpc("record_inventory_production_v2" as never,{
+      p_business_id:args.businessId,p_request_id:requestId,p_product_id:args.productId,p_batches:args.batches,p_produced_at:args.producedAt,p_note:args.note?.trim()||null,
+    } as never) as unknown as RpcResult;
+    if(!result.error)return result.data;
+    lastError=result.error;
+    if(!retryable(result.error.message))break;
+  }
+  fail("Não foi possível registrar a produção",lastError);
+  return null;
 }
