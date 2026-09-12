@@ -105,7 +105,9 @@ test("área autenticada permanece utilizável de 320px a desktop",async({page},t
 
   await page.setViewportSize({width:320,height:568});
   await page.goto("/dashboard?view=products");
-  await page.getByRole("button",{name:"Novo produto"}).click();
+  const newProduct=page.getByRole("button",{name:"Cadastrar outro produto"});
+  await expect(newProduct).toBeVisible({timeout:15_000});
+  await newProduct.click();
   await page.getByRole("button",{name:"Adicionar"}).click();
   const supplySelect=page.getByLabel("Insumo 1");
   await expect(supplySelect).toBeVisible();
