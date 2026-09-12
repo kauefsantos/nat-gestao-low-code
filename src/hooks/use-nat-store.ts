@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { initialState, type NatState } from "@/domain/nat";
 import { useAuth } from "@/hooks/use-auth";
-import { emptyNatVersions, loadNatCloudState, persistNatTransition, setProductAvailabilityCloud, type NatVersions } from "@/data/nat-repository";
-import { loadNatOperationalState } from "@/data/nat-operational-repository";
+import { emptyNatVersions, persistNatTransition, setProductAvailabilityCloud, type NatVersions } from "@/data/nat-repository";
+import { loadNatHistoricalState, loadNatOperationalState } from "@/data/nat-operational-repository";
 import { supabase } from "@/integrations/supabase/client";
 import { classifyApiError } from "@/lib/api-error";
 
 export type NatSyncNotice = { tone:"saving"|"saved"|"error"; message:string } | null;
 const devError = (message: string,error?: unknown) => { if (import.meta.env.DEV) console.error(message,error); };
 
-type LoadedState=Awaited<ReturnType<typeof loadNatCloudState>>;
+type LoadedState=Awaited<ReturnType<typeof loadNatOperationalState>>;
 
 export function useNatStore() {
   const { user } = useAuth();
@@ -33,7 +33,7 @@ export function useNatStore() {
     businessIdRef.current=loaded.businessId; versionsRef.current=loaded.versions; applyState(loaded.state); setLoadError(null);
   },[applyState]);
   const reloadFromCloud = useCallback(async () => {
-    const loaded=historyLoadedRef.current?await loadNatCloudState():await loadNatOperationalState();
+    const loaded=historyLoadedRef.current?await loadNatHistoricalState():await loadNatOperationalState();
     applyLoaded(loaded);setReady(true);
   },[applyLoaded]);
 
@@ -41,7 +41,7 @@ export function useNatStore() {
     if(historyLoadedRef.current)return;
     if(historyPromiseRef.current)return historyPromiseRef.current;
     historyPromiseRef.current=(async()=>{
-      const loaded=await loadNatCloudState();
+      const loaded=await loadNatHistoricalState();
       applyLoaded(loaded);historyLoadedRef.current=true;setHistoryLoaded(true);
     })().finally(()=>{historyPromiseRef.current=null;});
     return historyPromiseRef.current;
