@@ -1,7 +1,7 @@
 -- Integrations/automations regression coverage.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(31);
 
 select has_column('public','business_settings','timezone','business timezone is explicit');
 select has_column('public','notification_delivery_log','status','push ledger has status');
