@@ -33,7 +33,7 @@ type Sheet =
   | null;
 
 export function NatApp({ view,onView }: { view:NatView; onView:(view:NatView)=>void }) {
-  const { state,update,setProductAvailability,refresh,ready,loadError,syncNotice,clearSyncNotice,syncRevision,businessId }=useNatStore();
+  const { state,update,setProductAvailability,refresh,ensureFullHistory,historyLoaded,ready,loadError,syncNotice,clearSyncNotice,syncRevision,businessId }=useNatStore();
   const inventory=useInventory(businessId,syncRevision);
   const homeCalendar=useCalendar(view==="home");
   const [productTab,setProductTab]=useState<ProductTab>("products");
@@ -42,6 +42,13 @@ export function NatApp({ view,onView }: { view:NatView; onView:(view:NatView)=>v
   const numbers=useMemo(()=>dashboardNumbers(state),[state]);
   useEffect(()=>installGlobalDiagnostics(),[]);
   useEffect(()=>{if(loadError)recordDiagnostic(`Falha ao carregar dados: ${loadError}`);},[loadError]);
+  useEffect(()=>{
+    if(!ready||historyLoaded||!["sales","customers","intelligence"].includes(view))return;
+    void ensureFullHistory().catch((error)=>{
+      recordDiagnostic(`Falha ao carregar histórico completo: ${error instanceof Error?error.message:"erro desconhecido"}`);
+      setLocalNotice({tone:"error",message:"Não foi possível carregar todo o histórico. Os dados recentes continuam disponíveis."});
+    });
+  },[ensureFullHistory,historyLoaded,ready,view]);
 
   if(!ready) return <div className="min-h-screen grid place-items-center bg-cream"><div className="space-y-4 text-center"><Brand/><p className="text-sm text-caramel" role="status">Carregando dados protegidos...</p></div></div>;
   if(loadError) return <div className="min-h-screen grid place-items-center bg-cream p-5"><div className="nat-card max-w-md text-center"><div className="mx-auto w-fit"><Brand/></div><h1 className="mt-6 font-display text-3xl">Não conseguimos abrir seus dados</h1><p className="mt-2 text-sm leading-6 text-caramel">{loadError}</p><button type="button" className="primary-button mt-5 w-full justify-center" onClick={refresh}>Tentar novamente</button></div></div>;
