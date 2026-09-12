@@ -1,18 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/lovable-cloud/database";
 import { initialState, type Customer, type NatState, type OwnerCashMovement, type PaymentMethod, type Product, type RecipeItem, type Sale, type SaleChannel, type SaleLine, type SaleStatus, type Settings, type SporadicExpense, type Supply, type SupplyCategory, type TransactionType, type Unit } from "@/domain/nat";
 import { addCalendarDays, businessDate, businessDayStartInstant } from "@/lib/business-time";
 import { emptyNatVersions, type NatVersions } from "@/data/nat-repository";
 
 type MembershipRow=Database["public"]["Tables"]["business_members"]["Row"];
-type SettingsBase=Database["public"]["Tables"]["business_settings"]["Row"];
-type SettingsRow=SettingsBase&{owner_hourly_rate?:number|string|null;owner_daily_hours?:number|string|null;pix_fee_percent?:number|string|null;cash_fee_percent?:number|string|null;card_fee_percent?:number|string|null;fixed_cost_funding_source?:string|null};
+type SettingsRow=Database["public"]["Tables"]["business_settings"]["Row"];
 type SupplyRow=Database["public"]["Tables"]["supplies"]["Row"];
-type ProductRow=Database["public"]["Tables"]["products"]["Row"]&{available?:boolean;labor_cost_per_batch?:number|string|null};
+type ProductRow=Database["public"]["Tables"]["products"]["Row"];
 type RecipeRow=Database["public"]["Tables"]["recipe_items"]["Row"];
-type SaleRow=Database["public"]["Tables"]["sales"]["Row"]&{customer_id?:string|null;transaction_type?:TransactionType|null;sale_channel?:SaleChannel|null;delivery_cost_snapshot?:number|string|null;discount_reason?:string|null;below_cost_override?:boolean|null};
-type SaleItemRow=Database["public"]["Tables"]["sale_items"]["Row"]&{labor_cost_snapshot?:number|string|null};
-type ExpenseRow=Database["public"]["Tables"]["sporadic_expenses"]["Row"]&{funding_source?:string|null};
+type SaleRow=Database["public"]["Tables"]["sales"]["Row"];
+type SaleItemRow=Database["public"]["Tables"]["sale_items"]["Row"];
+type ExpenseRow=Database["public"]["Tables"]["sporadic_expenses"]["Row"];
 type PurchaseSnapshot={supplyId:string;packageQuantity:number|string;packageUnit:Unit;packagePrice:number|string;purchasedAt:string;fundingSource?:string};
 export type PageCursor={soldAt?:string;spentAt?:string;id:string};
 export type HistoryCursor={sale:PageCursor|null;expense:PageCursor|null;salesDone:boolean;expensesDone:boolean};
@@ -38,7 +37,7 @@ function saleFromRows(row:SaleRow,items:SaleItemRow[]):Sale|null{
   if(!items.length)return null;
   const lines:SaleLine[]=items.map((item)=>({id:item.id,productId:item.product_id,productName:item.product_name_snapshot,portfolioKey:item.portfolio_key_snapshot??null,quantity:numberValue(item.quantity),unitCostSnapshot:numberValue(item.unit_cost_snapshot),laborCostSnapshot:numberValue(item.labor_cost_snapshot),unitPriceSnapshot:numberValue(item.unit_price_snapshot)}));
   const quantity=lines.reduce((sum,item)=>sum+item.quantity,0);const totalCost=lines.reduce((sum,item)=>sum+item.unitCostSnapshot*item.quantity,0);const first=lines[0];
-  return{id:row.id,productId:first.productId,productName:lines.length===1?first.productName:`${lines.length} produtos`,portfolioKey:lines.length===1?first.portfolioKey??null:null,customerId:row.customer_id??null,transactionType:row.transaction_type??"sale",saleChannel:row.sale_channel??"other",deliveryCostSnapshot:numberValue(row.delivery_cost_snapshot),discountReason:row.discount_reason??null,belowCostOverride:Boolean(row.below_cost_override),quantity,totalReceived:numberValue(row.total_received),paymentMethod:row.payment_method as PaymentMethod,soldAt:row.sold_at,unitCostSnapshot:quantity>0?totalCost/quantity:0,variableFeeSnapshot:numberValue(row.variable_fee_snapshot),contributionSnapshot:numberValue(row.contribution_snapshot),items:lines,status:row.status as SaleStatus,cancelledAt:row.cancelled_at,cancelReason:row.cancel_reason};
+  return{id:row.id,productId:first.productId,productName:lines.length===1?first.productName:`${lines.length} produtos`,portfolioKey:lines.length===1?first.portfolioKey??null:null,customerId:row.customer_id??null,transactionType:(row.transaction_type??"sale") as TransactionType,saleChannel:(row.sale_channel??"other") as SaleChannel,deliveryCostSnapshot:numberValue(row.delivery_cost_snapshot),discountReason:row.discount_reason??null,belowCostOverride:Boolean(row.below_cost_override),quantity,totalReceived:numberValue(row.total_received),paymentMethod:row.payment_method as PaymentMethod,soldAt:row.sold_at,unitCostSnapshot:quantity>0?totalCost/quantity:0,variableFeeSnapshot:numberValue(row.variable_fee_snapshot),contributionSnapshot:numberValue(row.contribution_snapshot),items:lines,status:row.status as SaleStatus,cancelledAt:row.cancelled_at,cancelReason:row.cancel_reason};
 }
 
 function saleFromPage(value:unknown):{sale:Sale;updatedAt:string|null}|null{
@@ -59,13 +58,13 @@ export async function loadNatOperationalStateV2():Promise<{businessId:string;sta
   const [settingsResult,suppliesResult,purchaseSnapshotResult,productsResult,recipeResult,salesResult,expensesResult,customersResult,ownerCashResult]=await Promise.all([
     supabase.from("business_settings").select("business_id,owner_name,monthly_fixed_costs,payment_fee_percent,default_minimum_margin_percent,default_target_margin_percent,updated_at,owner_hourly_rate,owner_daily_hours,pix_fee_percent,cash_fee_percent,card_fee_percent,timezone,fixed_cost_funding_source").eq("business_id",businessId).maybeSingle(),
     supabase.from("supplies").select("id,business_id,name,category,active,created_at,updated_at").eq("business_id",businessId).order("name",{ascending:true}),
-    supabase.rpc("get_supply_purchase_snapshot" as never,{p_business_id:businessId,p_month_start:monthStart} as never),
+    supabase.rpc("get_supply_purchase_snapshot",{p_business_id:businessId,p_month_start:monthStart}),
     supabase.from("products").select("id,business_id,name,portfolio_key,batch_yield,selling_price,loss_percent,labor_cost_per_batch,production_cost_per_batch,minimum_margin_percent,target_margin_percent,available,active,created_at,updated_at").eq("business_id",businessId).order("name",{ascending:true}),
     supabase.from("recipe_items").select("id,business_id,product_id,supply_id,quantity,unit,created_at").eq("business_id",businessId),
     supabase.from("sales").select("id,business_id,customer_id,transaction_type,sale_channel,total_received,payment_method,sold_at,variable_fee_snapshot,contribution_snapshot,delivery_cost_snapshot,discount_reason,below_cost_override,status,cancelled_at,cancel_reason,created_at,updated_at").eq("business_id",businessId).gte("sold_at",recentSalesStart).order("sold_at",{ascending:false}),
     supabase.from("sporadic_expenses").select("id,business_id,name,amount,spent_at,funding_source,created_at,updated_at").eq("business_id",businessId).gte("spent_at",monthStart).order("spent_at",{ascending:false}).order("created_at",{ascending:false}),
-    supabase.rpc("get_customers_snapshot" as never,{p_business_id:businessId} as never),
-    supabase.rpc("get_owner_cash_movements_snapshot" as never,{p_business_id:businessId} as never),
+    supabase.rpc("get_customers_snapshot",{p_business_id:businessId}),
+    supabase.rpc("get_owner_cash_movements_snapshot",{p_business_id:businessId}),
   ]);
   failure("Não foi possível carregar as configurações",settingsResult.error);failure("Não foi possível carregar os ingredientes",suppliesResult.error);failure("Não foi possível carregar o custo dos ingredientes",purchaseSnapshotResult.error);failure("Não foi possível carregar os produtos",productsResult.error);failure("Não foi possível carregar as receitas",recipeResult.error);failure("Não foi possível carregar as vendas recentes",salesResult.error);failure("Não foi possível carregar os gastos do mês",expensesResult.error);failure("Não foi possível carregar os clientes",customersResult.error);failure("Não foi possível carregar aportes e retiradas",ownerCashResult.error);
 
@@ -79,8 +78,8 @@ export async function loadNatOperationalStateV2():Promise<{businessId:string;sta
   const recipesByProduct=new Map<string,RecipeItem[]>();for(const item of recipeRows){const list=recipesByProduct.get(item.product_id)??[];list.push({id:item.id,supplyId:item.supply_id,quantity:numberValue(item.quantity),unit:item.unit as Unit});recipesByProduct.set(item.product_id,list);}
   const products:Product[]=activeProducts.map((row)=>({id:row.id,name:row.name,portfolioKey:row.portfolio_key??null,available:row.available??true,batchYield:numberValue(row.batch_yield),sellingPrice:numberValue(row.selling_price),lossPercent:numberValue(row.loss_percent),laborCostPerBatch:numberValue(row.labor_cost_per_batch),productionCostPerBatch:numberValue(row.production_cost_per_batch),minimumMarginPercent:numberValue(row.minimum_margin_percent),targetMarginPercent:numberValue(row.target_margin_percent),recipe:recipesByProduct.get(row.id)??[]}));
   const sales=saleRows.map((row)=>saleFromRows(row,bySale.get(row.id)??[])).filter((sale):sale is Sale=>sale!==null);
-  const expenseRows=rows<ExpenseRow>(expensesResult.data);const expenses:SporadicExpense[]=expenseRows.map((row)=>({id:row.id,name:row.name,amount:numberValue(row.amount),spentAt:row.spent_at}));
-  const settingsRow=settingsResult.data as SettingsRow|null;const settings:Settings=settingsRow?{ownerName:settingsRow.owner_name,monthlyFixedCosts:numberValue(settingsRow.monthly_fixed_costs),paymentFeePercent:numberValue(settingsRow.payment_fee_percent),pixFeePercent:numberValue(settingsRow.pix_fee_percent??0),cashFeePercent:numberValue(settingsRow.cash_fee_percent??0),cardFeePercent:numberValue(settingsRow.card_fee_percent??0),defaultMinimumMarginPercent:numberValue(settingsRow.default_minimum_margin_percent),defaultTargetMarginPercent:numberValue(settingsRow.default_target_margin_percent),ownerHourlyRate:numberValue(settingsRow.owner_hourly_rate??20),ownerDailyHours:numberValue(settingsRow.owner_daily_hours??3)}:initialState.settings;
+  const expenseRows=rows<ExpenseRow>(expensesResult.data);const expenses:SporadicExpense[]=expenseRows.map((row)=>({id:row.id,name:row.name,amount:numberValue(row.amount),spentAt:row.spent_at,fundingSource:row.funding_source==="business"?"business":"owner"}));
+  const settingsRow=settingsResult.data as SettingsRow|null;const settings:Settings=settingsRow?{ownerName:settingsRow.owner_name,monthlyFixedCosts:numberValue(settingsRow.monthly_fixed_costs),paymentFeePercent:numberValue(settingsRow.payment_fee_percent),pixFeePercent:numberValue(settingsRow.pix_fee_percent),cashFeePercent:numberValue(settingsRow.cash_fee_percent),cardFeePercent:numberValue(settingsRow.card_fee_percent),defaultMinimumMarginPercent:numberValue(settingsRow.default_minimum_margin_percent),defaultTargetMarginPercent:numberValue(settingsRow.default_target_margin_percent),ownerHourlyRate:numberValue(settingsRow.owner_hourly_rate),ownerDailyHours:numberValue(settingsRow.owner_daily_hours),fixedCostFundingSource:settingsRow.fixed_cost_funding_source==="business"?"business":"owner",timezone:settingsRow.timezone||"America/Sao_Paulo"}:initialState.settings;
   const customers=rows<unknown>(customersResult.data).map(customerFrom);const ownerCashMovements=rows<unknown>(ownerCashResult.data).map(ownerCashMovementFrom);
   const versions:NatVersions={...emptyNatVersions(),settings:settingsRow?.updated_at??null,supplies:Object.fromEntries(allSupplies.map((row)=>[row.id,row.updated_at])),products:Object.fromEntries(allProductRows.map((row)=>[row.id,row.updated_at])),sales:Object.fromEntries(saleRows.map((row)=>[row.id,row.updated_at])),expenses:Object.fromEntries(expenseRows.map((row)=>[row.id,row.updated_at]))};
   return{businessId,state:{version:6,supplies,products,customers,sales,expenses,ownerCashMovements,settings,purchaseCashOut},versions};
