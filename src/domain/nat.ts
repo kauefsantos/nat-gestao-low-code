@@ -1,3 +1,5 @@
+import type { FundingSource } from "./funding.js";
+
 export type SupplyCategory = "ingredient" | "packaging" | "other";
 export type Unit = "g" | "kg" | "ml" | "l" | "unit";
 export type PaymentMethod = "pix" | "cash" | "card" | "other";
@@ -6,7 +8,7 @@ export type TransactionType = "sale" | "courtesy" | "personal_consumption" | "lo
 export type OwnerCashMovementType = "contribution" | "withdrawal";
 export type SaleChannel = "whatsapp" | "instagram" | "street" | "referral" | "in_person" | "other";
 
-export type Supply = { id: string; name: string; category: SupplyCategory; packageQuantity: number; packageUnit: Unit; packagePrice: number; purchasedAt: string };
+export type Supply = { id: string; name: string; category: SupplyCategory; packageQuantity: number; packageUnit: Unit; packagePrice: number; purchasedAt: string; fundingSource?:FundingSource };
 export type RecipeItem = { id: string; supplyId: string; quantity: number; unit: Unit };
 export type Product = { id: string; name: string; portfolioKey?: string | null; available?: boolean; batchYield: number; sellingPrice: number; lossPercent: number; laborCostPerBatch?: number; productionCostPerBatch: number; minimumMarginPercent: number; targetMarginPercent: number; recipe: RecipeItem[] };
 export type Customer = { id:string; name:string; phone?:string|null; instagram?:string|null; source?:string|null; marketingConsent:boolean; notes?:string|null; active:boolean; createdAt:string; updatedAt:string };
@@ -34,7 +36,7 @@ export type Sale = {
   cancelledAt?: string | null;
   cancelReason?: string | null;
 };
-export type SporadicExpense = { id: string; name: string; amount: number; spentAt: string };
+export type SporadicExpense = { id: string; name: string; amount: number; spentAt: string; fundingSource?:FundingSource };
 export type OwnerCashMovement = { id:string; movementType:OwnerCashMovementType; amount:number; occurredAt:string; note?:string|null; createdAt?:string; updatedAt?:string };
 export type Settings = {
   ownerName: string;
@@ -47,13 +49,14 @@ export type Settings = {
   defaultTargetMarginPercent: number;
   ownerHourlyRate?:number;
   ownerDailyHours?:number;
+  fixedCostFundingSource?:FundingSource;
 };
 export type NatState = { version: 3|4|5|6; supplies: Supply[]; products: Product[]; customers?:Customer[]; sales: Sale[]; expenses: SporadicExpense[]; ownerCashMovements?:OwnerCashMovement[]; settings: Settings; purchaseCashOut?:number };
 
 export const initialState: NatState = {
   version: 6,
   supplies: [], products: [], customers:[], sales: [], expenses: [], ownerCashMovements:[], purchaseCashOut:0,
-  settings: { ownerName: "NAT", monthlyFixedCosts: 0, paymentFeePercent: 0, pixFeePercent:0, cashFeePercent:0, cardFeePercent:0, defaultMinimumMarginPercent: 35, defaultTargetMarginPercent: 50, ownerHourlyRate:20, ownerDailyHours:3 }
+  settings: { ownerName: "NAT", monthlyFixedCosts: 0, paymentFeePercent: 0, pixFeePercent:0, cashFeePercent:0, cardFeePercent:0, defaultMinimumMarginPercent: 35, defaultTargetMarginPercent: 50, ownerHourlyRate:20, ownerDailyHours:3,fixedCostFundingSource:"owner" }
 };
 export const unitLabel: Record<Unit, string> = { g: "g", kg: "kg", ml: "ml", l: "L", unit: "un" };
 export const paymentLabel: Record<PaymentMethod, string> = { pix: "Pix", cash: "Dinheiro", card: "Cartão", other: "Outro" };
@@ -108,7 +111,11 @@ export type CustomerSegment="Novo"|"Recorrente"|"VIP"|"Em risco"|"Inativo"|"Sem 
 export type CustomerInsight={customer:Customer;firstPurchase:string|null;lastPurchase:string|null;orders:number;totalSpent:number;averageTicket:number;units:number;daysSinceLast:number|null;recurring:boolean;favoriteProduct:string|null;nonCommercialInteractions:number;recencyScore:number;frequencyScore:number;valueScore:number;rfmTotal:number;contribution:number;marginPercent:number;segment:CustomerSegment};
 function customerSegment(orders:number,totalSpent:number,days:number|null):CustomerSegment{ if(!orders)return "Sem compra paga"; if(days!==null&&days>=60)return "Inativo"; if(days!==null&&days>=30)return "Em risco"; if(orders>=4&&totalSpent>=100)return "VIP"; if(orders>=2)return "Recorrente"; return "Novo"; }
 export function customerInsights(state:NatState,now=new Date()):CustomerInsight[]{
-  return (state.customers??[]).filter((c)=>c.active).map((customer)=>{ const sales=state.sales.filter((sale)=>sale.status!=="cancelled"&&(sale.transactionType??"sale")==="sale"&&sale.customerId===customer.id).sort((a,b)=>+new Date(a.soldAt)-+new Date(b.soldAt)); const nonCommercialInteractions=state.sales.filter((sale)=>sale.status!=="cancelled"&&(sale.transactionType??"sale")!=="sale"&&sale.customerId===customer.id).length; const totalSpent=sales.reduce((sum,s)=>sum+s.totalReceived,0); const contribution=sales.reduce((sum,s)=>sum+s.contributionSnapshot,0); const units=sales.reduce((sum,s)=>sum+activeSaleLines(s).reduce((x,l)=>x+l.quantity,0),0); const productMap=new Map<string,{name:string;qty:number}>(); sales.forEach((sale)=>activeSaleLines(sale).forEach((line)=>{const current=productMap.get(line.productId)??{name:line.productName,qty:0};current.qty+=line.quantity;productMap.set(line.productId,current);})); const favorite=[...productMap.values()].sort((a,b)=>b.qty-a.qty)[0]?.name??null; const first=sales[0]?.soldAt??null; const last=sales.at(-1)?.soldAt??null; const daysSinceLast=last?Math.max(0,Math.floor((now.getTime()-new Date(last).getTime())/86400000)):null; const r=recencyScore(daysSinceLast,sales.length);const f=frequencyScore(sales.length);const v=valueScore(totalSpent); return {customer,firstPurchase:first,lastPurchase:last,orders:sales.length,totalSpent,averageTicket:sales.length?totalSpent/sales.length:0,units,daysSinceLast,recurring:sales.length>=2,favoriteProduct:favorite,nonCommercialInteractions,recencyScore:r,frequencyScore:f,valueScore:v,rfmTotal:r+f+v,contribution,marginPercent:totalSpent>0?contribution/totalSpent*100:0,segment:customerSegment(sales.length,totalSpent,daysSinceLast)}; });
+  type Acc={orders:number;totalSpent:number;units:number;contribution:number;nonCommercialInteractions:number;first:string|null;last:string|null;products:Map<string,{name:string;qty:number}>};
+  const activeCustomers=(state.customers??[]).filter((customer)=>customer.active);const activeIds=new Set(activeCustomers.map((customer)=>customer.id));const byCustomer=new Map<string,Acc>();
+  const get=(id:string)=>{const current=byCustomer.get(id);if(current)return current;const created:Acc={orders:0,totalSpent:0,units:0,contribution:0,nonCommercialInteractions:0,first:null,last:null,products:new Map()};byCustomer.set(id,created);return created;};
+  for(const sale of state.sales){if(sale.status==="cancelled"||!sale.customerId||!activeIds.has(sale.customerId))continue;const acc=get(sale.customerId);if((sale.transactionType??"sale")!=="sale"){acc.nonCommercialInteractions+=1;continue;}acc.orders+=1;acc.totalSpent+=sale.totalReceived;acc.contribution+=sale.contributionSnapshot;if(!acc.first||+new Date(sale.soldAt)<+new Date(acc.first))acc.first=sale.soldAt;if(!acc.last||+new Date(sale.soldAt)>+new Date(acc.last))acc.last=sale.soldAt;for(const line of activeSaleLines(sale)){acc.units+=line.quantity;const product=acc.products.get(line.productId)??{name:line.productName,qty:0};product.qty+=line.quantity;acc.products.set(line.productId,product);}}
+  return activeCustomers.map((customer)=>{const acc=byCustomer.get(customer.id)??{orders:0,totalSpent:0,units:0,contribution:0,nonCommercialInteractions:0,first:null,last:null,products:new Map<string,{name:string;qty:number}>()};const favorite=[...acc.products.values()].sort((a,b)=>b.qty-a.qty)[0]?.name??null;const daysSinceLast=acc.last?Math.max(0,Math.floor((now.getTime()-new Date(acc.last).getTime())/86400000)):null;const r=recencyScore(daysSinceLast,acc.orders);const f=frequencyScore(acc.orders);const v=valueScore(acc.totalSpent);return{customer,firstPurchase:acc.first,lastPurchase:acc.last,orders:acc.orders,totalSpent:acc.totalSpent,averageTicket:acc.orders?acc.totalSpent/acc.orders:0,units:acc.units,daysSinceLast,recurring:acc.orders>=2,favoriteProduct:favorite,nonCommercialInteractions:acc.nonCommercialInteractions,recencyScore:r,frequencyScore:f,valueScore:v,rfmTotal:r+f+v,contribution:acc.contribution,marginPercent:acc.totalSpent>0?acc.contribution/acc.totalSpent*100:0,segment:customerSegment(acc.orders,acc.totalSpent,daysSinceLast)};});
 }
 export function customerOverview(state:NatState,now=new Date()){
   const insights=customerInsights(state,now); const customersWithOrders=insights.filter((x)=>x.orders>0); const recurrent=customersWithOrders.filter((x)=>x.recurring); const newThisMonth=customersWithOrders.filter((x)=>{if(!x.firstPurchase)return false;const d=new Date(x.firstPurchase);return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();}); const orders=customersWithOrders.reduce((s,x)=>s+x.orders,0); const sourceMap=new Map<string,{source:string;customers:number;revenue:number;orders:number;recurring:number}>(); for(const row of customersWithOrders){const source=row.customer.source?.trim()||"Não informado";const current=sourceMap.get(source)??{source,customers:0,revenue:0,orders:0,recurring:0};current.customers+=1;current.revenue+=row.totalSpent;current.orders+=row.orders;if(row.recurring)current.recurring+=1;sourceMap.set(source,current);} return {activeCustomers:insights.length,newThisMonth:newThisMonth.length,recurrent:recurrent.length,repurchaseRate:customersWithOrders.length?recurrent.length/customersWithOrders.length*100:0,averageTicket:orders?customersWithOrders.reduce((s,x)=>s+x.totalSpent,0)/orders:0,inactive:customersWithOrders.filter((x)=>x.daysSinceLast!==null&&x.daysSinceLast>=30).length,sourceBreakdown:[...sourceMap.values()].map((x)=>({...x,ticket:x.orders?x.revenue/x.orders:0,repurchaseRate:x.customers?x.recurring/x.customers*100:0})).sort((a,b)=>b.revenue-a.revenue)};
