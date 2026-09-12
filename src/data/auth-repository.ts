@@ -13,6 +13,7 @@ export type TotpEnrollment={
 };
 
 function fail(error:{message:string}|null){if(error)throw error;}
+function requireData<T>(value:T|null,context:string):T{if(value===null)throw new Error(context);return value;}
 
 export const isAuthConfigured=()=>isSupabaseConfigured();
 
@@ -30,13 +31,15 @@ export async function signInWithPassword(email:string,password:string){
 export async function loadMfaState():Promise<AuthMfaState>{
   const assurance=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   fail(assurance.error);
+  const assuranceData=requireData(assurance.data,"Não foi possível verificar o nível de segurança da conta.");
   const factors=await supabase.auth.mfa.listFactors();
   fail(factors.error);
-  const verified=factors.data.totp.find((factor)=>factor.status==="verified");
+  const factorsData=requireData(factors.data,"Não foi possível carregar os fatores de segurança da conta.");
+  const verified=factorsData.totp.find((factor)=>factor.status==="verified");
   return{
-    currentLevel:assurance.data.currentLevel,
+    currentLevel:assuranceData.currentLevel,
     verifiedTotpFactorId:verified?.id??null,
-    pendingTotpFactorIds:factors.data.totp.filter((factor)=>factor.status!=="verified").map((factor)=>factor.id),
+    pendingTotpFactorIds:factorsData.totp.filter((factor)=>factor.status!=="verified").map((factor)=>factor.id),
   };
 }
 
@@ -48,13 +51,15 @@ export async function removeMfaFactor(factorId:string){
 export async function enrollTotp():Promise<TotpEnrollment>{
   const result=await supabase.auth.mfa.enroll({factorType:"totp",friendlyName:"NAT Gestão"});
   fail(result.error);
-  return{factorId:result.data.id,qrCode:result.data.totp.qr_code,secret:result.data.totp.secret??""};
+  const data=requireData(result.data,"Não foi possível iniciar a proteção em duas etapas.");
+  return{factorId:data.id,qrCode:data.totp.qr_code,secret:data.totp.secret??""};
 }
 
 export async function verifyTotp(factorId:string,code:string){
   const challenge=await supabase.auth.mfa.challenge({factorId});
   fail(challenge.error);
-  const verification=await supabase.auth.mfa.verify({factorId,challengeId:challenge.data.id,code});
+  const challengeData=requireData(challenge.data,"Não foi possível iniciar a validação do código de segurança.");
+  const verification=await supabase.auth.mfa.verify({factorId,challengeId:challengeData.id,code});
   fail(verification.error);
 }
 
