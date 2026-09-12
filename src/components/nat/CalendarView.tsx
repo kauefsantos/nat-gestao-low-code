@@ -19,6 +19,7 @@ function EventForm({event,onClose,onSave}:{event:CalendarEvent|null;onClose:()=>
   const editing=Boolean(event);
   const titleId=useId();
   const formRef=useDialogA11y<HTMLFormElement>({onClose});
+  const [draftId]=useState(()=>event?.id??crypto.randomUUID());
   const [date,setDate]=useState(event?.eventDate??saoPauloDate);
   const [time,setTime]=useState(event?.eventTime?event.eventTime.slice(0,5):"");
   const [kind,setKind]=useState<CalendarEventKind>(event?.kind??"delivery");
@@ -36,7 +37,7 @@ function EventForm({event,onClose,onSave}:{event:CalendarEvent|null;onClose:()=>
     setSaving(true); setFailure(null);
     try{
       await onSave({
-        id:event?.id??crypto.randomUUID(),
+        id:draftId,
         eventDate:date,
         eventTime:time||null,
         kind,
