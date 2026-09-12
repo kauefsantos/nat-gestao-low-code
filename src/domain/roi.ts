@@ -1,4 +1,5 @@
-import { activeSaleLines, monthSales, type NatState } from "./nat.js";
+import { activeSaleLines, type NatState } from "./nat.js";
+import { businessDate } from "../lib/business-time.js";
 
 export type ProductRoi = {
   productId: string;
@@ -19,6 +20,10 @@ export type BusinessRoi = {
 
 function safeRoi(netReturn:number,investedCost:number){
   return investedCost>0?netReturn/investedCost*100:Number.NaN;
+}
+
+function businessMonthKey(value:Date){
+  return businessDate(value).slice(0,7);
 }
 
 export function productRoiAnalytics(state:NatState):ProductRoi[]{
@@ -48,14 +53,14 @@ export function productRoiAnalytics(state:NatState):ProductRoi[]{
 }
 
 export function businessRoi(state:NatState,now=new Date()):BusinessRoi{
-  const sales=monthSales(state.sales,now).filter((sale)=>(sale.transactionType??"sale")==="sale");
+  const monthKey=businessMonthKey(now);
+  const sales=state.sales.filter((sale)=>sale.status!=="cancelled"&&(sale.transactionType??"sale")==="sale"&&businessMonthKey(new Date(sale.soldAt))===monthKey);
   let revenue=0;let variableInvestment=0;
   for(const sale of sales){
     revenue+=sale.totalReceived;
     variableInvestment+=activeSaleLines(sale).reduce((sum,line)=>sum+line.unitCostSnapshot*line.quantity,0);
     variableInvestment+=Math.max(0,sale.variableFeeSnapshot??0)+Math.max(0,sale.deliveryCostSnapshot??0);
   }
-  const monthKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   const sporadic=state.expenses.filter((expense)=>expense.spentAt.slice(0,7)===monthKey).reduce((sum,expense)=>sum+expense.amount,0);
   const investedCost=variableInvestment+Math.max(0,state.settings.monthlyFixedCosts)+sporadic;
   const netReturn=revenue-investedCost;
