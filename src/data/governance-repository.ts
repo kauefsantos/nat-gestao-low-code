@@ -16,12 +16,12 @@ export async function stageRecipeImport(input: {
   rowCount: number;
 }) {
   const fileSha256 = await sha256Hex(input.content);
-  const result = await supabase.rpc("stage_recipe_import_v1" as never, {
+  const result = await supabase.rpc("stage_recipe_import_v1", {
     p_source_type: input.sourceType,
     p_file_name: input.fileName ?? null,
     p_file_sha256: fileSha256,
     p_parser_version: PARSER_VERSION,
     p_row_count: input.rowCount,
-  } as never);
+  });
   if (result.error) throw new Error(`Não foi possível registrar a origem do CSV: ${result.error.message}`);
 }
