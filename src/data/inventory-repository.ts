@@ -49,17 +49,24 @@ export async function loadInventorySnapshot(businessId:string):Promise<Inventory
 }
 
 export async function setInventoryBalance(args:{businessId:string;kind:InventoryItemKind;itemId:string;quantity:number;minimumQuantity:number;note?:string}) {
+  if(args.kind==="product"){
+    const requestId=crypto.randomUUID();
+    const result=await supabase.functions.invoke("nat-inventory-production",{body:{mode:"set_product_stock",businessId:args.businessId,productId:args.itemId,targetQuantity:args.quantity,minimumQuantity:args.minimumQuantity,note:args.note?.trim()||null,requestId}});
+    if(result.error)throw new Error(`Não foi possível atualizar o estoque: ${result.error.message}`);
+    const payload=record(result.data);if(payload.ok!==true)throw new Error(`Não foi possível atualizar o estoque: ${text(payload.message,"revise a receita e o saldo dos ingredientes.")}`);
+    return;
+  }
   const result=await supabase.rpc("set_inventory_balance" as never,{
     p_business_id:args.businessId,p_item_kind:args.kind,p_item_id:args.itemId,p_quantity:args.quantity,p_minimum_quantity:args.minimumQuantity,p_note:args.note?.trim()||null,
   } as never) as unknown as RpcResult;
   fail("Não foi possível atualizar o estoque",result.error);
 }
 
-export async function recordInventoryProduction(args:{businessId:string;productId:string;unitsProduced:number;producedAt:string;note?:string}) {
+export async function recordInventoryProduction(args:{businessId:string;productId:string;batches:number;producedAt:string;note?:string}) {
   const requestId=crypto.randomUUID();
   let lastError:{message:string}|null=null;
   for(let attempt=0;attempt<2;attempt+=1){
-    const result=await supabase.functions.invoke("nat-inventory-production",{body:{businessId:args.businessId,productId:args.productId,unitsProduced:args.unitsProduced,producedAt:args.producedAt,note:args.note?.trim()||null,requestId}});
+    const result=await supabase.functions.invoke("nat-inventory-production",{body:{mode:"production",businessId:args.businessId,productId:args.productId,batches:args.batches,producedAt:args.producedAt,note:args.note?.trim()||null,requestId}});
     if(!result.error){const payload=record(result.data);if(payload.ok===true)return payload.productionId??null;lastError={message:text(payload.message,"Não foi possível registrar a produção.")};}
     else lastError={message:result.error.message};
     if(!lastError||!retryable(lastError.message))break;
