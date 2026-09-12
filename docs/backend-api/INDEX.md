@@ -1,0 +1,3 @@
+- Fechamento: `../BACKEND_API_AUDIT_CLOSURE_2026-09.md`
+- Matriz: `../BACKEND_API_TEST_MATRIX.md`
+- Checklist: `../BACKEND_API_FINAL_CHECKLIST.md`
