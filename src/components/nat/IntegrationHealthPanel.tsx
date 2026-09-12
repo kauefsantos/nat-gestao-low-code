@@ -21,6 +21,7 @@ export function IntegrationHealthPanel({businessId}:{businessId:string|null}){
   },[businessId]);
 
   if(!businessId)return null;
+  const stale=health?.jobs.filter((job)=>job.stale)??[];
 
   return <section className="nat-card" aria-labelledby="integration-health-title">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -40,10 +41,11 @@ export function IntegrationHealthPanel({businessId}:{businessId:string|null}){
       <div className="rounded-2xl bg-soft p-4"><p className="text-xs font-bold uppercase tracking-wider text-caramel">Push 24h</p><p className="mt-2 text-3xl font-bold">{health.push.sent24h}</p><p className="text-sm text-caramel">enviados</p></div>
       <div className="rounded-2xl bg-soft p-4"><p className="text-xs font-bold uppercase tracking-wider text-caramel">Novas tentativas</p><p className="mt-2 text-3xl font-bold">{health.push.retrying}</p><p className="text-sm text-caramel">aguardando retry</p></div>
       <div className={`rounded-2xl p-4 ${health.push.deadLetter?"bg-rose-soft":"bg-soft"}`}><p className="text-xs font-bold uppercase tracking-wider text-caramel">Falhas finais</p><p className="mt-2 text-3xl font-bold">{health.push.deadLetter}</p><p className="text-sm text-caramel">dead-letter</p></div>
-      <div className="rounded-2xl bg-soft p-4"><p className="text-xs font-bold uppercase tracking-wider text-caramel">Jobs automáticos</p><p className="mt-2 text-3xl font-bold">—</p><p className="text-sm text-caramel">sem telemetria durável disponível</p></div>
+      <div className={`rounded-2xl p-4 ${stale.length?"bg-rose-soft":"bg-soft"}`}><p className="text-xs font-bold uppercase tracking-wider text-caramel">Jobs atrasados</p><p className="mt-2 text-3xl font-bold">{stale.length}</p><p className="text-sm text-caramel">{stale.length?stale.map((job)=>job.name).join(", "):"automação em dia"}</p></div>
       <div className="rounded-2xl bg-soft p-4 sm:col-span-2 xl:col-span-4">
         <p className="text-xs font-bold uppercase tracking-wider text-caramel">IA</p>
-        <p className="mt-1 text-sm">{health.ai.enabled?"Ativa":"Desativada no aplicativo"} · {health.ai.calls24h} chamada(s) registradas nas últimas 24h · {health.ai.failed24h} falha(s).</p>
+        <p className="mt-1 text-sm">{health.ai.enabled?"Ativa":"Desativada no aplicativo"} · {health.ai.calls24h} chamada(s) ao provedor nas últimas 24h · {health.ai.failed24h} falha(s).</p>
+        {health.ai.circuitOpenUntil&&<p className="mt-1 text-sm text-caramel">Circuit breaker aberto até {new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(new Date(health.ai.circuitOpenUntil))}.</p>}
       </div>
     </div>}
   </section>;
