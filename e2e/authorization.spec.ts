@@ -107,8 +107,9 @@ test("MFA real mantém leitura e escrita isoladas entre dois negócios",async()=
   const sessionA=(await clientA.auth.getSession()).data.session;
   expect(sessionA?.access_token).toBeTruthy();
   expect(sessionA?.refresh_token).toBeTruthy();
+  expect(sessionA?.user?.id).toBeTruthy();
   mkdirSync(".test-build",{recursive:true});
-  writeFileSync(responsiveSessionPath,JSON.stringify({access_token:sessionA!.access_token,refresh_token:sessionA!.refresh_token}),{encoding:"utf8",mode:0o600});
+  writeFileSync(responsiveSessionPath,JSON.stringify(sessionA),{encoding:"utf8",mode:0o600});
 
   await createAal2Session(clientB,"rls-admin-b@example.test");
   const resultB=await probe(clientB,tenantA);
