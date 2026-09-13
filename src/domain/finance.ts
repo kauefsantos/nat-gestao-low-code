@@ -13,6 +13,7 @@ export function activeSaleLines(sale: Sale): SaleLine[] {
         unitCostSnapshot: sale.unitCostSnapshot,
         laborCostSnapshot: 0,
         unitPriceSnapshot: sale.quantity > 0 ? saleValue(sale) / sale.quantity : 0,
+        listUnitPriceSnapshot: sale.quantity > 0 ? saleValue(sale) / sale.quantity : 0,
       }];
 }
 
@@ -35,6 +36,8 @@ function monthOwnerCashMovements(movements: OwnerCashMovement[], now = new Date(
   return movements.filter((movement) => movement.movementType !== "initial_capital" && movement.occurredAt.slice(0, 7) === monthKey);
 }
 
+function closeEnough(a:number,b:number){return Math.abs(a-b)<0.005;}
+
 export function dashboardNumbers(state: NatState) {
   const movements = monthSales(state.sales);
   const commercialSales = movements.filter((sale) => (sale.transactionType ?? "sale") === "sale");
@@ -44,17 +47,40 @@ export function dashboardNumbers(state: NatState) {
   const initialCapital = allOwnerCash.filter((movement) => movement.movementType === "initial_capital").reduce((sum, movement) => sum + movement.amount, 0);
   const ownerContributions = ownerCash.filter((movement) => movement.movementType === "contribution").reduce((sum, movement) => sum + movement.amount, 0);
   const ownerWithdrawals = ownerCash.filter((movement) => movement.movementType === "withdrawal").reduce((sum, movement) => sum + movement.amount, 0);
-  const revenue = commercialSales.reduce((sum, sale) => sum + saleValue(sale), 0);
-  const receivedCash = commercialSales.reduce((sum, sale) => sum + sale.totalReceived, 0);
-  const receivables = commercialSales.filter((sale) => sale.paymentStatus === "pending").reduce((sum, sale) => sum + saleValue(sale), 0);
-  const units = commercialSales.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
-  const contribution = movements.reduce((sum, sale) => sum + sale.contributionSnapshot, 0);
-  const ownerRemuneration = movements.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + (line.laborCostSnapshot ?? 0) * line.quantity, 0), 0);
+
+  const localBilled = commercialSales.reduce((sum, sale) => sum + saleValue(sale), 0);
+  const localReceived = commercialSales.reduce((sum, sale) => sum + sale.totalReceived, 0);
+  const localReceivable = commercialSales.reduce((sum, sale) => sum + Math.max(0, saleValue(sale) - sale.totalReceived), 0);
+  const localUnits = commercialSales.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
+  const localContribution = movements.reduce((sum, sale) => sum + sale.contributionSnapshot, 0);
+  const localOwnerRemuneration = movements.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + (line.laborCostSnapshot ?? 0) * line.quantity, 0), 0);
+  const localPaidOrders = commercialSales.filter((sale) => sale.paymentStatus !== "pending").length;
+  const localPendingOrders = commercialSales.filter((sale) => sale.paymentStatus === "pending").length;
+  const truth = state.financialTruth;
+  // The initial month snapshot is authoritative while it still describes the browser's
+  // current state. After an optimistic sale/settlement, fall back to the complete current
+  // month already loaded locally until the next Lovable Cloud refresh replaces the snapshot.
+  const truthMatchesLocal = Boolean(truth)
+    && truth!.orders === commercialSales.length
+    && closeEnough(truth!.billed,localBilled)
+    && closeEnough(truth!.received,localReceived)
+    && closeEnough(truth!.receivable,localReceivable);
+  const billed = truthMatchesLocal?truth!.billed:localBilled;
+  const receivedCash = truthMatchesLocal?truth!.received:localReceived;
+  const receivables = truthMatchesLocal?truth!.receivable:localReceivable;
+  const orderCount = truthMatchesLocal?truth!.orders:commercialSales.length;
+  const paidOrders = truthMatchesLocal?truth!.paidOrders:localPaidOrders;
+  const pendingOrders = truthMatchesLocal?truth!.pendingOrders:localPendingOrders;
+  const units = truthMatchesLocal?truth!.units:localUnits;
+  const contribution = truthMatchesLocal?truth!.movementContribution:localContribution;
+  const ownerRemuneration = truthMatchesLocal?truth!.ownerRemuneration:localOwnerRemuneration;
+  // `revenue` remains only as a compatibility alias for cash received. New UI should
+  // always prefer billed / receivedCash / receivables explicitly.
+  const revenue = receivedCash;
+
   const sporadicExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const resultBeforeOwner = contribution + ownerRemuneration - state.settings.monthlyFixedCosts - sporadicExpenses;
   const estimatedResult = contribution - state.settings.monthlyFixedCosts - sporadicExpenses;
-  // Monthly cash flow deliberately excludes startup capital. Initial capital is a
-  // balance-origin item, not a recurring inflow of the current month.
   const cashIn = receivedCash + ownerContributions;
   const cashOut = (state.purchaseCashOut ?? 0) + sporadicExpenses + state.settings.monthlyFixedCosts + ownerWithdrawals;
   const cashAvailable = cashIn - cashOut;
@@ -76,9 +102,13 @@ export function dashboardNumbers(state: NatState) {
     expenses,
     ownerCash,
     initialCapital,
+    billed,
     revenue,
     receivedCash,
     receivables,
+    orderCount,
+    paidOrders,
+    pendingOrders,
     units,
     contribution,
     ownerRemuneration,

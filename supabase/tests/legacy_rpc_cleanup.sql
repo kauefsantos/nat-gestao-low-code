@@ -21,7 +21,7 @@ select ok(has_function_privilege('authenticated','public.save_calendar_event_v3(
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','aaaaaaaa-1111-4111-8111-111111111111',true);
-select is(public.get_nat_schema_version(),'2026-09-13.purchases-inventory-integrity.1'::text,'schema release version is explicit and queryable');
+select is(public.get_nat_schema_version(),'2026-09-13.financial-bi-truth.1'::text,'schema release version is explicit and queryable');
 reset role;
 
 select * from finish();

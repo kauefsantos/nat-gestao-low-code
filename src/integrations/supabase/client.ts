@@ -38,8 +38,9 @@ function createLovableCloudClient() {
 let instance: ReturnType<typeof createLovableCloudClient> | undefined;
 
 export const supabase = new Proxy({} as ReturnType<typeof createLovableCloudClient>, {
-  get(_target, property, receiver) {
+  get(_target, property) {
     if (!instance) instance = createLovableCloudClient();
-    return Reflect.get(instance, property, receiver);
+    const value = Reflect.get(instance, property, instance);
+    return typeof value === "function" ? value.bind(instance) : value;
   },
 });

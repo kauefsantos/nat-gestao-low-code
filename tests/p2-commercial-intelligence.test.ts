@@ -42,8 +42,9 @@ test("mix exige duas ocorrências e coorte/recompra são determinísticos",()=>{
  assert.equal(customerInsights(s,new Date("2026-09-11T12:00:00Z"))[0].segment,"Recorrente");
 });
 
-test("promoções são identificadas sem reprecificar contribuição histórica",()=>{
- const sale=buildSaleOrder({items:[{product,quantity:2}],supplies:[ingredient,packaging],paymentFeePercent:0,totalReceived:10,paymentMethod:"pix",soldAt:"2026-09-11T12:00:00Z",discountReason:"Promo"});
+test("promoções usam preço de tabela congelado sem reprecificar contribuição histórica",()=>{
+ const built=buildSaleOrder({items:[{product,quantity:2}],supplies:[ingredient,packaging],paymentFeePercent:0,totalReceived:10,paymentMethod:"pix",soldAt:"2026-09-11T12:00:00Z",discountReason:"Promo"});
+ const sale={...built,items:built.items.map((line)=>({...line,listUnitPriceSnapshot:product.sellingPrice}))};
  const p=promotionAnalytics(state([sale]));
  assert.equal(p.discountedOrders,1);
  assert.equal(p.discountValue,2);
