@@ -5,6 +5,8 @@ select plan(7);
 
 insert into public.businesses(id,name)
 values ('61000000-0000-4000-8000-000000000001','Analysis UX');
+insert into private.allowed_auth_emails(email,business_id,role)
+values ('analysis-ux@example.invalid','61000000-0000-4000-8000-000000000001','admin');
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values ('62000000-0000-4000-8000-000000000001','analysis-ux@example.invalid','authenticated','authenticated',now(),now());
 insert into public.business_members(business_id,user_id,role)
