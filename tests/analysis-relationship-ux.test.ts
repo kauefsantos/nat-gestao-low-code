@@ -28,15 +28,15 @@ test("Inteligência reorganiza saúde, produtos, clientes e compras",()=>{
   assert.doesNotMatch(source,/customers\]\.sort|customers\.map/);
 });
 
-test("ROI e compras usam interfaces protegidas do Lovable Cloud e Portfólio ativo",()=>{
+test("ROI e compras usam interfaces do Lovable Cloud e Portfólio ativo",()=>{
   const repository=read("src/data/business-intelligence-repository.ts");
   const purchaseRepository=read("src/data/intelligence-repository.ts");
-  const biMigration=read("supabase/migrations/20260912230000_business_intelligence_v2.sql");
   const purchaseMigration=read("supabase/migrations/20260913230000_analysis_relationship_ux.sql");
   assert.match(repository,/get_business_intelligence_snapshot_v2/);
   assert.match(repository,/from\("products"\).*eq\("active",true\)/s);
   assert.match(repository,/shapePortfolioProducts/);
+  assert.doesNotMatch(repository,/functions\.invoke\("nat-analysis-insights"/);
   assert.match(purchaseRepository,/get_analysis_supply_groups_v1/);
-  assert.match(biMigration,/private\.is_business_member\(p_business_id\)/);
+  assert.doesNotMatch(purchaseRepository,/functions\.invoke\("nat-analysis-insights"/);
   assert.match(purchaseMigration,/private\.is_business_member\(p_business_id\)/);
 });
