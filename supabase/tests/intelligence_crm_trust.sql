@@ -76,7 +76,7 @@ select is((select (o->>'orders')::int from jsonb_array_elements(public.get_busin
 
 select is(jsonb_array_length(public.get_business_intelligence_drilldown_v1('51000000-0000-4000-8000-000000000001','product','54000000-0000-4000-8000-000000000001')->'rows'),7,'product drill-down has every contributing sale line');
 select is((public.get_business_intelligence_drilldown_v1('51000000-0000-4000-8000-000000000001','customer','53000000-0000-4000-8000-000000000002')->'totals'->>'orders')::int,4,'customer drill-down reconciles lifetime orders');
-select is((public.get_business_intelligence_drilldown_v1('51000000-0000-4000-8000-000000000001','channel','street')->'totals'->>'orders')::int,3,'channel drill-down reconciles the selected channel');
+select is((public.get_business_intelligence_drilldown_v1('51000000-0000-4000-8000-000000000001','channel','street')->'totals'->>'orders')::int,4,'channel drill-down includes the old lifetime sale for the selected channel');
 select is((public.get_business_intelligence_drilldown_v1('51000000-0000-4000-8000-000000000001','promotion','all')->'totals'->>'discount')::numeric,2::numeric,'promotion drill-down reconciles total discount');
 
 select * from finish();
