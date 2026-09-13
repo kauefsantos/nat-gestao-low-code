@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(17);
 
 select has_table('private','brigadeiro_mass_definitions','mass definition exists');
 select has_table('private','brigadeiro_mass_cost_layers','mass FIFO cost layers exist');
