@@ -42,6 +42,7 @@ select is(
     'seed_nat_editorial_calendar',
     'set_inventory_balance',
     'set_product_availability',
+    'set_product_stock_v2',
     'stage_recipe_import_v1'
   ]::name[],
   'authenticated public RPC surface matches the reviewed allowlist'
