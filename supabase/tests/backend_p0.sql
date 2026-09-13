@@ -13,7 +13,7 @@ select ok(
 );
 select ok(
   (select p.prosecdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='save_sale_items' and pg_get_function_identity_arguments(p.oid)='p_business_id uuid, p_id uuid, p_items jsonb, p_total_received numeric, p_payment_method text, p_sold_at timestamp with time zone'),
-  'save_sale_items remains SECURITY DEFINER'
+  'save_sale_items remains SECURITY DEFINER as an internal implementation detail'
 );
 
 insert into public.businesses(id,name)
@@ -42,8 +42,12 @@ select set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444'
 select set_config('request.jwt.claims','{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated","aal":"aal2"}',true);
 
 select lives_ok(
-  $$select public.save_sale_items('dddddddd-dddd-4ddd-8ddd-dddddddddddd','dddddddd-0000-4000-8000-000000000010','[{"productId":"dddddddd-0000-4000-8000-000000000002","quantity":2}]'::jsonb,10,'pix','2026-09-10 15:00:00-03'::timestamptz)$$,
-  'backdated sale can be created using costs valid on its sale date'
+  $$select public.apply_nat_transition_v4(
+    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    'dddddddd-0000-4000-8000-000000000101',
+    '[{"type":"create_sale","expectedUpdatedAt":null,"payload":{"id":"dddddddd-0000-4000-8000-000000000010","items":[{"productId":"dddddddd-0000-4000-8000-000000000002","quantity":2}],"totalReceived":10,"saleValue":10,"paymentStatus":"paid","paymentMethod":"pix","soldAt":"2026-09-10T15:00:00-03:00","customerId":null,"transactionType":"sale","saleChannel":"other","deliveryCost":0,"discountReason":"Teste histórico","belowCostOverride":true,"marginOverride":true}}]'::jsonb
+  )$$,
+  'backdated sale can be created through current transition using costs valid on its sale date'
 );
 select is(
   (select round(si.unit_cost_snapshot,2) from public.sale_items si where si.sale_id='dddddddd-0000-4000-8000-000000000010'),
@@ -51,7 +55,11 @@ select is(
   'future purchase does not alter historical sale unit cost'
 );
 select throws_ok(
-  $$select public.save_sale_items('dddddddd-dddd-4ddd-8ddd-dddddddddddd','dddddddd-0000-4000-8000-000000000011','[{"productId":"dddddddd-0000-4000-8000-000000000002","quantity":1}]'::jsonb,5,'pix','2026-09-08 15:00:00-03'::timestamptz)$$,
+  $$select public.apply_nat_transition_v4(
+    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    'dddddddd-0000-4000-8000-000000000102',
+    '[{"type":"create_sale","expectedUpdatedAt":null,"payload":{"id":"dddddddd-0000-4000-8000-000000000011","items":[{"productId":"dddddddd-0000-4000-8000-000000000002","quantity":1}],"totalReceived":5,"saleValue":5,"paymentStatus":"paid","paymentMethod":"pix","soldAt":"2026-09-08T15:00:00-03:00","customerId":null,"transactionType":"sale","saleChannel":"other","deliveryCost":0,"discountReason":"Teste histórico","belowCostOverride":true,"marginOverride":true}}]'::jsonb
+  )$$,
   '22023', null,
   'sale before the first known purchase is rejected instead of using a future cost'
 );
