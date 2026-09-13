@@ -16,12 +16,22 @@ set version = excluded.version,
 
 create or replace function public.get_nat_schema_version()
 returns text
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select version from private.nat_schema_release where singleton = true;
+declare
+  v_version text;
+begin
+  if auth.uid() is null then
+    raise exception 'Autenticação obrigatória.' using errcode='42501';
+  end if;
+  select version into v_version
+  from private.nat_schema_release
+  where singleton = true;
+  return v_version;
+end;
 $$;
 revoke all on function public.get_nat_schema_version() from public, anon, authenticated;
 grant execute on function public.get_nat_schema_version() to authenticated;
