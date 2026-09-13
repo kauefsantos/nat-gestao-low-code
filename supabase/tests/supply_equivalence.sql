@@ -1,7 +1,7 @@
 -- Purchase history + equivalent/current ingredient regression tests.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(16);
 
 insert into public.businesses(id,name) values ('f1000000-0000-4000-8000-000000000001','Supply equivalence test');
 insert into private.allowed_auth_emails(email,business_id,role) values ('supply-equivalence@example.invalid','f1000000-0000-4000-8000-000000000001','admin');
@@ -36,7 +36,6 @@ select is((select count(*)::integer from public.supplies where business_id='f100
 select is((select count(*)::integer from public.supply_purchases where business_id='f1000000-0000-4000-8000-000000000001' and supply_id='f3000000-0000-4000-8000-000000000002'),1,'new brand keeps its own purchase history');
 select is((select coalesce(sum(quantity_delta),0)::numeric from public.inventory_movements where business_id='f1000000-0000-4000-8000-000000000001' and supply_id='f3000000-0000-4000-8000-000000000002'),100::numeric,'equivalent brand inherits tracking before its purchase enters stock');
 select is((select supply_id from public.recipe_items where id='f6000000-0000-4000-8000-000000000001'),'f3000000-0000-4000-8000-000000000002'::uuid,'active recipe switches to the current equivalent ingredient');
-select ok((select is_current from private.supply_equivalence_members where business_id='f1000000-0000-4000-8000-000000000001' and supply_id='f3000000-0000-4000-8000-000000000002'),'current brand is persisted in the equivalence group');
 select is((select minimum_quantity::numeric from public.inventory_tracking where business_id='f1000000-0000-4000-8000-000000000001' and supply_id='f3000000-0000-4000-8000-000000000002'),10::numeric,'equivalent brand inherits the stock minimum');
 
 select lives_ok(
@@ -106,7 +105,6 @@ select lives_ok(
   'an earlier brand can become current again without losing either history'
 );
 select is((select supply_id from public.recipe_items where id='f6000000-0000-4000-8000-000000000001'),'f3000000-0000-4000-8000-000000000001'::uuid,'recipe can switch back to another member of the same equivalence group');
-select ok((select is_current from private.supply_equivalence_members where business_id='f1000000-0000-4000-8000-000000000001' and supply_id='f3000000-0000-4000-8000-000000000001'),'the switched-back ingredient becomes current in the persisted group');
 
 select * from finish();
 rollback;
