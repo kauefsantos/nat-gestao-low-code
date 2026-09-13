@@ -6,7 +6,7 @@ begin;
 create or replace function private.nat_business_local_hour(p_at timestamptz default now())
 returns integer
 language sql
-immutable
+stable
 set search_path=''
 as $$
   select extract(hour from timezone('America/Sao_Paulo', p_at))::integer
