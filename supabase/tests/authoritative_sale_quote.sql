@@ -27,7 +27,7 @@ select set_config('request.jwt.claim.sub','b2222222-2222-4222-8222-222222222222'
 select set_config('request.jwt.claims','{"sub":"b2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal2"}',true);
 select lives_ok($$select public.set_inventory_balance('b1111111-1111-4111-8111-111111111111','supply','b3333333-3333-4333-8333-333333333331',1000,0,'Saldo inicial')$$,'ingredient tracking starts');
 select lives_ok($$select public.set_inventory_balance('b1111111-1111-4111-8111-111111111111','product','b5555555-5555-4555-8555-555555555555',0,0,'Saldo inicial')$$,'product tracking starts');
-select lives_ok($$select public.record_inventory_production('b1111111-1111-4111-8111-111111111111','b5555555-5555-4555-8555-555555555555',1,now(),'Lote inicial')$$,'production creates FIFO cost layer');
+select lives_ok($$select public.record_inventory_production_v2('b1111111-1111-4111-8111-111111111111','b7777777-7777-4777-8777-777777777771','b5555555-5555-4555-8555-555555555555',1,now(),'Lote inicial')$$,'production creates FIFO cost layer through idempotent API');
 
 reset role;
 insert into public.supply_purchases(id,business_id,supply_id,package_quantity,package_unit,package_price,purchased_at)
@@ -53,8 +53,12 @@ select is(
   'quote includes FIFO cost, fee and delivery in contribution'
 );
 select lives_ok(
-  $$select public.save_sale_items_v4('b1111111-1111-4111-8111-111111111111','b8888888-8888-4888-8888-888888888881','[{"productId":"b5555555-5555-4555-8555-555555555555","quantity":2}]'::jsonb,20,'card',now(),null,'sale','in_person',2,null,false)$$,
-  'sale persists after authoritative quote'
+  $$select public.apply_nat_transition_v4(
+    'b1111111-1111-4111-8111-111111111111',
+    'b7777777-7777-4777-8777-777777777772',
+    '[{"type":"create_sale","payload":{"id":"b8888888-8888-4888-8888-888888888881","items":[{"productId":"b5555555-5555-4555-8555-555555555555","quantity":2}],"totalReceived":20,"saleValue":20,"paymentStatus":"paid","paymentMethod":"card","soldAt":"2026-09-13T12:00:00-03:00","transactionType":"sale","saleChannel":"in_person","deliveryCost":2,"discountReason":null,"belowCostOverride":false,"marginOverride":false}}]'::jsonb
+  )$$,
+  'sale persists after authoritative quote through current transition'
 );
 select is((select contribution_snapshot from public.sales where id='b8888888-8888-4888-8888-888888888881'),10.20::numeric,'persisted contribution matches quote');
 
