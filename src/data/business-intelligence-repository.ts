@@ -4,6 +4,8 @@ import type { SaleChannel } from "@/domain/nat";
 const numberValue=(value:unknown)=>Number.isFinite(Number(value))?Number(value):0;
 const rows=(value:unknown)=>Array.isArray(value)?value:[];
 const record=(value:unknown)=>value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};
+type UntypedRpcResult={data:unknown;error:{message:string}|null};
+const rpcUntyped=supabase.rpc as unknown as (name:string,args?:Record<string,unknown>)=>Promise<UntypedRpcResult>;
 
 export type BiProduct={productId:string;name:string;units:number;orders:number;billed:number;productCost:number;labor:number;allocatedFee:number;allocatedDelivery:number;contribution:number;marginPercent:number;averageOrderTicket:number};
 export type BiChannel={channel:SaleChannel;orders:number;billed:number;received:number;contribution:number;ticket:number};
@@ -29,7 +31,7 @@ function parsePair(value:unknown):BiPair{const row=record(value);return{a:String
 // a long-lived browser cache.
 const inFlight=new Map<string,Promise<BusinessIntelligenceSnapshot>>();
 async function fetchSnapshot(businessId:string):Promise<BusinessIntelligenceSnapshot>{
-  const result=await supabase.rpc("get_business_intelligence_snapshot_v1" as never,{p_business_id:businessId} as never);
+  const result=await rpcUntyped("get_business_intelligence_snapshot_v1",{p_business_id:businessId});
   if(result.error)throw new Error(`Não foi possível carregar a inteligência completa: ${result.error.message}`);
   const root=record(result.data);const readiness=record(root.readiness);const overview=record(root.overview);const second=record(root.secondPurchase);const promotions=record(root.promotions);
   return{
