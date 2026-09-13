@@ -13,6 +13,7 @@ export function activeSaleLines(sale: Sale): SaleLine[] {
         unitCostSnapshot: sale.unitCostSnapshot,
         laborCostSnapshot: 0,
         unitPriceSnapshot: sale.quantity > 0 ? saleValue(sale) / sale.quantity : 0,
+        listUnitPriceSnapshot: sale.quantity > 0 ? saleValue(sale) / sale.quantity : 0,
       }];
 }
 
@@ -44,17 +45,30 @@ export function dashboardNumbers(state: NatState) {
   const initialCapital = allOwnerCash.filter((movement) => movement.movementType === "initial_capital").reduce((sum, movement) => sum + movement.amount, 0);
   const ownerContributions = ownerCash.filter((movement) => movement.movementType === "contribution").reduce((sum, movement) => sum + movement.amount, 0);
   const ownerWithdrawals = ownerCash.filter((movement) => movement.movementType === "withdrawal").reduce((sum, movement) => sum + movement.amount, 0);
-  const revenue = commercialSales.reduce((sum, sale) => sum + saleValue(sale), 0);
-  const receivedCash = commercialSales.reduce((sum, sale) => sum + sale.totalReceived, 0);
-  const receivables = commercialSales.filter((sale) => sale.paymentStatus === "pending").reduce((sum, sale) => sum + saleValue(sale), 0);
-  const units = commercialSales.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
-  const contribution = movements.reduce((sum, sale) => sum + sale.contributionSnapshot, 0);
-  const ownerRemuneration = movements.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + (line.laborCostSnapshot ?? 0) * line.quantity, 0), 0);
+
+  const localBilled = commercialSales.reduce((sum, sale) => sum + saleValue(sale), 0);
+  const localReceived = commercialSales.reduce((sum, sale) => sum + sale.totalReceived, 0);
+  const localReceivable = commercialSales.reduce((sum, sale) => sum + Math.max(0, saleValue(sale) - sale.totalReceived), 0);
+  const localUnits = commercialSales.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
+  const localContribution = movements.reduce((sum, sale) => sum + sale.contributionSnapshot, 0);
+  const localOwnerRemuneration = movements.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + (line.laborCostSnapshot ?? 0) * line.quantity, 0), 0);
+  const truth = state.financialTruth;
+  const billed = truth?.billed ?? localBilled;
+  const receivedCash = truth?.received ?? localReceived;
+  const receivables = truth?.receivable ?? localReceivable;
+  const orderCount = truth?.orders ?? commercialSales.length;
+  const paidOrders = truth?.paidOrders ?? commercialSales.filter((sale) => sale.paymentStatus !== "pending").length;
+  const pendingOrders = truth?.pendingOrders ?? commercialSales.filter((sale) => sale.paymentStatus === "pending").length;
+  const units = truth?.units ?? localUnits;
+  const contribution = truth?.movementContribution ?? localContribution;
+  const ownerRemuneration = truth?.ownerRemuneration ?? localOwnerRemuneration;
+  // `revenue` remains as a compatibility alias for the catalog's cash-based Receita.
+  // New UI should prefer the explicit billed/receivedCash/receivables names.
+  const revenue = receivedCash;
+
   const sporadicExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const resultBeforeOwner = contribution + ownerRemuneration - state.settings.monthlyFixedCosts - sporadicExpenses;
   const estimatedResult = contribution - state.settings.monthlyFixedCosts - sporadicExpenses;
-  // Monthly cash flow deliberately excludes startup capital. Initial capital is a
-  // balance-origin item, not a recurring inflow of the current month.
   const cashIn = receivedCash + ownerContributions;
   const cashOut = (state.purchaseCashOut ?? 0) + sporadicExpenses + state.settings.monthlyFixedCosts + ownerWithdrawals;
   const cashAvailable = cashIn - cashOut;
@@ -76,9 +90,13 @@ export function dashboardNumbers(state: NatState) {
     expenses,
     ownerCash,
     initialCapital,
+    billed,
     revenue,
     receivedCash,
     receivables,
+    orderCount,
+    paidOrders,
+    pendingOrders,
     units,
     contribution,
     ownerRemuneration,
