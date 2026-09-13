@@ -112,5 +112,7 @@ test("UI de ROI usa snapshot autoritativo e explica o indicador sem ajuda intrus
   assert.match(panel,/Total investido no mês/);
   assert.match(panel,/Custo acumulado/);
   assert.match(panel,/Venda acumulada/);
-  assert.match(repository,/functions\.invoke\("nat-analysis-insights"/);
+  assert.match(repository,/get_business_intelligence_snapshot_v2/);
+  assert.match(repository,/shapePortfolioProducts/);
+  assert.match(repository,/from\("products"\).*eq\("active",true\)/s);
 });

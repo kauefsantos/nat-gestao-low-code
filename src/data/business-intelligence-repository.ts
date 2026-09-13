@@ -28,6 +28,10 @@ export type BusinessIntelligenceSnapshot={
   businessRoi:BiBusinessRoi;metricContext:BiMetricContext;
 };
 
+type PortfolioProduct={id:string;name:string};
+function emptyProduct(product:PortfolioProduct):Record<string,unknown>{return{productId:product.id,name:product.name,units:0,orders:0,billed:0,productCost:0,labor:0,allocatedFee:0,allocatedDelivery:0,contribution:0,marginPercent:0,averageOrderTicket:0,investedCost:0,netReturn:0,roiPercent:null};}
+function shapePortfolioProducts(snapshot:Record<string,unknown>,portfolio:PortfolioProduct[]){const byId=new Map(rows(snapshot.products).map((value)=>{const row=record(value);return[String(row.productId??""),row] as const;}));return portfolio.map((product)=>{const metric=byId.get(product.id);return metric?{...metric,productId:product.id,name:product.name}:emptyProduct(product);});}
+
 function parseProduct(value:unknown):BiProduct{const row=record(value);return{productId:String(row.productId??""),name:String(row.name??"Produto"),units:numberValue(row.units),orders:numberValue(row.orders),billed:numberValue(row.billed),productCost:numberValue(row.productCost),labor:numberValue(row.labor),allocatedFee:numberValue(row.allocatedFee),allocatedDelivery:numberValue(row.allocatedDelivery),contribution:numberValue(row.contribution),marginPercent:numberValue(row.marginPercent),averageOrderTicket:numberValue(row.averageOrderTicket),investedCost:numberValue(row.investedCost),netReturn:numberValue(row.netReturn),roiPercent:nullableNumber(row.roiPercent)};}
 function parseChannel(value:unknown):BiChannel{const row=record(value);return{channel:(row.channel??"other") as SaleChannel,orders:numberValue(row.orders),billed:numberValue(row.billed),received:numberValue(row.received),contribution:numberValue(row.contribution),ticket:numberValue(row.ticket)};}
 function parseCustomer(value:unknown):BiCustomer{const row=record(value);return{customerId:String(row.customerId??""),name:String(row.name??"Cliente"),source:row.source==null?null:String(row.source),firstPurchase:String(row.firstPurchase??""),lastPurchase:String(row.lastPurchase??""),orders:numberValue(row.orders),billed:numberValue(row.billed),received:numberValue(row.received),averageTicket:numberValue(row.averageTicket),units:numberValue(row.units),daysSinceLast:numberValue(row.daysSinceLast),recurring:row.recurring===true,favoriteProduct:row.favoriteProduct==null?null:String(row.favoriteProduct),nonCommercialInteractions:numberValue(row.nonCommercialInteractions),contribution:numberValue(row.contribution),marginPercent:numberValue(row.marginPercent),recencyScore:numberValue(row.recencyScore),frequencyScore:numberValue(row.frequencyScore),valueScore:numberValue(row.valueScore),rfmTotal:numberValue(row.rfmTotal),segment:(row.segment??"Novo") as BiCustomerSegment};}
@@ -37,9 +41,13 @@ function parseOrigin(value:unknown):BiOrigin{const row=record(value);return{sour
 
 const inFlight=new Map<string,Promise<BusinessIntelligenceSnapshot>>();
 async function fetchSnapshot(businessId:string):Promise<BusinessIntelligenceSnapshot>{
-  const result=await supabase.functions.invoke("nat-analysis-insights",{body:{businessId,mode:"snapshot"}});
-  if(result.error)throw new Error(`Não foi possível carregar a inteligência completa: ${result.error.message}`);
-  const payload=record(result.data);const root=record(payload.snapshot);const readiness=record(root.readiness);const overview=record(root.overview);const second=record(root.secondPurchase);const promotions=record(root.promotions);const businessRoi=record(root.businessRoi);const context=record(root.metricContext);const ready=readiness.ready===true;
+  const [snapshotResult,portfolioResult]=await Promise.all([
+    rpcUntyped("get_business_intelligence_snapshot_v2",{p_business_id:businessId}),
+    supabase.from("products").select("id,name").eq("business_id",businessId).eq("active",true).order("name"),
+  ]);
+  if(snapshotResult.error)throw new Error(`Não foi possível carregar a inteligência completa: ${snapshotResult.error.message}`);
+  if(portfolioResult.error)throw new Error(`Não foi possível carregar o portfólio ativo: ${portfolioResult.error.message}`);
+  const rawRoot=record(snapshotResult.data);const portfolio=(portfolioResult.data??[]).map((row)=>({id:String(row.id),name:String(row.name)}));const root:Record<string,unknown>={...rawRoot,products:shapePortfolioProducts(rawRoot,portfolio)};const readiness=record(root.readiness);const overview=record(root.overview);const second=record(root.secondPurchase);const promotions=record(root.promotions);const businessRoi=record(root.businessRoi);const context=record(root.metricContext);const ready=readiness.ready===true;
   const customers=rows(root.customers).map(parseCustomer).map((customer)=>ready?customer:{...customer,rfmTotal:0,segment:"Base insuficiente" as const});
   return{
     readiness:{ready,salesCount:numberValue(readiness.salesCount),distinctSalesDays:numberValue(readiness.distinctSalesDays),minimumSales:numberValue(readiness.minimumSales)||10,minimumDays:numberValue(readiness.minimumDays)||7,missingSales:numberValue(readiness.missingSales),missingDays:numberValue(readiness.missingDays)},

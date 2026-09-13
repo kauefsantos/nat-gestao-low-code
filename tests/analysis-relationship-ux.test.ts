@@ -28,14 +28,15 @@ test("Inteligência reorganiza saúde, produtos, clientes e compras",()=>{
   assert.doesNotMatch(source,/customers\]\.sort|customers\.map/);
 });
 
-test("ROI e compras são alimentados pela Edge Function ligada ao Portfólio",()=>{
+test("ROI e compras usam interfaces do Lovable Cloud e Portfólio ativo",()=>{
   const repository=read("src/data/business-intelligence-repository.ts");
   const purchaseRepository=read("src/data/intelligence-repository.ts");
-  const edge=read("supabase/functions/nat-analysis-insights/index.ts");
-  const config=read("supabase/config.toml");
-  assert.match(repository,/functions\.invoke\("nat-analysis-insights"/);
-  assert.match(purchaseRepository,/mode:"purchases"/);
-  assert.match(edge,/from\("products"\).*eq\("active",true\)/s);
-  assert.match(edge,/get_analysis_supply_groups_v1/);
-  assert.match(config,/\[functions\.nat-analysis-insights\][\s\S]*verify_jwt = true/);
+  const purchaseMigration=read("supabase/migrations/20260913230000_analysis_relationship_ux.sql");
+  assert.match(repository,/get_business_intelligence_snapshot_v2/);
+  assert.match(repository,/from\("products"\).*eq\("active",true\)/s);
+  assert.match(repository,/shapePortfolioProducts/);
+  assert.doesNotMatch(repository,/functions\.invoke\("nat-analysis-insights"/);
+  assert.match(purchaseRepository,/get_analysis_supply_groups_v1/);
+  assert.doesNotMatch(purchaseRepository,/functions\.invoke\("nat-analysis-insights"/);
+  assert.match(purchaseMigration,/private\.is_business_member\(p_business_id\)/);
 });
