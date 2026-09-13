@@ -94,8 +94,8 @@ select is(
 );
 select is(
   (select round(s.contribution_snapshot,2) from public.sales s where id='aaaaaaaa-0000-4000-8000-000000000010'),
-  8.70::numeric,
-  'server computes contribution snapshot (R$ 8.70)'
+  9.20::numeric,
+  'server computes contribution snapshot with Pix fee (R$ 9.20)'
 );
 select lives_ok(
   $$select public.apply_nat_transition_v4('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-1000-4000-8000-000000000005',jsonb_build_array(jsonb_build_object('type','save_sporadic_expense','payload',jsonb_build_object('id','aaaaaaaa-0000-4000-8000-000000000030','name','Forma para airfryer','amount',50,'spentAt',current_date::text,'fundingSource','owner'))))$$,
