@@ -16,11 +16,11 @@ test("CSV importa receita por nome, quantidade e unidade", () => { const parsed=
 test("CSV rejeita ingrediente desconhecido", () => { const parsed=parseRecipeCsv("Ingrediente;Quantidade;Unidade\nFarinha;100;g",[chocolate]); assert.equal(parsed.items.length,0); assert.equal(parsed.errors.length,1); });
 test("preço comum usa o sabor mais caro e arredonda para R$ 0,50", () => {
   const products: Product[] = [
-    { id:"p1",name:"Brownie • Tradicional",portfolioKey:"brownie-tradicional",batchYield:10,sellingPrice:1,lossPercent:0,productionCostPerBatch:0,minimumMarginPercent:35,targetMarginPercent:50,recipe:[{id:"r1",supplyId:chocolate.id,quantity:100,unit:"g"}] },
-    { id:"p2",name:"Brownie • Ninho",portfolioKey:"brownie-ninho",batchYield:10,sellingPrice:2,lossPercent:0,productionCostPerBatch:0,minimumMarginPercent:35,targetMarginPercent:50,recipe:[{id:"r2",supplyId:chocolate.id,quantity:200,unit:"g"}] },
+    { id:"p1",name:"Brigadeiro • Tradicional",portfolioKey:"brigadeiro-tradicional",batchYield:10,sellingPrice:1,lossPercent:0,productionCostPerBatch:0,minimumMarginPercent:35,targetMarginPercent:50,recipe:[{id:"r1",supplyId:chocolate.id,quantity:100,unit:"g"}] },
+    { id:"p2",name:"Brigadeiro • Ninho",portfolioKey:"brigadeiro-ninho",batchYield:10,sellingPrice:2,lossPercent:0,productionCostPerBatch:0,minimumMarginPercent:35,targetMarginPercent:50,recipe:[{id:"r2",supplyId:chocolate.id,quantity:200,unit:"g"}] },
   ];
   const state:NatState={version:3,supplies:[chocolate],products,sales:[],expenses:[],settings:{ownerName:"NAT",monthlyFixedCosts:0,paymentFeePercent:0,defaultMinimumMarginPercent:35,defaultTargetMarginPercent:50}};
-  const summary=familyPricingSummary(state,"brownie");
+  const summary=familyPricingSummary(state,"brigadeiro");
   assert.equal(summary.readyCount,2);
   assert.equal(summary.commonRecommendedPrice,1.5);
   assert.equal(roundUpToHalf(8.01),8.5);
