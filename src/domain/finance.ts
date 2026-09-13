@@ -36,6 +36,8 @@ function monthOwnerCashMovements(movements: OwnerCashMovement[], now = new Date(
   return movements.filter((movement) => movement.movementType !== "initial_capital" && movement.occurredAt.slice(0, 7) === monthKey);
 }
 
+function closeEnough(a:number,b:number){return Math.abs(a-b)<0.005;}
+
 export function dashboardNumbers(state: NatState) {
   const movements = monthSales(state.sales);
   const commercialSales = movements.filter((sale) => (sale.transactionType ?? "sale") === "sale");
@@ -52,18 +54,28 @@ export function dashboardNumbers(state: NatState) {
   const localUnits = commercialSales.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
   const localContribution = movements.reduce((sum, sale) => sum + sale.contributionSnapshot, 0);
   const localOwnerRemuneration = movements.reduce((sum, sale) => sum + activeSaleLines(sale).reduce((lineSum, line) => lineSum + (line.laborCostSnapshot ?? 0) * line.quantity, 0), 0);
+  const localPaidOrders = commercialSales.filter((sale) => sale.paymentStatus !== "pending").length;
+  const localPendingOrders = commercialSales.filter((sale) => sale.paymentStatus === "pending").length;
   const truth = state.financialTruth;
-  const billed = truth?.billed ?? localBilled;
-  const receivedCash = truth?.received ?? localReceived;
-  const receivables = truth?.receivable ?? localReceivable;
-  const orderCount = truth?.orders ?? commercialSales.length;
-  const paidOrders = truth?.paidOrders ?? commercialSales.filter((sale) => sale.paymentStatus !== "pending").length;
-  const pendingOrders = truth?.pendingOrders ?? commercialSales.filter((sale) => sale.paymentStatus === "pending").length;
-  const units = truth?.units ?? localUnits;
-  const contribution = truth?.movementContribution ?? localContribution;
-  const ownerRemuneration = truth?.ownerRemuneration ?? localOwnerRemuneration;
-  // `revenue` remains as a compatibility alias for the catalog's cash-based Receita.
-  // New UI should prefer the explicit billed/receivedCash/receivables names.
+  // The initial month snapshot is authoritative while it still describes the browser's
+  // current state. After an optimistic sale/settlement, fall back to the complete current
+  // month already loaded locally until the next Lovable Cloud refresh replaces the snapshot.
+  const truthMatchesLocal = Boolean(truth)
+    && truth!.orders === commercialSales.length
+    && closeEnough(truth!.billed,localBilled)
+    && closeEnough(truth!.received,localReceived)
+    && closeEnough(truth!.receivable,localReceivable);
+  const billed = truthMatchesLocal?truth!.billed:localBilled;
+  const receivedCash = truthMatchesLocal?truth!.received:localReceived;
+  const receivables = truthMatchesLocal?truth!.receivable:localReceivable;
+  const orderCount = truthMatchesLocal?truth!.orders:commercialSales.length;
+  const paidOrders = truthMatchesLocal?truth!.paidOrders:localPaidOrders;
+  const pendingOrders = truthMatchesLocal?truth!.pendingOrders:localPendingOrders;
+  const units = truthMatchesLocal?truth!.units:localUnits;
+  const contribution = truthMatchesLocal?truth!.movementContribution:localContribution;
+  const ownerRemuneration = truthMatchesLocal?truth!.ownerRemuneration:localOwnerRemuneration;
+  // `revenue` remains only as a compatibility alias for cash received. New UI should
+  // always prefer billed / receivedCash / receivables explicitly.
   const revenue = receivedCash;
 
   const sporadicExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
