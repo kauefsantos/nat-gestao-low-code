@@ -80,6 +80,9 @@ article.opacity-55,article.opacity-70 { opacity:1!important; }
   .icon-button:hover { background:#F2C5B5; }
   .side-button:hover { background:#FFF9F6; color:#35150A; box-shadow:0 5px 16px rgba(53,21,10,.04); }
 }
+@media (min-width:1024px){
+  aside > nav[aria-label="Navegação principal"] { max-height:calc(100dvh - 7rem); overflow-y:auto; overscroll-behavior:contain; padding-right:8px; scrollbar-gutter:stable; }
+}
 @media (display-mode:standalone){body{overscroll-behavior-y:none;}}
 @media (min-width:640px){.nat-card{padding:24px;}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}.primary-button:hover{transform:none;}}
