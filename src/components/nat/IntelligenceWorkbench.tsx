@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Boxes, TrendingDown, Users } from "lucide-react";
 import { money, type NatState } from "@/domain/nat";
 import type { InventorySnapshot } from "@/domain/inventory";
@@ -8,7 +8,8 @@ import { RoiOverview } from "./RoiOverview";
 
 export function IntelligenceWorkbench({state,inventory,businessId}:{state:NatState;inventory:InventorySnapshot;businessId:string|null}){
   const[bi,setBi]=useState<BusinessIntelligenceSnapshot|null>(null);
-  useEffect(()=>{let active=true;if(!businessId){setBi(null);return()=>{active=false};}void loadBusinessIntelligenceSnapshot(businessId,{refresh:true}).then((value)=>{if(active)setBi(value);}).catch(()=>{if(active)setBi(null);});return()=>{active=false};},[businessId,state.sales.length,state.products.length]);
+  const portfolioSignature=useMemo(()=>state.products.map((product)=>`${product.id}:${product.name}:${product.available}`).sort().join("|"),[state.products]);
+  useEffect(()=>{let active=true;if(!businessId){setBi(null);return()=>{active=false};}void loadBusinessIntelligenceSnapshot(businessId,{refresh:true}).then((value)=>{if(active)setBi(value);}).catch(()=>{if(active)setBi(null);});return()=>{active=false};},[businessId,state.sales.length,portfolioSignature]);
   const readiness=bi?.readiness;const trusted=readiness?.ready===true;const lowest=[...(bi?.products??[])].filter((item)=>item.units>0).sort((a,b)=>a.marginPercent-b.marginPercent)[0];const lowStock=inventory.items.filter((item)=>item.tracked&&item.lowStock);
   const remaining=readiness?[readiness.missingSales>0?`${readiness.missingSales} venda(s)`:null,readiness.missingDays>0?`${readiness.missingDays} dia(s) diferente(s)`:null].filter(Boolean).join(" e "):"";
   return <section className="space-y-5">
