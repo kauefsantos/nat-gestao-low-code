@@ -20,12 +20,12 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"c2000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
 
-select lives_ok($$select public.save_customer('c1000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000001','Cliente Privado','11999999999','@cliente','Instagram',true,'Observação simples',true)$$,'customer save works');
+select lives_ok($$select public.apply_nat_transition_v4('c1000000-0000-4000-8000-000000000001','c5000000-0000-4000-8000-000000000001','[{"type":"save_customer","payload":{"id":"c3000000-0000-4000-8000-000000000001","name":"Cliente Privado","phone":"11999999999","instagram":"@cliente","source":"Instagram","marketingConsent":true,"notes":"Observação simples","active":true}}]'::jsonb)$$,'customer save works through current transition');
 select is((select status from public.customer_marketing_consents where customer_id='c3000000-0000-4000-8000-000000000001' order by id desc limit 1),'granted','grant is recorded');
 select ok((select not coalesce(before_data ?| array['name','phone','instagram','source','notes','marketing_consent'],false) and not coalesce(after_data ?| array['name','phone','instagram','source','notes','marketing_consent'],false) from public.audit_log where entity_table='customers' and entity_id='c3000000-0000-4000-8000-000000000001' order by id desc limit 1),'customer audit contains no PII fields');
-select lives_ok($$select public.save_customer('c1000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000001','Cliente Privado','11999999999',null,'Instagram',false,null,true)$$,'consent can be revoked');
+select lives_ok($$select public.apply_nat_transition_v4('c1000000-0000-4000-8000-000000000001','c5000000-0000-4000-8000-000000000002','[{"type":"save_customer","payload":{"id":"c3000000-0000-4000-8000-000000000001","name":"Cliente Privado","phone":"11999999999","instagram":null,"source":"Instagram","marketingConsent":false,"notes":null,"active":true}}]'::jsonb)$$,'consent can be revoked');
 select is((select status from public.customer_marketing_consents where customer_id='c3000000-0000-4000-8000-000000000001' order by id desc limit 1),'revoked','revocation is recorded');
-select throws_ok($$select public.save_customer('c1000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000002','Documento',null,null,null,false,'CPF 123.456.789-00',true)$$,'22023',null,'CPF is rejected in notes');
+select throws_ok($$select public.apply_nat_transition_v4('c1000000-0000-4000-8000-000000000001','c5000000-0000-4000-8000-000000000003','[{"type":"save_customer","payload":{"id":"c3000000-0000-4000-8000-000000000002","name":"Documento","phone":null,"instagram":null,"source":null,"marketingConsent":false,"notes":"CPF 123.456.789-00","active":true}}]'::jsonb)$$,'22023',null,'CPF is rejected in notes');
 
 reset role;
 insert into public.sales(id,business_id,total_received,payment_method,variable_fee_snapshot,contribution_snapshot,customer_id)
@@ -33,7 +33,7 @@ values('c4000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"c2000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
-select lives_ok($$select public.erase_customer_privacy_v1('c1000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000001','Teste')$$,'erasure succeeds');
+select lives_ok($$select public.erase_customer_privacy_v1('c1000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000001','Teste')$$,'admin erasure succeeds');
 select ok((select customer_id is null from public.sales where id='c4000000-0000-4000-8000-000000000001'),'sale is preserved and detached');
 select throws_ok($$select public.erase_customer_privacy_v1('c1000000-0000-4000-8000-000000000002','c3000000-0000-4000-8000-000000000001','cross tenant')$$,'42501',null,'cross tenant erasure is blocked');
 

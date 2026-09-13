@@ -4,11 +4,19 @@ import type { FundingSource } from "@/domain/funding";
 import { loadFundingSummary } from "@/data/funding-repository";
 import { loadNatHistoryPage, loadNatOperationalStateV2, type HistoryCursor, type HistoryPage } from "@/data/nat-operational-v2";
 
+const EXPECTED_SCHEMA_VERSION="2026-09-13.security-release-gate.1";
+
 type ReceivableRow={id:string;sale_value_snapshot:number|string;payment_status:string;payment_promised_date:string|null;payment_promised_time:string|null;payment_due_at:string|null;paid_at:string|null;payment_critical_at:string|null;margin_override:boolean};
 function numberValue(value:number|string|null|undefined){const parsed=Number(value);return Number.isFinite(parsed)?parsed:0;}
 function mergeReceivable(sale:Sale,row:ReceivableRow|undefined):Sale{
   if(!row)return{...sale,saleValueSnapshot:sale.saleValueSnapshot??sale.totalReceived,paymentStatus:sale.paymentStatus??"paid"};
   return{...sale,saleValueSnapshot:numberValue(row.sale_value_snapshot),paymentStatus:(row.payment_status==="pending"?"pending":"paid") as PaymentStatus,paymentPromisedDate:row.payment_promised_date,paymentPromisedTime:row.payment_promised_time,paymentDueAt:row.payment_due_at,paidAt:row.paid_at,paymentCriticalAt:row.payment_critical_at,marginOverride:Boolean(row.margin_override)};
+}
+async function assertSchemaVersion(){
+  const result=await supabase.rpc("get_nat_schema_version" as never);
+  if(result.error)throw new Error("O Lovable Cloud ainda não está na versão de banco exigida por esta publicação. A aplicação foi bloqueada para evitar gravações incompatíveis.");
+  const actual=String(result.data??"");
+  if(actual!==EXPECTED_SCHEMA_VERSION)throw new Error(`Versão incompatível do Lovable Cloud. Esperada ${EXPECTED_SCHEMA_VERSION}; encontrada ${actual||"desconhecida"}.`);
 }
 async function receivables(businessId:string,ids:string[]){
   if(!ids.length)return new Map<string,ReceivableRow>();
@@ -29,6 +37,7 @@ async function initialCapitalIds(businessId:string){
 }
 
 export async function loadNatOperationalStateV4(){
+  await assertSchemaVersion();
   const loaded=await loadNatOperationalStateV2();
   const [funding,capitalIds]=await Promise.all([loadFundingSummary(loaded.businessId),initialCapitalIds(loaded.businessId)]);
   const map=await receivables(loaded.businessId,loaded.state.sales.map((sale)=>sale.id));

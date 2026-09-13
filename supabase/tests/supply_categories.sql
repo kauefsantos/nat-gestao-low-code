@@ -19,8 +19,8 @@ select set_config('request.jwt.claim.sub','66666666-6666-4666-8666-666666666666'
 select set_config('request.jwt.claims','{"sub":"66666666-6666-4666-8666-666666666666","role":"authenticated","aal":"aal2"}',true);
 
 select lives_ok(
-  $$select public.save_supply('abababab-abab-4aba-8aba-abababababab','abababab-0000-4000-8000-000000000001','Papel-manteiga','other',50,'unit',18,current_date)$$,
-  'other operational supply can be saved through the authoritative RPC'
+  $$select public.apply_nat_transition_v4('abababab-abab-4aba-8aba-abababababab','abababab-1000-4000-8000-000000000001',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','abababab-0000-4000-8000-000000000001','name','Papel-manteiga','category','other','packageQuantity',50,'packageUnit','unit','packagePrice',18,'purchasedAt',current_date::text))))$$,
+  'other operational supply can be saved through the authoritative transition'
 );
 select is(
   (select category from public.supplies where id='abababab-0000-4000-8000-000000000001'),
@@ -33,7 +33,7 @@ select is(
   'saving another supply also records its purchase history'
 );
 select throws_ok(
-  $$select public.save_supply('abababab-abab-4aba-8aba-abababababab','abababab-0000-4000-8000-000000000002','Inválido','unsupported',1,'unit',1,current_date)$$,
+  $$select public.apply_nat_transition_v4('abababab-abab-4aba-8aba-abababababab','abababab-1000-4000-8000-000000000002',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','abababab-0000-4000-8000-000000000002','name','Inválido','category','unsupported','packageQuantity',1,'packageUnit','unit','packagePrice',1,'purchasedAt',current_date::text))))$$,
   '22023','Dados da compra inválidos.','unsupported supply category remains rejected'
 );
 

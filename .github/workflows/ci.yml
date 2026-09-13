@@ -45,7 +45,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Audit complete dependency tree for high or critical issues
         run: npm audit --audit-level=high
-      - name: Require successful Mobile E2E for pull requests
+      - name: Require successful E2E gates for pull requests
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -53,21 +53,34 @@ jobs:
         shell: bash
         run: |
           for attempt in $(seq 1 80); do
-            RESULT="$(gh run list --workflow 'Mobile E2E' --commit "$HEAD_SHA" --event pull_request --limit 5 --json status,conclusion,databaseId --jq 'sort_by(.databaseId) | last // {}')"
-            STATUS="$(jq -r '.status // "missing"' <<<"$RESULT")"
-            CONCLUSION="$(jq -r '.conclusion // ""' <<<"$RESULT")"
-            if [ "$STATUS" = "completed" ]; then
-              if [ "$CONCLUSION" = "success" ]; then
-                echo "Mobile E2E concluído com sucesso."
-                exit 0
-              fi
-              echo "Mobile E2E terminou com conclusão: $CONCLUSION"
+            MOBILE="$(gh run list --workflow 'Mobile E2E' --commit "$HEAD_SHA" --event pull_request --limit 5 --json status,conclusion,databaseId --jq 'sort_by(.databaseId) | last // {}')"
+            INVENTORY="$(gh run list --workflow 'Inventory Edge E2E' --commit "$HEAD_SHA" --event pull_request --limit 5 --json status,conclusion,databaseId --jq 'sort_by(.databaseId) | last // {}')"
+
+            MOBILE_STATUS="$(jq -r '.status // "missing"' <<<"$MOBILE")"
+            MOBILE_CONCLUSION="$(jq -r '.conclusion // ""' <<<"$MOBILE")"
+            INVENTORY_STATUS="$(jq -r '.status // "missing"' <<<"$INVENTORY")"
+            INVENTORY_CONCLUSION="$(jq -r '.conclusion // ""' <<<"$INVENTORY")"
+
+            if [ "$MOBILE_STATUS" = "completed" ] && [ "$MOBILE_CONCLUSION" != "success" ]; then
+              echo "Mobile E2E terminou com conclusão: $MOBILE_CONCLUSION"
               exit 1
             fi
-            echo "Aguardando Mobile E2E ($STATUS), tentativa $attempt/80..."
+            if [ "$INVENTORY_STATUS" = "completed" ] && [ "$INVENTORY_CONCLUSION" != "success" ]; then
+              echo "Inventory Edge E2E terminou com conclusão: $INVENTORY_CONCLUSION"
+              exit 1
+            fi
+
+            if [ "$MOBILE_STATUS" = "completed" ] && [ "$MOBILE_CONCLUSION" = "success" ] \
+              && [ "$INVENTORY_STATUS" = "completed" ] && [ "$INVENTORY_CONCLUSION" = "success" ]; then
+              echo "Mobile E2E e Inventory Edge E2E concluídos com sucesso."
+              exit 0
+            fi
+
+            echo "Aguardando E2E gates: mobile=$MOBILE_STATUS/$MOBILE_CONCLUSION inventory=$INVENTORY_STATUS/$INVENTORY_CONCLUSION tentativa $attempt/80..."
             sleep 10
           done
-          echo "Mobile E2E não concluiu dentro do tempo esperado."
+
+          echo "Os E2E gates não concluíram dentro do tempo esperado."
           exit 1
 
   database-security:

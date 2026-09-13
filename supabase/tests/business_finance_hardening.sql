@@ -13,8 +13,6 @@ values ('c1111111-1111-4111-8111-111111111111','Finance test',0,0,0,0,10,20);
 insert into public.supplies(id,business_id,name,category,active) values
  ('c3333333-3333-4333-8333-333333333331','c1111111-1111-4111-8111-111111111111','Ingrediente','ingredient',true),
  ('c3333333-3333-4333-8333-333333333332','c1111111-1111-4111-8111-111111111111','Embalagem','packaging',true);
--- Keep fixture purchases at or before the fixed sale date used below. Using current_date
--- makes the regression test time-dependent once the CI date moves past 2026-09-12.
 insert into public.supply_purchases(id,business_id,supply_id,package_quantity,package_unit,package_price,purchased_at) values
  ('c4444444-4444-4444-8444-444444444441','c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333331',100,'g',10,date '2026-09-12'),
  ('c4444444-4444-4444-8444-444444444442','c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333332',10,'unit',5,date '2026-09-12');
@@ -29,15 +27,15 @@ select set_config('request.jwt.claim.sub','c2222222-2222-4222-8222-222222222222'
 select set_config('request.jwt.claims','{"sub":"c2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal2"}',true);
 
 select lives_ok(
-  $$select public.save_owner_cash_movement('c1111111-1111-4111-8111-111111111111','c7777777-7777-4777-8777-777777777771','initial_capital',100,current_date,'Capital inicial')$$,
-  'initial capital is a valid owner cash movement'
+  $$select public.apply_nat_transition_v4('c1111111-1111-4111-8111-111111111111','c7777777-1000-4000-8000-000000000001','[{"type":"save_owner_cash_movement","payload":{"id":"c7777777-7777-4777-8777-777777777771","movementType":"initial_capital","amount":100,"occurredAt":"2026-09-13","note":"Capital inicial"}}]'::jsonb)$$,
+  'initial capital is a valid owner cash movement through current transition'
 );
 select lives_ok(
-  $$select public.save_owner_cash_movement('c1111111-1111-4111-8111-111111111111','c7777777-7777-4777-8777-777777777772','contribution',20,current_date,'Aporte posterior')$$,
+  $$select public.apply_nat_transition_v4('c1111111-1111-4111-8111-111111111111','c7777777-1000-4000-8000-000000000002','[{"type":"save_owner_cash_movement","payload":{"id":"c7777777-7777-4777-8777-777777777772","movementType":"contribution","amount":20,"occurredAt":"2026-09-13","note":"Aporte posterior"}}]'::jsonb)$$,
   'subsequent owner contribution remains valid'
 );
 select throws_ok(
-  $$select public.save_owner_cash_movement('c1111111-1111-4111-8111-111111111111','c7777777-7777-4777-8777-777777777773','initial_capital',10,current_date,'Duplicado')$$,
+  $$select public.apply_nat_transition_v4('c1111111-1111-4111-8111-111111111111','c7777777-1000-4000-8000-000000000003','[{"type":"save_owner_cash_movement","payload":{"id":"c7777777-7777-4777-8777-777777777773","movementType":"initial_capital","amount":10,"occurredAt":"2026-09-13","note":"Duplicado"}}]'::jsonb)$$,
   '23505',null,'only one initial capital record is allowed per business'
 );
 select is(
@@ -53,7 +51,7 @@ select is(
 
 select lives_ok($$select public.set_inventory_balance('c1111111-1111-4111-8111-111111111111','supply','c3333333-3333-4333-8333-333333333331',1000,0,'Saldo inicial')$$,'ingredient inventory is tracked');
 select lives_ok($$select public.set_inventory_balance('c1111111-1111-4111-8111-111111111111','product','c5555555-5555-4555-8555-555555555555',0,0,'Saldo inicial')$$,'product inventory is tracked');
-select lives_ok($$select public.record_inventory_production('c1111111-1111-4111-8111-111111111111','c5555555-5555-4555-8555-555555555555',1,now(),'Lote inicial')$$,'production freezes a FIFO cost layer');
+select lives_ok($$select public.record_inventory_production_v2('c1111111-1111-4111-8111-111111111111','c7777777-1000-4000-8000-000000000004','c5555555-5555-4555-8555-555555555555',1,now(),'Lote inicial')$$,'production freezes a FIFO cost layer through idempotent API');
 
 select is(
   public.quote_sale_v1('c1111111-1111-4111-8111-111111111111','[{"productId":"c5555555-5555-4555-8555-555555555555","quantity":1}]'::jsonb,5,'pix',now(),'sale',0)->>'marginStatus',

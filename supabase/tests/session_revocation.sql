@@ -31,8 +31,8 @@ select set_config(
 );
 select is((select count(*)::bigint from public.supplies),1::bigint,'active AAL2 session can read its tenant');
 select lives_ok(
-  $$select public.save_supply('f1000000-0000-4000-8000-000000000001','f4000000-0000-4000-8000-000000000002','Before logout','ingredient',100,'g',5,current_date)$$,
-  'active session can use reviewed business RPC'
+  $$select public.apply_nat_transition_v4('f1000000-0000-4000-8000-000000000001','f5000000-0000-4000-8000-000000000001',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','f4000000-0000-4000-8000-000000000002','name','Before logout','category','ingredient','packageQuantity',100,'packageUnit','g','packagePrice',5,'purchasedAt',current_date::text))))$$,
+  'active session can use current business transition'
 );
 
 reset role;
@@ -47,8 +47,8 @@ select set_config(
 );
 select is((select count(*)::bigint from public.supplies),0::bigint,'same JWT loses RLS access immediately after session revocation');
 select throws_ok(
-  $$select public.save_supply('f1000000-0000-4000-8000-000000000001','f4000000-0000-4000-8000-000000000003','After logout','ingredient',100,'g',5,current_date)$$,
-  '42501',null,'same revoked JWT cannot write through business RPC'
+  $$select public.apply_nat_transition_v4('f1000000-0000-4000-8000-000000000001','f5000000-0000-4000-8000-000000000002',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','f4000000-0000-4000-8000-000000000003','name','After logout','category','ingredient','packageQuantity',100,'packageUnit','g','packagePrice',5,'purchasedAt',current_date::text))))$$,
+  '42501',null,'same revoked JWT cannot write through current transition'
 );
 select throws_ok(
   $$select public.bootstrap_nat_business('Must fail','Must fail')$$,

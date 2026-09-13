@@ -20,15 +20,15 @@ select set_config('request.jwt.claims','{"sub":"92929292-9292-4929-8929-92929292
 select is(has_table_privilege(current_user,'public.customers','INSERT'),false,'customers cannot be written directly by authenticated users');
 
 select lives_ok($$
-  select public.apply_nat_transition_v2(
+  select public.apply_nat_transition_v4(
     '91919191-9191-4919-8919-919191919191',gen_random_uuid(),
     '[{"type":"save_customer","payload":{"id":"93939393-9393-4939-8939-939393939393","name":"Cliente Ficticio","phone":"11999999999","source":"WhatsApp","marketingConsent":false,"active":true}}]'::jsonb
   )
-$$,'customer is written through authoritative transition');
+$$,'customer is written through current authoritative transition');
 select is((select name from public.customers where id='93939393-9393-4939-8939-939393939393'),'Cliente Ficticio','customer is readable for its business');
 
 select lives_ok($$
-  select public.apply_nat_transition_v2(
+  select public.apply_nat_transition_v4(
     '91919191-9191-4919-8919-919191919191',gen_random_uuid(),
     '[{"type":"save_supply","payload":{"id":"94949494-9494-4949-8949-949494949494","name":"Ingrediente teste","category":"ingredient","packageQuantity":100,"packageUnit":"g","packagePrice":10,"purchasedAt":"2026-09-11"}},
       {"type":"save_product","payload":{"id":"95959595-9595-4959-8959-959595959595","name":"Produto P0","batchYield":10,"sellingPrice":6,"lossPercent":10,"laborCostPerBatch":20,"productionCostPerBatch":10,"minimumMarginPercent":10,"targetMarginPercent":15,"recipe":[{"id":"96969696-9696-4969-8969-969696969696","supplyId":"94949494-9494-4949-8949-949494949494","quantity":100,"unit":"g"}]}}]'::jsonb
@@ -37,14 +37,14 @@ $$,'product saves explicit labor and overhead');
 select is((select labor_cost_per_batch from public.products where id='95959595-9595-4959-8959-959595959595'),20::numeric,'labor is stored separately');
 
 select throws_ok($$
-  select public.apply_nat_transition_v2(
+  select public.apply_nat_transition_v4(
     '91919191-9191-4919-8919-919191919191',gen_random_uuid(),
     '[{"type":"save_product","payload":{"id":"97979797-9797-4979-8979-979797979797","name":"Margem inválida","batchYield":10,"sellingPrice":6,"lossPercent":0,"laborCostPerBatch":0,"productionCostPerBatch":0,"minimumMarginPercent":20,"targetMarginPercent":10,"recipe":[{"id":"98989898-9898-4989-8989-989898989898","supplyId":"94949494-9494-4949-8949-949494949494","quantity":10,"unit":"g"}]}}]'::jsonb
   )
 $$,'22023','A margem recomendada não pode ser menor que a margem mínima.','recommended margin cannot be below minimum');
 
 select lives_ok($$
-  select public.apply_nat_transition_v2(
+  select public.apply_nat_transition_v4(
     '91919191-9191-4919-8919-919191919191',gen_random_uuid(),
     '[{"type":"save_sale_items","payload":{"id":"99999999-9999-4999-8999-999999999999","items":[{"productId":"95959595-9595-4959-8959-959595959595","quantity":1}],"totalReceived":0,"paymentMethod":"other","soldAt":"2026-09-11T12:00:00-03:00","customerId":"93939393-9393-4939-8939-939393939393","transactionType":"courtesy"}}]'::jsonb
   )
