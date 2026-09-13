@@ -5,7 +5,7 @@ import { businessDate } from "@/lib/business-time";
 import { loadFundingSummary } from "@/data/funding-repository";
 import { loadNatHistoryPage, loadNatOperationalStateV2, type HistoryCursor, type HistoryPage } from "@/data/nat-operational-v2";
 
-const EXPECTED_SCHEMA_VERSION="2026-09-13.brigadeiro-production-flow.2";
+const EXPECTED_SCHEMA_VERSION="2026-09-13.brigadeiro-production-flow.1";
 type ReceivableRow={id:string;sale_value_snapshot:number|string;payment_status:string;payment_promised_date:string|null;payment_promised_time:string|null;payment_due_at:string|null;paid_at:string|null;payment_critical_at:string|null;margin_override:boolean;packaging_format:string|null;packaging_cost_snapshot:number|string};
 type UntypedRpcResult={data:unknown;error:{message:string}|null};
 const rpcUntyped=supabase.rpc as unknown as (name:string,args?:Record<string,unknown>)=>Promise<UntypedRpcResult>;
