@@ -8,6 +8,8 @@ import { loadNatHistoryPage, loadNatOperationalStateV2, type HistoryCursor, type
 const EXPECTED_SCHEMA_VERSION="2026-09-13.financial-bi-truth.1";
 
 type ReceivableRow={id:string;sale_value_snapshot:number|string;payment_status:string;payment_promised_date:string|null;payment_promised_time:string|null;payment_due_at:string|null;paid_at:string|null;payment_critical_at:string|null;margin_override:boolean};
+type UntypedRpcResult={data:unknown;error:{message:string}|null};
+const rpcUntyped=supabase.rpc as unknown as (name:string,args?:Record<string,unknown>)=>Promise<UntypedRpcResult>;
 function numberValue(value:number|string|null|undefined){const parsed=Number(value);return Number.isFinite(parsed)?parsed:0;}
 function mergeReceivable(sale:Sale,row:ReceivableRow|undefined):Sale{
   if(!row)return{...sale,saleValueSnapshot:sale.saleValueSnapshot??sale.totalReceived,paymentStatus:sale.paymentStatus??"paid"};
@@ -28,7 +30,7 @@ async function receivables(businessId:string,ids:string[]){
 
 async function loadFinancialTruth(businessId:string):Promise<FinancialTruthSnapshot>{
   const monthStart=`${businessDate().slice(0,7)}-01`;
-  const result=await supabase.rpc("get_financial_truth_snapshot_v1" as never,{p_business_id:businessId,p_month_start:monthStart} as never);
+  const result=await rpcUntyped("get_financial_truth_snapshot_v1",{p_business_id:businessId,p_month_start:monthStart});
   if(result.error)throw new Error(`Não foi possível carregar a verdade financeira do mês: ${result.error.message}`);
   const row=(result.data&&typeof result.data==="object"&&!Array.isArray(result.data)?result.data:{}) as Record<string,unknown>;
   return{monthStart:String(row.monthStart??monthStart),billed:numberValue(row.billed as number|string|null|undefined),received:numberValue(row.received as number|string|null|undefined),receivable:numberValue(row.receivable as number|string|null|undefined),orders:numberValue(row.orders as number|string|null|undefined),paidOrders:numberValue(row.paidOrders as number|string|null|undefined),pendingOrders:numberValue(row.pendingOrders as number|string|null|undefined),units:numberValue(row.units as number|string|null|undefined),movementContribution:numberValue(row.movementContribution as number|string|null|undefined),ownerRemuneration:numberValue(row.ownerRemuneration as number|string|null|undefined)};
