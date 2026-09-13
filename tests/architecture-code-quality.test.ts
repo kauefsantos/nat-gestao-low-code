@@ -20,13 +20,15 @@ test("arquitetura: telas usam adaptadores sem acessar Lovable Cloud diretamente"
     ["src/components/nat/SaleOrderSheet.tsx","quoteSale"],
     ["src/components/nat/IntegrationHealthPanel.tsx","loadIntegrationHealth"],
     ["src/components/nat/CustomersView.tsx","loadLatestCustomerConsent"],
-    ["src/components/nat/ContentStudio.tsx","loadContentAiStatus"],
   ];
   for(const [path,adapter] of cases){
     const source=read(path);
     assert.doesNotMatch(source,/@\/integrations\/supabase\/client/,`${path} não deve conhecer o cliente de infraestrutura`);
     assert.match(source,new RegExp(adapter),`${path} deve usar ${adapter}`);
   }
+  const contentStudio=read("src/components/nat/ContentStudio.tsx");
+  assert.doesNotMatch(contentStudio,/@\/integrations\/supabase\/client/,"ContentStudio não deve conhecer o cliente de infraestrutura");
+  assert.doesNotMatch(contentStudio,/content-ai-repository|loadContentAiStatus|generateContentWithAi/,"ContentStudio não deve carregar integração de IA quando o recurso visual foi removido");
   assert.doesNotMatch(read("src/app/NatApp.tsx"),/@\/integrations\/supabase\/client/);
 });
 
