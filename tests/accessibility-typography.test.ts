@@ -90,3 +90,11 @@ test("Contraste: agenda não reduz opacidade de texto concluído ou cancelado",(
   assert.doesNotMatch(source,/opacity-55|opacity-70/);
   assert.match(source,/Concluído/);
 });
+
+test("UX: scrollbar lateral é delicada, sem fundo e sem setas",()=>{
+  const css=read("src/styles.css");
+  assert.match(css,/scrollbar-color:rgba\(122,73,57,\.38\) transparent/);
+  assert.match(css,/::-webkit-scrollbar-track\s*\{[^}]*background:transparent/s);
+  assert.match(css,/::-webkit-scrollbar-thumb\s*\{[^}]*border-radius:999px/s);
+  assert.match(css,/::-webkit-scrollbar-button\s*\{[^}]*display:none[^}]*width:0[^}]*height:0/s);
+});
