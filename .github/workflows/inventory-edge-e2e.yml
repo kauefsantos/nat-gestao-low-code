@@ -1,0 +1,78 @@
+name: Inventory Edge E2E
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inventory-edge-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Start disposable Lovable Cloud stack
+        run: npx --yes supabase@2.117.0 start -x studio,imgproxy,mailpit,logflare,vector
+      - name: Rebuild database from migrations
+        run: npx --yes supabase@2.117.0 db reset
+      - name: Seed isolated inventory tenant and disposable user
+        shell: bash
+        run: |
+          set -euo pipefail
+          source <(npx --yes supabase@2.117.0 status -o env)
+          E2E_EMAIL="inventory-edge@example.test"
+          E2E_PASSWORD="$(openssl rand -hex 24)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.businesses(id,name)
+          values ('b1000000-0000-4000-8000-000000000001','Inventory Edge E2E');
+          insert into public.business_settings(business_id,owner_name)
+          values ('b1000000-0000-4000-8000-000000000001','Inventory Edge E2E');
+          insert into private.allowed_auth_emails(email,business_id,role)
+          values ('inventory-edge@example.test','b1000000-0000-4000-8000-000000000001','admin');
+          insert into public.supplies(id,business_id,name,category,active)
+          values ('b3000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','Ingrediente Edge E2E','ingredient',true);
+          insert into public.supply_purchases(id,business_id,supply_id,package_quantity,package_unit,package_price,purchased_at,funding_source)
+          values ('b4000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','b3000000-0000-4000-8000-000000000001',100,'g',10,current_date,'owner');
+          insert into public.products(id,business_id,name,batch_yield,selling_price,loss_percent,labor_cost_per_batch,production_cost_per_batch,minimum_margin_percent,target_margin_percent,active,available)
+          values ('b5000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','Produto Edge E2E',10,5,0,0,0,10,20,true,true);
+          insert into public.recipe_items(id,business_id,product_id,supply_id,quantity,unit)
+          values ('b6000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','b5000000-0000-4000-8000-000000000001','b3000000-0000-4000-8000-000000000001',100,'g');
+          SQL
+          ADMIN_KEY="${SECRET_KEY:-${SERVICE_ROLE_KEY:-}}"
+          test -n "$ADMIN_KEY"
+          BODY="$(jq -nc --arg email "$E2E_EMAIL" --arg password "$E2E_PASSWORD" '{email:$email,password:$password,email_confirm:true}')"
+          curl --fail-with-body --silent --show-error \
+            -X POST "$API_URL/auth/v1/admin/users" \
+            -H "apikey: $ADMIN_KEY" \
+            -H "Authorization: Bearer $ADMIN_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" >/dev/null
+          printf 'E2E_EMAIL=%s\n' "$E2E_EMAIL" >> "$GITHUB_ENV"
+          printf 'E2E_PASSWORD=%s\n' "$E2E_PASSWORD" >> "$GITHUB_ENV"
+      - name: Start inventory Edge Function
+        shell: bash
+        run: |
+          npx --yes supabase@2.117.0 functions serve nat-inventory-production --no-verify-jwt > /tmp/nat-inventory-production.log 2>&1 &
+          echo $! > /tmp/nat-inventory-production.pid
+          sleep 3
+      - name: Run production stock-decrement E2E
+        shell: bash
+        run: |
+          source <(npx --yes supabase@2.117.0 status -o env)
+          CLIENT_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
+          VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$CLIENT_KEY" \
+            npx playwright test e2e/inventory-production-edge.spec.ts --project=desktop-chromium
+      - name: Show Edge Function log on failure
+        if: failure()
+        run: cat /tmp/nat-inventory-production.log || true
