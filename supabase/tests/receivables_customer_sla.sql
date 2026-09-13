@@ -34,11 +34,11 @@ select set_config('request.jwt.claim.sub','55555555-5555-4555-8555-555555555555'
 select set_config('request.jwt.claims','{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated","aal":"aal2"}',true);
 
 select throws_ok(
-  $$select public.save_customer('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-0000-4000-8000-000000000002','Sem Telefone',null,null,'WhatsApp',false,null,true)$$,
+  $$select public.apply_nat_transition_v4('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-1000-4000-8000-000000000001','[{"type":"save_customer","payload":{"id":"eeeeeeee-0000-4000-8000-000000000002","name":"Sem Telefone","phone":null,"instagram":null,"source":"WhatsApp","marketingConsent":false,"notes":null,"active":true}}]'::jsonb)$$,
   '22023',null,'non-street customer requires a phone'
 );
 select lives_ok(
-  $$select public.save_customer('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-0000-4000-8000-000000000003','Cliente Rua',null,null,'Rua',false,null,true)$$,
+  $$select public.apply_nat_transition_v4('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-1000-4000-8000-000000000002','[{"type":"save_customer","payload":{"id":"eeeeeeee-0000-4000-8000-000000000003","name":"Cliente Rua","phone":null,"instagram":null,"source":"Rua","marketingConsent":false,"notes":null,"active":true}}]'::jsonb)$$,
   'street customer may be saved without phone'
 );
 select lives_ok(
