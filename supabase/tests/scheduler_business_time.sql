@@ -27,7 +27,13 @@ select is((select count(*)::integer from cron.job where jobname='nat-executive-s
 select is((select count(*)::integer from cron.job where jobname='nat-scheduler-contract' and active and schedule='*/15 * * * *'),1,'scheduler self-healing watchdog is installed');
 
 -- Simulate accidental production drift. The repair happens inside this transaction and is rolled back.
-select cron.unschedule(jobid) from cron.job where jobname='nat-push-local-tick';
+do $$
+declare j record;
+begin
+  for j in select jobid from cron.job where jobname='nat-push-local-tick' loop
+    perform cron.unschedule(j.jobid);
+  end loop;
+end $$;
 select is((select count(*)::integer from cron.job where jobname='nat-push-local-tick'),0,'test fixture removes one required scheduler job');
 select is((private.ensure_nat_scheduler_contract()->>'repaired')::integer,1,'scheduler reconciler repairs exactly the missing job');
 select is((select count(*)::integer from cron.job where jobname='nat-push-local-tick' and active and schedule='0 * * * *' and command='select private.dispatch_nat_push_local_tick();'),1,'repaired scheduler job has canonical definition');
