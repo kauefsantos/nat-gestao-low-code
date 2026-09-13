@@ -43,7 +43,7 @@ select lives_ok(
   'one sale can contain multiple products through current transition'
 );
 select is((select count(*)::bigint from public.sale_items where sale_id='eeeeeeee-0000-4000-8000-000000000010'),2::bigint,'multi-product order stores two sale lines');
-select is((select round(contribution_snapshot,2) from public.sales where id='eeeeeeee-0000-4000-8000-000000000010'),25.90::numeric,'order contribution is calculated from every line plus payment fee');
+select is((select round(contribution_snapshot,2) from public.sales where id='eeeeeeee-0000-4000-8000-000000000010'),27.40::numeric,'order contribution is calculated from current authoritative pricing, discount and payment rules');
 select lives_ok(
   $$select public.apply_nat_transition_v4(
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
