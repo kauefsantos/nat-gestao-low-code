@@ -95,15 +95,18 @@ test("ROI ignora venda cancelada",()=>{
   assert.equal(result.roiPercent,-100);
 });
 
-test("Financeiro mostra ROI consolidado, Inteligência mantém ROI por sabor e a UI explica o indicador",()=>{
+test("UI de ROI usa snapshot autoritativo do Lovable Cloud e mantém explicação do indicador",()=>{
   const financial=read("src/components/nat/FinancialOverview.tsx");
   const intelligence=read("src/components/nat/IntelligenceWorkbench.tsx");
   const panel=read("src/components/nat/RoiOverview.tsx");
 
-  assert.match(financial,/<RoiOverview state=\{state\} compact\/>/);
-  assert.match(intelligence,/<RoiOverview state=\{state\}\/>/);
+  assert.match(financial,/<RoiOverview snapshot=\{intelligence\} compact\/>/);
+  assert.match(intelligence,/<RoiOverview snapshot=\{bi\}\/>/);
+  assert.match(panel,/BusinessIntelligenceSnapshot/);
+  assert.doesNotMatch(panel,/productRoiAnalytics|businessRoi\(/);
   assert.match(panel,/ROI por sabor/);
   assert.match(panel,/ROI do mês/);
   assert.match(panel,/symbol="i"/);
   assert.match(panel,/retorno sobre o investimento/i);
+  assert.match(panel,/Lovable Cloud/);
 });
