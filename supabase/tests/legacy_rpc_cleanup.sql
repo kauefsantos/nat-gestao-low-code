@@ -68,11 +68,14 @@ select ok(
   'calendar v3 remains available'
 );
 
+set local role authenticated;
+select set_config('request.jwt.claim.sub','aaaaaaaa-1111-4111-8111-111111111111',true);
 select is(
   public.get_nat_schema_version(),
   '2026-09-13.security-release-gate.1'::text,
   'schema release version is explicit and queryable'
 );
+reset role;
 
 select * from finish();
 rollback;
