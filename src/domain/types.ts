@@ -65,6 +65,8 @@ export type SaleLine = {
   unitCostSnapshot: number;
   laborCostSnapshot?: number;
   unitPriceSnapshot: number;
+  /** List price frozen when the sale item is created. */
+  listUnitPriceSnapshot?: number;
 };
 
 export type Sale = {
@@ -134,6 +136,19 @@ export type Settings = {
   timezone?: string;
 };
 
+export type FinancialTruthSnapshot = {
+  monthStart: string;
+  billed: number;
+  received: number;
+  receivable: number;
+  orders: number;
+  paidOrders: number;
+  pendingOrders: number;
+  units: number;
+  movementContribution: number;
+  ownerRemuneration: number;
+};
+
 export type NatState = {
   version: 3 | 4 | 5 | 6;
   supplies: Supply[];
@@ -144,6 +159,8 @@ export type NatState = {
   ownerCashMovements?: OwnerCashMovement[];
   settings: Settings;
   purchaseCashOut?: number;
+  /** PostgreSQL-authoritative month metrics; avoids mixing billing and cash. */
+  financialTruth?: FinancialTruthSnapshot;
 };
 
 export const initialState: NatState = {
