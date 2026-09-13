@@ -1,66 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/lovable-cloud/database";
-import type { PaymentMethod, TransactionType } from "@/domain/nat";
+import type { PackagingFormat, PaymentMethod, TransactionType } from "@/domain/nat";
 
 export type SaleMarginStatus = "below_cost" | "below_minimum" | "below_target" | "healthy" | "not_applicable";
-
-export type SaleQuote = {
-  listTotal: number;
-  totalCost: number;
-  totalQuantity: number;
-  variableFee: number;
-  deliveryCost: number;
-  contribution: number;
-  marginPercent: number;
-  belowCost: boolean;
-  minimumRequiredValue: number;
-  recommendedRequiredValue: number;
-  minimumMarginPercent: number;
-  targetMarginPercent: number;
-  marginStatus: SaleMarginStatus;
-};
-
-function quoteFrom(value: unknown): SaleQuote {
-  const row = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  const status = String(row.marginStatus ?? (row.belowCost === true ? "below_cost" : "healthy"));
-  const marginStatus: SaleMarginStatus = ["below_cost","below_minimum","below_target","healthy","not_applicable"].includes(status)
-    ? status as SaleMarginStatus
-    : "healthy";
-  return {
-    listTotal: Number(row.listTotal ?? 0),
-    totalCost: Number(row.totalCost ?? 0),
-    totalQuantity: Number(row.totalQuantity ?? 0),
-    variableFee: Number(row.variableFee ?? 0),
-    deliveryCost: Number(row.deliveryCost ?? 0),
-    contribution: Number(row.contribution ?? 0),
-    marginPercent: Number(row.marginPercent ?? 0),
-    belowCost: row.belowCost === true,
-    minimumRequiredValue: Number(row.minimumRequiredValue ?? 0),
-    recommendedRequiredValue: Number(row.recommendedRequiredValue ?? 0),
-    minimumMarginPercent: Number(row.minimumMarginPercent ?? 0),
-    targetMarginPercent: Number(row.targetMarginPercent ?? 0),
-    marginStatus,
-  };
-}
-
-export async function quoteSale(args: {
-  businessId: string;
-  items: Array<{ productId: string; quantity: number }>;
-  totalReceived: number;
-  paymentMethod: PaymentMethod;
-  soldAt: string;
-  transactionType: TransactionType;
-  deliveryCost: number;
-}): Promise<SaleQuote> {
-  const result = await supabase.rpc("quote_sale_v1", {
-    p_business_id: args.businessId,
-    p_items: args.items as unknown as Json,
-    p_total_received: args.totalReceived,
-    p_payment_method: args.paymentMethod,
-    p_sold_at: args.soldAt,
-    p_transaction_type: args.transactionType,
-    p_delivery_cost: args.deliveryCost,
-  });
-  if (result.error) throw new Error("Não foi possível calcular o custo desta venda. Confira os dados e tente novamente.");
-  return quoteFrom(result.data);
-}
+export type SaleQuote = {listTotal:number;totalCost:number;packagingCost:number;totalQuantity:number;variableFee:number;deliveryCost:number;contribution:number;marginPercent:number;belowCost:boolean;minimumRequiredValue:number;recommendedRequiredValue:number;minimumMarginPercent:number;targetMarginPercent:number;marginStatus:SaleMarginStatus;};
+function quoteFrom(value:unknown):SaleQuote {const row=value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};const status=String(row.marginStatus??(row.belowCost===true?"below_cost":"healthy"));const marginStatus:SaleMarginStatus=["below_cost","below_minimum","below_target","healthy","not_applicable"].includes(status)?status as SaleMarginStatus:"healthy";return{listTotal:Number(row.listTotal??0),totalCost:Number(row.totalCost??0),packagingCost:Number(row.packagingCost??0),totalQuantity:Number(row.totalQuantity??0),variableFee:Number(row.variableFee??0),deliveryCost:Number(row.deliveryCost??0),contribution:Number(row.contribution??0),marginPercent:Number(row.marginPercent??0),belowCost:row.belowCost===true,minimumRequiredValue:Number(row.minimumRequiredValue??0),recommendedRequiredValue:Number(row.recommendedRequiredValue??0),minimumMarginPercent:Number(row.minimumMarginPercent??0),targetMarginPercent:Number(row.targetMarginPercent??0),marginStatus};}
+export async function quoteSale(args:{businessId:string;items:Array<{productId:string;quantity:number}>;totalReceived:number;paymentMethod:PaymentMethod;soldAt:string;transactionType:TransactionType;deliveryCost:number;packagingFormat:PackagingFormat|null}):Promise<SaleQuote>{const result=await supabase.rpc("quote_sale_v2" as never,{p_business_id:args.businessId,p_items:args.items as unknown as Json,p_total_received:args.totalReceived,p_payment_method:args.paymentMethod,p_sold_at:args.soldAt,p_transaction_type:args.transactionType,p_delivery_cost:args.deliveryCost,p_packaging_format:args.packagingFormat} as never);if(result.error)throw new Error(`Não foi possível calcular o custo desta venda: ${result.error.message}`);return quoteFrom(result.data);}

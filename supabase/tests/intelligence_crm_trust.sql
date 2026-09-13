@@ -51,7 +51,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','52000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"52000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
 
-select is(public.get_nat_schema_version(),'2026-09-13.intelligence-crm-trust.1','Stage 5 schema version is authoritative');
+select is(public.get_nat_schema_version(),'2026-09-13.brigadeiro-production-flow.1','Stage 5 truth remains valid under the brigadeiro production release');
 select is((public.get_business_intelligence_snapshot_v2('51000000-0000-4000-8000-000000000001')->'readiness'->>'salesCount')::int,10,'lifetime snapshot includes the old sale but excludes cancelled/non-commercial rows');
 select ok((public.get_business_intelligence_snapshot_v2('51000000-0000-4000-8000-000000000001')->'readiness'->>'ready')::boolean,'10 sales across at least 7 business dates unlock confidence');
 select is((public.get_business_intelligence_snapshot_v2('51000000-0000-4000-8000-000000000001')->'metricContext'->>'timezone')::text,'America/Sao_Paulo','metric context exposes business timezone');

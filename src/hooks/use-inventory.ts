@@ -12,63 +12,15 @@ export function useInventory(businessId:string|null,syncRevision=0) {
   const requestRef=useRef(0);
   const noticeTimer=useRef<number|null>(null);
 
-  const clearNotice=useCallback(()=>{
-    if(noticeTimer.current!==null) window.clearTimeout(noticeTimer.current);
-    noticeTimer.current=null;
-    setNotice(null);
-  },[]);
-
-  const showNotice=useCallback((next:Exclude<InventoryNotice,null>,autoClear=false)=>{
-    if(noticeTimer.current!==null) window.clearTimeout(noticeTimer.current);
-    setNotice(next);
-    if(autoClear) noticeTimer.current=window.setTimeout(()=>{noticeTimer.current=null;setNotice(null);},2400);
-  },[]);
-
-  const reload=useCallback(async()=>{
-    if(!businessId){setSnapshot(emptyInventorySnapshot());return;}
-    const request=++requestRef.current;
-    try {
-      setLoading(true);setError(null);
-      const next=await loadInventorySnapshot(businessId);
-      if(request===requestRef.current)setSnapshot(next);
-    } catch(cause) {
-      const message=cause instanceof Error?cause.message:"Não foi possível carregar o estoque.";
-      if(request===requestRef.current)setError(message);
-    } finally {
-      if(request===requestRef.current)setLoading(false);
-    }
-  },[businessId]);
+  const clearNotice=useCallback(()=>{if(noticeTimer.current!==null) window.clearTimeout(noticeTimer.current);noticeTimer.current=null;setNotice(null);},[]);
+  const showNotice=useCallback((next:Exclude<InventoryNotice,null>,autoClear=false)=>{if(noticeTimer.current!==null) window.clearTimeout(noticeTimer.current);setNotice(next);if(autoClear) noticeTimer.current=window.setTimeout(()=>{noticeTimer.current=null;setNotice(null);},2400);},[]);
+  const reload=useCallback(async()=>{if(!businessId){setSnapshot(emptyInventorySnapshot());return;}const request=++requestRef.current;try{setLoading(true);setError(null);const next=await loadInventorySnapshot(businessId);if(request===requestRef.current)setSnapshot(next);}catch(cause){const message=cause instanceof Error?cause.message:"Não foi possível carregar o estoque.";if(request===requestRef.current)setError(message);}finally{if(request===requestRef.current)setLoading(false);}},[businessId]);
 
   useEffect(()=>{void reload();},[reload,syncRevision]);
+  useEffect(()=>{const listener=()=>void reload();window.addEventListener("nat:inventory-changed",listener);return()=>window.removeEventListener("nat:inventory-changed",listener);},[reload]);
   useEffect(()=>()=>{if(noticeTimer.current!==null)window.clearTimeout(noticeTimer.current);},[]);
 
-  const setBalance=useCallback(async(args:{kind:InventoryItemKind;itemId:string;quantity:number;minimumQuantity:number;note?:string})=>{
-    if(!businessId)throw new Error("Empresa não carregada.");
-    showNotice({tone:"saving",message:args.kind==="product"?"Atualizando produtos e ingredientes...":"Salvando estoque..."});
-    try {
-      await setInventoryBalance({businessId,...args});
-      await reload();
-      showNotice({tone:"saved",message:args.kind==="product"?"Estoque atualizado. Se houve nova produção, os ingredientes da receita foram descontados.":"Estoque atualizado."},true);
-    } catch(cause) {
-      const message=cause instanceof Error?cause.message:"Não foi possível atualizar o estoque.";
-      showNotice({tone:"error",message});
-      throw cause;
-    }
-  },[businessId,reload,showNotice]);
-
-  const registerProduction=useCallback(async(args:{productId:string;batches:number;producedAt:string;note?:string})=>{
-    if(!businessId)throw new Error("Empresa não carregada.");
-    showNotice({tone:"saving",message:"Registrando produção e baixando ingredientes..."});
-    try {
-      await recordInventoryProduction({businessId,...args});
-      await reload();
-      showNotice({tone:"saved",message:"Produção registrada. Os ingredientes da receita foram descontados."},true);
-    } catch(cause) {
-      const message=cause instanceof Error?cause.message:"Não foi possível registrar a produção.";
-      showNotice({tone:"error",message});
-      throw cause;
-    }
-  },[businessId,reload,showNotice]);
-
+  const setBalance=useCallback(async(args:{kind:InventoryItemKind;itemId:string;quantity:number;minimumQuantity:number;note?:string})=>{if(!businessId)throw new Error("Empresa não carregada.");showNotice({tone:"saving",message:args.kind==="product"?"Atualizando produtos e ingredientes...":"Salvando estoque..."});try{await setInventoryBalance({businessId,...args});await reload();showNotice({tone:"saved",message:args.kind==="product"?"Estoque atualizado. Se houve nova produção, os ingredientes da receita foram descontados.":"Estoque atualizado."},true);}catch(cause){const message=cause instanceof Error?cause.message:"Não foi possível atualizar o estoque.";showNotice({tone:"error",message});throw cause;}},[businessId,reload,showNotice]);
+  const registerProduction=useCallback(async(args:{productId:string;batches:number;producedAt:string;note?:string})=>{if(!businessId)throw new Error("Empresa não carregada.");showNotice({tone:"saving",message:"Registrando produção e baixando ingredientes..."});try{await recordInventoryProduction({businessId,...args});await reload();showNotice({tone:"saved",message:"Produção registrada. Os ingredientes da receita foram descontados."},true);}catch(cause){const message=cause instanceof Error?cause.message:"Não foi possível registrar a produção.";showNotice({tone:"error",message});throw cause;}},[businessId,reload,showNotice]);
   return { snapshot,loading,error,reload,setBalance,registerProduction,notice,clearNotice };
 }

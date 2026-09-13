@@ -37,7 +37,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','f2000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"f2000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
 
-select is(public.get_nat_schema_version(),'2026-09-13.intelligence-crm-trust.1','current schema release keeps Stage 4 financial truth intact');
+select is(public.get_nat_schema_version(),'2026-09-13.brigadeiro-production-flow.1','current schema release keeps Stage 4 financial truth intact');
 select is((public.get_financial_truth_snapshot_v1('f1000000-0000-4000-8000-000000000001','2026-09-01')->>'billed')::numeric,150::numeric,'month billing is economic sale value');
 select is((public.get_financial_truth_snapshot_v1('f1000000-0000-4000-8000-000000000001','2026-09-01')->>'received')::numeric,100::numeric,'month received is actual cash from customers');
 select is((public.get_financial_truth_snapshot_v1('f1000000-0000-4000-8000-000000000001','2026-09-01')->>'receivable')::numeric,50::numeric,'month receivable is only outstanding balance');
