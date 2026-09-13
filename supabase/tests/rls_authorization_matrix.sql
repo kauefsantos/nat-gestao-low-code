@@ -68,8 +68,8 @@ select set_config('request.jwt.claim.sub','e2000000-0000-4000-8000-000000000002'
 select set_config('request.jwt.claims','{"sub":"e2000000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal1"}',true);
 select is((select count(*)::bigint from public.supplies),0::bigint,'AAL1 member sees no protected operational rows');
 select throws_ok(
-  $$select public.save_supply('e1000000-0000-4000-8000-000000000001','e3000000-0000-4000-8000-000000000010','AAL1 blocked','ingredient',100,'g',10,current_date)$$,
-  '42501',null,'AAL1 member cannot write through protected RPCs'
+  $$select public.apply_nat_transition_v4('e1000000-0000-4000-8000-000000000001','e4000000-0000-4000-8000-000000000001',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','e3000000-0000-4000-8000-000000000010','name','AAL1 blocked','category','ingredient','packageQuantity',100,'packageUnit','g','packagePrice',10,'purchasedAt',current_date::text))))$$,
+  '42501',null,'AAL1 member cannot write through protected transition'
 );
 
 select set_config('request.jwt.claims','{"sub":"e2000000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
@@ -88,20 +88,20 @@ select lives_ok(
 );
 select is((select name from public.businesses where id='e1000000-0000-4000-8000-000000000001'),'Authorization Tenant A','member cannot change business metadata');
 select throws_ok(
-  $$select public.save_business_settings_v3('e1000000-0000-4000-8000-000000000001','RPC MEMBER',321,3,0,0,3,10,20,20,3)$$,
-  '42501','Apenas administradores podem alterar as configurações do negócio.','member cannot bypass admin-only settings through SECURITY DEFINER RPC'
+  $$select public.apply_nat_transition_v4('e1000000-0000-4000-8000-000000000001','e4000000-0000-4000-8000-000000000002',jsonb_build_array(jsonb_build_object('type','save_business_settings','expectedUpdatedAt',(select updated_at::text from public.business_settings where business_id='e1000000-0000-4000-8000-000000000001'),'payload',jsonb_build_object('ownerName','RPC MEMBER','monthlyFixedCosts',321,'paymentFeePercent',3,'pixFeePercent',0,'cashFeePercent',0,'cardFeePercent',3,'defaultMinimumMarginPercent',10,'defaultTargetMarginPercent',20,'ownerHourlyRate',20,'ownerDailyHours',3,'fixedCostFundingSource','owner'))))$$,
+  '42501','Apenas administradores podem alterar as configurações do negócio.','member cannot bypass admin-only settings through current transition'
 );
 select throws_ok(
   $$select public.configure_content_ai('e1000000-0000-4000-8000-000000000001',repeat('x',32))$$,
   '42501',null,'member cannot configure business AI secret'
 );
 select lives_ok(
-  $$select public.save_supply('e1000000-0000-4000-8000-000000000001','e3000000-0000-4000-8000-000000000011','Own member RPC','ingredient',100,'g',10,current_date)$$,
-  'member can create operational data in own tenant through reviewed RPC'
+  $$select public.apply_nat_transition_v4('e1000000-0000-4000-8000-000000000001','e4000000-0000-4000-8000-000000000003',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','e3000000-0000-4000-8000-000000000011','name','Own member RPC','category','ingredient','packageQuantity',100,'packageUnit','g','packagePrice',10,'purchasedAt',current_date::text))))$$,
+  'member can create operational data in own tenant through current transition'
 );
 select throws_ok(
-  $$select public.save_supply('e1000000-0000-4000-8000-000000000002','e3000000-0000-4000-8000-000000000012','Cross tenant RPC','ingredient',100,'g',10,current_date)$$,
-  '42501',null,'member RPC cannot write another tenant'
+  $$select public.apply_nat_transition_v4('e1000000-0000-4000-8000-000000000002','e4000000-0000-4000-8000-000000000004',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','e3000000-0000-4000-8000-000000000012','name','Cross tenant RPC','category','ingredient','packageQuantity',100,'packageUnit','g','packagePrice',10,'purchasedAt',current_date::text))))$$,
+  '42501',null,'member transition cannot write another tenant'
 );
 select throws_ok(
   $$insert into public.business_members(business_id,user_id,role) values('e1000000-0000-4000-8000-000000000001','e2000000-0000-4000-8000-000000000004','member')$$,
@@ -113,8 +113,8 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','e2000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"e2000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select lives_ok(
-  $$select public.save_business_settings_v3('e1000000-0000-4000-8000-000000000001','ADMIN RPC',456,3,0,0,3,10,20,20,3)$$,
-  'admin can update business settings through hardened RPC'
+  $$select public.apply_nat_transition_v4('e1000000-0000-4000-8000-000000000001','e4000000-0000-4000-8000-000000000005',jsonb_build_array(jsonb_build_object('type','save_business_settings','expectedUpdatedAt',(select updated_at::text from public.business_settings where business_id='e1000000-0000-4000-8000-000000000001'),'payload',jsonb_build_object('ownerName','ADMIN RPC','monthlyFixedCosts',456,'paymentFeePercent',3,'pixFeePercent',0,'cashFeePercent',0,'cardFeePercent',3,'defaultMinimumMarginPercent',10,'defaultTargetMarginPercent',20,'ownerHourlyRate',20,'ownerDailyHours',3,'fixedCostFundingSource','owner'))))$$,
+  'admin can update business settings through current transition'
 );
 select is((select owner_name from public.business_settings where business_id='e1000000-0000-4000-8000-000000000001'),'ADMIN RPC','admin settings change is persisted');
 select lives_ok(
@@ -126,8 +126,8 @@ select ok((select count(*) from public.audit_log where business_id='e1000000-000
 select is((select count(*)::bigint from public.audit_log where business_id='e1000000-0000-4000-8000-000000000002'),0::bigint,'admin cannot read another tenant audit log');
 select is((select count(*)::bigint from public.supplies where business_id='e1000000-0000-4000-8000-000000000002'),0::bigint,'admin cannot read another tenant operational data');
 select throws_ok(
-  $$select public.save_supply('e1000000-0000-4000-8000-000000000002','e3000000-0000-4000-8000-000000000013','Admin cross tenant','ingredient',100,'g',10,current_date)$$,
-  '42501',null,'admin RPC cannot write another tenant'
+  $$select public.apply_nat_transition_v4('e1000000-0000-4000-8000-000000000002','e4000000-0000-4000-8000-000000000006',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','e3000000-0000-4000-8000-000000000013','name','Admin cross tenant','category','ingredient','packageQuantity',100,'packageUnit','g','packagePrice',10,'purchasedAt',current_date::text))))$$,
+  '42501',null,'admin transition cannot write another tenant'
 );
 select throws_ok(
   $$insert into public.business_members(business_id,user_id,role) values('e1000000-0000-4000-8000-000000000002','e2000000-0000-4000-8000-000000000004','member')$$,
@@ -151,8 +151,8 @@ select set_config('request.jwt.claims','{"sub":"e2000000-0000-4000-8000-00000000
 select is((select count(*)::bigint from public.supplies where business_id='e1000000-0000-4000-8000-000000000001'),0::bigint,'second tenant admin cannot read Tenant A data');
 select is((select count(*)::bigint from public.supplies where business_id='e1000000-0000-4000-8000-000000000002'),1::bigint,'second tenant admin reads own Tenant B data');
 select throws_ok(
-  $$select public.save_supply('e1000000-0000-4000-8000-000000000001','e3000000-0000-4000-8000-000000000014','B to A blocked','ingredient',100,'g',10,current_date)$$,
-  '42501',null,'second tenant admin cannot write Tenant A through RPC'
+  $$select public.apply_nat_transition_v4('e1000000-0000-4000-8000-000000000001','e4000000-0000-4000-8000-000000000007',jsonb_build_array(jsonb_build_object('type','save_supply','payload',jsonb_build_object('id','e3000000-0000-4000-8000-000000000014','name','B to A blocked','category','ingredient','packageQuantity',100,'packageUnit','g','packagePrice',10,'purchasedAt',current_date::text))))$$,
+  '42501',null,'second tenant admin cannot write Tenant A through transition'
 );
 
 select * from finish();
