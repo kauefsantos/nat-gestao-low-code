@@ -11,6 +11,18 @@ begin
     if v_op->>'type'<>'create_sale' then continue;end if;
     v_payload:=coalesce(v_op->'payload','{}'::jsonb);
     if coalesce(v_payload->>'transactionType','sale')<>'sale' then continue;end if;
+
+    -- Retry do mesmo request não deve recalcular custo depois que a venda já foi
+    -- concluída e a embalagem consumida. O v4, chamado abaixo, continua sendo a
+    -- autoridade para detectar request_id reutilizado com payload diferente.
+    v_sale_id:=nullif(v_payload->>'id','')::uuid;
+    if v_sale_id is not null then
+      select packaging_format is not null into v_already_applied
+      from public.sales
+      where business_id=p_business_id and id=v_sale_id;
+      if coalesce(v_already_applied,false) then continue;end if;
+    end if;
+
     v_quote:=public.quote_sale_v2(
       p_business_id,
       coalesce(v_payload->'items','[]'::jsonb),
