@@ -19,6 +19,10 @@ export type Supply = {
   packagePrice: number;
   purchasedAt: string;
   fundingSource?: FundingSource;
+  /** Exact latest purchase row. Required when correcting a purchase without appending stock. */
+  latestPurchaseId?: string | null;
+  /** Transient UI command; loaders intentionally omit it. */
+  purchaseIntent?: "append" | "correct" | "metadata";
 };
 
 export type RecipeItem = { id: string; supplyId: string; quantity: number; unit: Unit };

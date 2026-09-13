@@ -67,22 +67,28 @@ test("backend: snapshot de estoque agrega movimentos antes de montar itens",()=>
   assert.match(migration,/sum\(quantity_delta\)/i);
 });
 
-test("estoque: contagem maior de produto pronto passa pela Edge Function e consome a receita ligada",()=>{
+test("estoque: contagem maior de produto pronto passa por alvo atômico e consome a receita ligada",()=>{
   const repository=read("src/data/inventory-repository.ts");
   const edge=read("supabase/functions/nat-inventory-production/index.ts");
+  const migration=read("supabase/migrations/20260913150000_purchase_inventory_integrity.sql");
   assert.match(repository,/args\.kind==="product"/);
   assert.match(repository,/mode:"set_product_stock"/);
   assert.match(repository,/nat-inventory-production/);
-  assert.match(edge,/targetQuantity-current/);
-  assert.match(edge,/record_inventory_production_v2/);
-  assert.match(edge,/unitsProduced\/batchYield/);
+  assert.match(edge,/set_product_stock_v2/);
+  assert.doesNotMatch(edge,/targetQuantity-current/);
+  assert.match(migration,/pg_advisory_xact_lock/);
+  assert.match(migration,/v_delta:=p_target_quantity-v_previous/);
+  assert.match(migration,/record_inventory_production\(p_business_id,p_product_id,v_batches/);
 });
 
-test("estoque: redução por contagem física não devolve ingredientes e insumos continuam usando ajuste direto",()=>{
+test("estoque: redução por contagem física não devolve ingredientes e aumento direto fica bloqueado",()=>{
   const repository=read("src/data/inventory-repository.ts");
   const edge=read("supabase/functions/nat-inventory-production/index.ts");
-  assert.match(edge,/Math\.max\(0,targetQuantity-current\)/);
-  assert.match(edge,/if\(unitsProduced===0\).*set_inventory_balance/s);
+  const migration=read("supabase/migrations/20260913150000_purchase_inventory_integrity.sql");
+  assert.match(edge,/set_product_stock_v2/);
+  assert.match(migration,/if v_delta>0 then/);
+  assert.match(migration,/perform public\.set_inventory_balance\(p_business_id,'product',p_product_id,p_target_quantity/);
+  assert.match(migration,/if p_item_kind='product' and p_quantity>v_current then/);
   assert.match(repository,/p_item_kind:args\.kind/);
 });
 
