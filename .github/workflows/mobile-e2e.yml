@@ -93,6 +93,12 @@ jobs:
               -H "Content-Type: application/json" \
               -d "{\"email\":\"$EMAIL\",\"password\":\"NAT-RLS-e2e-2026!\",\"email_confirm\":true}" >/dev/null
           done
+      - name: Start analysis Edge Function
+        shell: bash
+        run: |
+          npx --yes supabase@2.117.0 functions serve nat-analysis-insights --no-verify-jwt > /tmp/nat-analysis-insights.log 2>&1 &
+          echo $! > /tmp/nat-analysis-insights.pid
+          sleep 3
       - name: Run real MFA and cross-tenant authorization E2E
         shell: bash
         run: |
@@ -117,3 +123,6 @@ jobs:
           source <(npx --yes supabase@2.117.0 status -o env)
           CLIENT_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
           VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$CLIENT_KEY" npx playwright test e2e/intelligence-trust.spec.ts --project=desktop-chromium
+      - name: Show analysis Edge Function log on failure
+        if: failure()
+        run: cat /tmp/nat-analysis-insights.log || true

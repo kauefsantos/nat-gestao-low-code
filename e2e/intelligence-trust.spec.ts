@@ -9,20 +9,24 @@ function decodeBase32(value:string){const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ23
 function totp(secret:string,now=Date.now()){const counter=Math.floor(now/1000/30);const buffer=Buffer.alloc(8);buffer.writeBigUInt64BE(BigInt(counter));const digest=createHmac("sha1",decodeBase32(secret)).update(buffer).digest();const offset=digest[digest.length-1]&0x0f;const code=((digest[offset]&0x7f)<<24)|((digest[offset+1]&0xff)<<16)|((digest[offset+2]&0xff)<<8)|(digest[offset+3]&0xff);return String(code%1_000_000).padStart(6,"0");}
 async function login(page:Page){await page.goto("/login",{waitUntil:"domcontentloaded"});await expect(page.getByRole("heading",{name:"Bem-vinda de volta"})).toBeVisible({timeout:30_000});await page.getByLabel("E-mail").fill(email);await page.getByLabel("Senha").fill(password);await page.getByRole("button",{name:"Entrar"}).click();await expect(page.getByRole("heading",{name:"Ative a proteção extra"})).toBeVisible({timeout:30_000});const secret=(await page.locator("p.break-all").textContent())?.trim();expect(secret).toBeTruthy();await page.getByLabel("Código de segurança").fill(totp(secret!));await page.getByRole("button",{name:"Ativar e entrar"}).click();await page.waitForURL(/\/dashboard/,{timeout:30_000});}
 
-test("base pequena bloqueia recomendações e drill-down concilia fatos reais",async({page})=>{
+test("base pequena preserva fatos e drill-down enquanto a interface explica os dados com clareza",async({page})=>{
   test.setTimeout(180_000);await login(page);
   await page.goto("/dashboard?view=intelligence",{waitUntil:"domcontentloaded"});
   await expect(page.getByRole("heading",{name:"O que merece atenção"})).toBeVisible({timeout:30_000});
   await expect(page.getByTestId("bi-small-base")).toBeVisible({timeout:30_000});
-  await expect(page.getByTestId("bi-small-base")).toContainText("Padrões ainda bloqueados");
-  await expect(page.getByText("Nenhuma recomendação liberada agora.")).toBeVisible();
+  await expect(page.getByTestId("bi-small-base")).toContainText("A NAT ainda está conhecendo o ritmo das vendas");
+  await expect(page.getByText(/Um resumo simples do que vale acompanhar agora/)).toBeVisible();
   await expect(page.getByTestId("business-roi")).toBeVisible();
+  await expect(page.getByText("Total investido no mês",{exact:true})).toBeVisible();
 
-  await page.getByText("Ver todos os indicadores",{exact:false}).click();
+  await page.getByText("Ver todos os indicadores",{exact:true}).click();
   await expect(page.getByRole("heading",{name:"Inteligência"})).toBeVisible({timeout:30_000});
   await expect(page.getByTestId("bi-patterns-locked")).toBeVisible();
-  await expect(page.getByText("Aguardando base",{exact:true}).first()).toBeVisible();
-  await expect(page.getByText("Base insuficiente",{exact:true}).first()).toBeVisible();
+  await expect(page.getByText("Produto E2E Venda",{exact:true}).first()).toBeVisible();
+  await expect(page.getByText("Total de clientes",{exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Compras e variação de preço"})).toBeVisible();
+  await expect(page.getByText("Quanto ainda dá para produzir?",{exact:true})).toHaveCount(0);
+  await expect(page.getByText(/Fonte: Lovable Cloud/)).toHaveCount(0);
 
   const composition=page.getByRole("button",{name:"Ver composição"}).first();
   await expect(composition).toBeVisible();
