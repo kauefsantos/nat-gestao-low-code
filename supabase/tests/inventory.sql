@@ -8,7 +8,7 @@ select has_table('public','inventory_movements','inventory movement ledger exist
 select has_table('public','inventory_productions','inventory production history exists');
 select ok(has_function_privilege('authenticated','public.get_inventory_snapshot(uuid)','execute'),'authenticated can read inventory snapshot through RPC');
 select ok(has_function_privilege('authenticated','public.set_inventory_balance(uuid,text,uuid,numeric,numeric,text)','execute'),'authenticated can configure counted stock through RPC');
-select ok(has_function_privilege('authenticated','public.record_inventory_production(uuid,uuid,numeric,timestamptz,text)','execute'),'authenticated can register production through RPC');
+select ok(has_function_privilege('authenticated','public.record_inventory_production_v2(uuid,uuid,uuid,numeric,timestamptz,text)','execute'),'authenticated can register production through idempotent RPC');
 select ok(not has_table_privilege('authenticated','public.inventory_movements','insert'),'authenticated cannot forge ledger movements directly');
 
 insert into public.businesses(id,name) values ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','Inventory test');
@@ -55,8 +55,8 @@ select is(
   'a new purchase automatically enters monitored supply stock'
 );
 select lives_ok(
-  $$select public.record_inventory_production('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-0000-4000-8000-000000000003',2,now(),'Dois lotes')$$,
-  'production can be registered atomically'
+  $$select public.record_inventory_production_v2('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-1000-4000-8000-000000000001','eeeeeeee-0000-4000-8000-000000000003',2,now(),'Dois lotes')$$,
+  'production can be registered atomically through idempotent API'
 );
 select is(
   (select sum(quantity_delta)::numeric from public.inventory_movements where business_id='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' and supply_id='eeeeeeee-0000-4000-8000-000000000001'),
@@ -70,7 +70,15 @@ select is(
 );
 
 select lives_ok(
-  $$select public.save_sale_items('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-0000-4000-8000-000000000006','[{"productId":"eeeeeeee-0000-4000-8000-000000000003","quantity":3}]'::jsonb,30,'pix',(current_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo')$$,
+  $$select public.apply_nat_transition_v4(
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-1000-4000-8000-000000000002',
+    jsonb_build_array(jsonb_build_object('type','create_sale','payload',jsonb_build_object(
+      'id','eeeeeeee-0000-4000-8000-000000000006','items','[{"productId":"eeeeeeee-0000-4000-8000-000000000003","quantity":3}]'::jsonb,
+      'totalReceived',30,'saleValue',30,'paymentStatus','paid','paymentMethod','pix',
+      'soldAt',((current_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo')::text,
+      'transactionType','sale','saleChannel','other','deliveryCost',0,'belowCostOverride',false,'marginOverride',false
+    )))
+  )$$,
   'a sale succeeds when monitored finished stock is sufficient'
 );
 select is(
@@ -79,7 +87,13 @@ select is(
   'sale automatically removes finished-product quantity'
 );
 select lives_ok(
-  $$select public.cancel_sale('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-0000-4000-8000-000000000006','Teste de devolução')$$,
+  $$select public.apply_nat_transition_v4(
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-1000-4000-8000-000000000003',
+    jsonb_build_array(jsonb_build_object(
+      'type','cancel_sale','expectedUpdatedAt',(select updated_at::text from public.sales where id='eeeeeeee-0000-4000-8000-000000000006'),
+      'payload',jsonb_build_object('id','eeeeeeee-0000-4000-8000-000000000006','reason','Teste de devolução')
+    ))
+  )$$,
   'cancelling a sale succeeds with inventory enabled'
 );
 select is(
@@ -104,7 +118,15 @@ select is(
 );
 
 select throws_ok(
-  $$select public.save_sale_items('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-0000-4000-8000-000000000007','[{"productId":"eeeeeeee-0000-4000-8000-000000000003","quantity":21}]'::jsonb,210,'pix',(current_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo')$$,
+  $$select public.apply_nat_transition_v4(
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-1000-4000-8000-000000000004',
+    jsonb_build_array(jsonb_build_object('type','create_sale','payload',jsonb_build_object(
+      'id','eeeeeeee-0000-4000-8000-000000000007','items','[{"productId":"eeeeeeee-0000-4000-8000-000000000003","quantity":21}]'::jsonb,
+      'totalReceived',210,'saleValue',210,'paymentStatus','paid','paymentMethod','pix',
+      'soldAt',((current_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo')::text,
+      'transactionType','sale','saleChannel','other','deliveryCost',0,'belowCostOverride',false,'marginOverride',false
+    )))
+  )$$,
   '22023',
   'Estoque insuficiente do produto acabado para concluir a venda.',
   'database rejects a sale that exceeds monitored finished stock'
