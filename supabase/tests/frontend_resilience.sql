@@ -14,7 +14,7 @@ select has_function('public','record_content_ai_provider_result',array['uuid','b
 
 select ok(position('status=''processing''' in pg_get_functiondef('public.claim_push_delivery(uuid,uuid,uuid,date,smallint,integer,integer)'::regprocedure))>0,'push claim reserves processing state before provider effect');
 select ok(position('dead_letter' in pg_get_functiondef('public.fail_push_delivery(uuid,boolean,integer,text,text,integer,integer)'::regprocedure))>0,'push failures can end in dead-letter');
-select ok(position('America/Sao_Paulo' in pg_get_functiondef('private.dispatch_nat_push_local_tick()'::regprocedure))>0,'scheduler computes business hour with IANA timezone');
+select ok(position('America/Sao_Paulo' in pg_get_functiondef('private.nat_business_local_hour(timestamptz)'::regprocedure))>0,'scheduler business-time helper uses IANA timezone');
 select ok(exists(select 1 from cron.job where jobname='nat-push-local-tick' and schedule='0 * * * *'),'timezone-aware hourly scheduler is installed');
 
 select * from finish();
