@@ -1,11 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { CustomerCreditStatus, PaymentStatus, Sale } from "@/domain/nat";
+import type { CustomerCreditStatus, FinancialTruthSnapshot, PaymentStatus, Sale } from "@/domain/nat";
 import type { FundingSource } from "@/domain/funding";
 import { businessDate } from "@/lib/business-time";
 import { loadFundingSummary } from "@/data/funding-repository";
 import { loadNatHistoryPage, loadNatOperationalStateV2, type HistoryCursor, type HistoryPage } from "@/data/nat-operational-v2";
 
-const EXPECTED_SCHEMA_VERSION="2026-09-13.purchases-inventory-integrity.1";
+const EXPECTED_SCHEMA_VERSION="2026-09-13.financial-bi-truth.1";
 
 type ReceivableRow={id:string;sale_value_snapshot:number|string;payment_status:string;payment_promised_date:string|null;payment_promised_time:string|null;payment_due_at:string|null;paid_at:string|null;payment_critical_at:string|null;margin_override:boolean};
 function numberValue(value:number|string|null|undefined){const parsed=Number(value);return Number.isFinite(parsed)?parsed:0;}
@@ -24,6 +24,14 @@ async function receivables(businessId:string,ids:string[]){
   const result=await supabase.from("sales").select("id,sale_value_snapshot,payment_status,payment_promised_date,payment_promised_time,payment_due_at,paid_at,payment_critical_at,margin_override").eq("business_id",businessId).in("id",ids);
   if(result.error)throw new Error(`Não foi possível carregar os pagamentos pendentes: ${result.error.message}`);
   return new Map((result.data??[]).map((row)=>[row.id,row as ReceivableRow]));
+}
+
+async function loadFinancialTruth(businessId:string):Promise<FinancialTruthSnapshot>{
+  const monthStart=`${businessDate().slice(0,7)}-01`;
+  const result=await supabase.rpc("get_financial_truth_snapshot_v1" as never,{p_business_id:businessId,p_month_start:monthStart} as never);
+  if(result.error)throw new Error(`Não foi possível carregar a verdade financeira do mês: ${result.error.message}`);
+  const row=(result.data&&typeof result.data==="object"&&!Array.isArray(result.data)?result.data:{}) as Record<string,unknown>;
+  return{monthStart:String(row.monthStart??monthStart),billed:numberValue(row.billed as number|string|null|undefined),received:numberValue(row.received as number|string|null|undefined),receivable:numberValue(row.receivable as number|string|null|undefined),orders:numberValue(row.orders as number|string|null|undefined),paidOrders:numberValue(row.paidOrders as number|string|null|undefined),pendingOrders:numberValue(row.pendingOrders as number|string|null|undefined),units:numberValue(row.units as number|string|null|undefined),movementContribution:numberValue(row.movementContribution as number|string|null|undefined),ownerRemuneration:numberValue(row.ownerRemuneration as number|string|null|undefined)};
 }
 
 async function initialCapitalIds(businessId:string){
@@ -55,7 +63,7 @@ async function latestPurchaseIds(businessId:string){
 export async function loadNatOperationalStateV4(){
   await assertSchemaVersion();
   const loaded=await loadNatOperationalStateV2();
-  const [funding,capitalIds,purchaseIds]=await Promise.all([loadFundingSummary(loaded.businessId),initialCapitalIds(loaded.businessId),latestPurchaseIds(loaded.businessId)]);
+  const [funding,capitalIds,purchaseIds,financialTruth]=await Promise.all([loadFundingSummary(loaded.businessId),initialCapitalIds(loaded.businessId),latestPurchaseIds(loaded.businessId),loadFinancialTruth(loaded.businessId)]);
   const map=await receivables(loaded.businessId,loaded.state.sales.map((sale)=>sale.id));
   const customerIds=(loaded.state.customers??[]).map((customer)=>customer.id);let credit=new Map<string,CustomerCreditStatus>();
   if(customerIds.length){const result=await supabase.from("customers").select("id,credit_status").eq("business_id",loaded.businessId).in("id",customerIds);if(result.error)throw new Error(`Não foi possível carregar a situação dos clientes: ${result.error.message}`);credit=new Map((result.data??[]).map((row)=>[row.id,(row.credit_status==="critical"?"critical":"normal") as CustomerCreditStatus]));}
@@ -66,6 +74,7 @@ export async function loadNatOperationalStateV4(){
     sales:loaded.state.sales.map((sale)=>mergeReceivable(sale,map.get(sale.id))),
     customers:(loaded.state.customers??[]).map((customer)=>({...customer,creditStatus:credit.get(customer.id)??"normal"})),
     ownerCashMovements:(loaded.state.ownerCashMovements??[]).map((movement)=>capitalIds.has(movement.id)?{...movement,movementType:"initial_capital" as const}:movement),
+    financialTruth,
   }};
 }
 
