@@ -59,17 +59,36 @@ select set_config('request.jwt.claims','{"sub":"b1000000-0000-4000-8000-00000000
 
 select lives_ok($$select public.set_inventory_balance('b1000000-0000-4000-8000-000000000001','supply',id,1000,0,'opening') from public.supplies where business_id='b1000000-0000-4000-8000-000000000001' and id<>'b1100000-0000-4000-8000-000000000005'$$,'raw and packaging stock can be opened');
 select lives_ok($$select public.record_brigadeiro_mass_production_v1('b1000000-0000-4000-8000-000000000001','b1300000-0000-4000-8000-000000000001','traditional',1,now(),'massa')$$,'mother mass production succeeds');
+
+reset role;
 select is(private.inventory_supply_balance('b1000000-0000-4000-8000-000000000001','b1100000-0000-4000-8000-000000000003'),954::numeric,'mass production consumes exactly 46g chocolate');
 select is(private.inventory_supply_balance('b1000000-0000-4000-8000-000000000001','b1100000-0000-4000-8000-000000000005'),800::numeric,'mass production adds 800g intermediate mass');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','b1000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"b1000000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select lives_ok($$select public.record_brigadeiro_production_v1('b1000000-0000-4000-8000-000000000001','b1300000-0000-4000-8000-000000000002','b1200000-0000-4000-8000-000000000001',4,now(),'4 doces')$$,'finished brigadeiro production succeeds');
+
+reset role;
 select is(private.inventory_supply_balance('b1000000-0000-4000-8000-000000000001','b1100000-0000-4000-8000-000000000005'),720::numeric,'finished production consumes mass inventory');
 select is(private.inventory_supply_balance('b1000000-0000-4000-8000-000000000001','b1100000-0000-4000-8000-000000000003'),954::numeric,'finished production does not consume mother chocolate again');
 select is((select sum(quantity_delta)::numeric from public.inventory_movements where business_id='b1000000-0000-4000-8000-000000000001' and product_id='b1200000-0000-4000-8000-000000000001'),4::numeric,'four finished units enter inventory');
 
+set local role authenticated;
+select set_config('request.jwt.claim.sub','b1000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"b1000000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select lives_ok($$select public.apply_nat_transition_v5('b1000000-0000-4000-8000-000000000001','b1400000-0000-4000-8000-000000000001',jsonb_build_array(jsonb_build_object('type','create_sale','payload',jsonb_build_object('id','b1500000-0000-4000-8000-000000000001','items','[{"productId":"b1200000-0000-4000-8000-000000000001","quantity":4}]'::jsonb,'totalReceived',80,'saleValue',80,'paymentStatus','paid','paymentMethod','pix','soldAt',now()::text,'transactionType','sale','saleChannel','other','deliveryCost',0,'packagingFormat','quartet','discountReason','Teste','belowCostOverride',true,'marginOverride',true))))$$,'quartet sale succeeds atomically');
+
+reset role;
 select is(private.inventory_supply_balance('b1000000-0000-4000-8000-000000000001','b1100000-0000-4000-8000-000000000009'),999::numeric,'quartet sale consumes one quartet box');
 select is(private.inventory_supply_balance('b1000000-0000-4000-8000-000000000001','b1100000-0000-4000-8000-000000000007'),996::numeric,'quartet sale consumes four cups');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','b1000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"b1000000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select lives_ok($$select public.apply_nat_transition_v5('b1000000-0000-4000-8000-000000000001','b1400000-0000-4000-8000-000000000001',jsonb_build_array(jsonb_build_object('type','create_sale','payload',jsonb_build_object('id','b1500000-0000-4000-8000-000000000001','items','[{"productId":"b1200000-0000-4000-8000-000000000001","quantity":4}]'::jsonb,'totalReceived',80,'saleValue',80,'paymentStatus','paid','paymentMethod','pix','soldAt',now()::text,'transactionType','sale','saleChannel','other','deliveryCost',0,'packagingFormat','quartet','discountReason','Teste','belowCostOverride',true,'marginOverride',true))))$$,'retry with same request is idempotent');
+
+reset role;
 select is(private.inventory_supply_balance('b1000000-0000-4000-8000-000000000001','b1100000-0000-4000-8000-000000000009'),999::numeric,'retry does not consume packaging twice');
 
 select * from finish();
