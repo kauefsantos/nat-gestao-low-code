@@ -19,6 +19,14 @@ values ('a5000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-00000000
 insert into public.recipe_items(id,business_id,product_id,supply_id,quantity,unit)
 values ('a6000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','a5000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001',100,'g');
 
+-- Test-only grants are rolled back with this pgTAP transaction. Production keeps
+-- private helpers inaccessible to authenticated users.
+grant usage on schema private to authenticated;
+grant execute on function private.inventory_balance(uuid,text,uuid) to authenticated;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"a2000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
+
 select is(
   (select ((public.get_supply_purchase_snapshot('a1000000-0000-4000-8000-000000000001','2026-09-01'::date)->'latest'->0->>'purchaseId')::uuid)),
   'a4000000-0000-4000-8000-000000000001'::uuid,
@@ -29,15 +37,6 @@ select is(
   '2026-09-13'::date,
   'purchase movement keeps the business purchase date'
 );
-
--- Test-only grants are rolled back with this pgTAP transaction. Production keeps
--- private helpers inaccessible to authenticated users.
-grant usage on schema private to authenticated;
-grant execute on function private.inventory_balance(uuid,text,uuid) to authenticated;
-
-set local role authenticated;
-select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000001',true);
-select set_config('request.jwt.claims','{"sub":"a2000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
 
 select lives_ok(
   format(
@@ -139,16 +138,13 @@ select throws_ok(
   '22023','Para aumentar produto acabado, registre produção para que os ingredientes sejam descontados.',
   'direct positive finished-product adjustment cannot bypass recipe consumption'
 );
-
 select is((public.set_product_stock_v2('a1000000-0000-4000-8000-000000000001','a8000000-0000-4000-8000-000000000002','a5000000-0000-4000-8000-000000000001',20,0,'2026-09-16 13:00:00+00',null)->>'action'),'production','raising tracked product stock uses production');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','supply','a3000000-0000-4000-8000-000000000001'),70::numeric,'raising finished stock consumes the recipe exactly once');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','product','a5000000-0000-4000-8000-000000000001'),20::numeric,'atomic target reaches the requested finished-product stock');
-
 select lives_ok($sql$
   select public.set_product_stock_v2('a1000000-0000-4000-8000-000000000001','a8000000-0000-4000-8000-000000000002','a5000000-0000-4000-8000-000000000001',20,0,'2026-09-16 13:00:00+00',null)
 $sql$,'retrying the same target request is idempotent');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','supply','a3000000-0000-4000-8000-000000000001'),70::numeric,'idempotent retry does not consume ingredients twice');
-
 select is((public.set_product_stock_v2('a1000000-0000-4000-8000-000000000001','a8000000-0000-4000-8000-000000000003','a5000000-0000-4000-8000-000000000001',15,0,'2026-09-16 14:00:00+00','Ajuste de conferência')->>'action'),'adjustment','reducing finished stock remains an explicit adjustment');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','product','a5000000-0000-4000-8000-000000000001'),15::numeric,'downward target reaches the requested product balance');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','supply','a3000000-0000-4000-8000-000000000001'),70::numeric,'reducing finished stock does not alter ingredient stock');
