@@ -7,21 +7,23 @@ declare
   v_sale_id uuid;v_units numeric;v_pack_cost numeric;v_sold_at timestamptz;v_updated text;v_already_applied boolean;
 begin
   if not private.is_business_member(p_business_id) then raise exception 'Acesso negado.' using errcode='42501';end if;
+
+  -- O v4 valida margem antes de chegar ao mecanismo idempotente do v2. Em um
+  -- retry isso recalcularia custo contra um estoque que já foi consumido. Se o
+  -- request_id já existe, delegamos diretamente ao v3: ele chama o v2 primeiro,
+  -- compara o hash do payload e ou devolve o estado atual (mesmo payload) ou
+  -- rejeita com conflito (payload diferente), sem repetir venda/estoque/embalagem.
+  if exists (
+    select 1 from public.mutation_requests
+    where business_id=p_business_id and request_id=p_request_id
+  ) then
+    return public.apply_nat_transition_v3(p_business_id,p_request_id,p_operations);
+  end if;
+
   for v_op in select value from jsonb_array_elements(p_operations) loop
     if v_op->>'type'<>'create_sale' then continue;end if;
     v_payload:=coalesce(v_op->'payload','{}'::jsonb);
     if coalesce(v_payload->>'transactionType','sale')<>'sale' then continue;end if;
-
-    -- Retry do mesmo request não deve recalcular custo depois que a venda já foi
-    -- concluída e a embalagem consumida. O v4, chamado abaixo, continua sendo a
-    -- autoridade para detectar request_id reutilizado com payload diferente.
-    v_sale_id:=nullif(v_payload->>'id','')::uuid;
-    if v_sale_id is not null then
-      select packaging_format is not null into v_already_applied
-      from public.sales
-      where business_id=p_business_id and id=v_sale_id;
-      if coalesce(v_already_applied,false) then continue;end if;
-    end if;
 
     v_quote:=public.quote_sale_v2(
       p_business_id,
