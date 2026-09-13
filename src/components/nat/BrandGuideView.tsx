@@ -1,6 +1,5 @@
 import { Camera, ChevronDown, ChevronUp, Heart, Instagram, MessageCircle, PackageCheck, Palette, Shapes, Type } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { ContentStudio } from "@/components/nat/ContentStudio";
 
 const colors=[
   {name:"Chocolate NAT",hex:"#35150A",use:"Base / premium"},
@@ -33,8 +32,6 @@ function CollapsiblePanel({title,text,icon,children,dark=false,eyebrow}:PanelPro
 export function BrandGuideView(){
   return <section className="space-y-5">
     <div><p className="eyebrow">Manual rápido da marca</p><h1 className="mt-2 font-display text-4xl sm:text-5xl">Identidade visual</h1><p className="mt-2 max-w-3xl text-caramel">Consulta prática para manter posts, embalagens, fotos, cardápios e materiais da NAT coerentes com a identidade da marca.</p></div>
-
-    <ContentStudio/>
 
     <CollapsiblePanel dark eyebrow="Essência da NAT" title="Afetiva, elegante e artesanal" text="Feita para transformar doces em presentes, lembranças e momentos.">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
