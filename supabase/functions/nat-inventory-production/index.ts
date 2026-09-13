@@ -44,7 +44,7 @@ Deno.serve(async(req)=>{
     }
     if(!Number.isFinite(unitsProduced)||unitsProduced<=0||!Number.isFinite(batches)||batches<=0)return json(400,{error:"INVALID_INPUT",message:"Informe uma quantidade produzida maior que zero."},cors);
     const result=await client.rpc("record_inventory_production_v2" as never,{p_business_id:businessId,p_request_id:requestId,p_product_id:productId,p_batches:batches,p_produced_at:producedAt,p_note:note} as never);
-    if(result.error){const status=/estoque insuficiente/i.test(result.error.message)?409:/receita|saldo inicial|unidade/i.test(result.error.message)?422:400;return json(status,{error:"PRODUCTION_REJECTED",message:result.error.message,requestId},cors);}
+    if(result.error){const insufficientStock=/estoque insuficiente/i.test(result.error.message);const status=insufficientStock?409:/receita|saldo inicial|unidade/i.test(result.error.message)?422:400;return json(status,{error:"PRODUCTION_REJECTED",...(insufficientStock?{reason:"INSUFFICIENT_STOCK"}:{}),message:result.error.message,requestId},cors);}
     if(mode==="set_product_stock"&&targetQuantity!==null){const balance=await client.rpc("set_inventory_balance" as never,{p_business_id:businessId,p_item_kind:"product",p_item_id:productId,p_quantity:targetQuantity,p_minimum_quantity:minimumQuantity,p_note:note} as never);if(balance.error)throw balance.error;}
     return json(200,{ok:true,requestId,productionId:result.data,productId,productName:product.data.name,unitsProduced,batches,targetQuantity,mode},cors);
   }catch(error){console.error("nat-inventory-production",error instanceof Error?error.message:"unknown");return json(500,{error:"INTERNAL_ERROR"},cors);}
