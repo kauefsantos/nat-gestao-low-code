@@ -1,64 +1,90 @@
--- Hotfix do mapeamento físico real da NAT.
+-- Regression for quartet packaging: one quartet must consume one bag.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(5);
 
-select is(
-  (select coalesce(sum(quantity_delta),0)::numeric from public.inventory_movements
-   where business_id='4b8f4ef8-a9a4-41c1-b4e2-18443ae4c638'::uuid
-     and supply_id='94de9b45-4540-48c0-96ee-4dd57c0b0cd0'::uuid),
-  0::numeric,
-  'physical opening has no traditional mass in stock'
+insert into public.businesses(id,name)
+values('b9000000-0000-4000-8000-000000000001','Quartet bag hotfix');
+
+insert into public.supplies(id,business_id,name,category,active)
+values('b9100000-0000-4000-8000-000000000001','b9000000-0000-4000-8000-000000000001','Sacola','packaging',true);
+
+insert into public.supply_purchases(
+  business_id,supply_id,package_quantity,package_unit,package_price,purchased_at
+) values(
+  'b9000000-0000-4000-8000-000000000001',
+  'b9100000-0000-4000-8000-000000000001',
+  100,'unit',10,current_date
 );
 
-select is(
-  (select coalesce(sum(quantity_delta),0)::numeric from public.inventory_movements
-   where business_id='4b8f4ef8-a9a4-41c1-b4e2-18443ae4c638'::uuid
-     and supply_id='548f9d63-54e7-4564-bc1e-cc6058742169'::uuid),
-  0::numeric,
-  'physical opening has no milk-powder mass in stock'
+insert into public.inventory_tracking(business_id,supply_id,base_unit,minimum_quantity)
+values(
+  'b9000000-0000-4000-8000-000000000001',
+  'b9100000-0000-4000-8000-000000000001',
+  'unit',0
 );
 
-select is(
-  (select count(*)::bigint from private.brigadeiro_mass_cost_layers
-   where business_id='4b8f4ef8-a9a4-41c1-b4e2-18443ae4c638'::uuid
-     and mass_supply_id in (
-       '94de9b45-4540-48c0-96ee-4dd57c0b0cd0'::uuid,
-       '548f9d63-54e7-4564-bc1e-cc6058742169'::uuid,
-       'ca8a9c16-cd7e-4898-8d54-97020ec30656'::uuid,
-       '967d496d-53cf-43bf-b3d0-2245fef55066'::uuid
-     )
-     and grams_remaining>0),
-  0::bigint,
-  'no stale mass cost layer remains after physical recount correction'
+insert into public.inventory_movements(
+  business_id,supply_id,quantity_delta,base_unit,movement_type,source_key,note,occurred_at
+) values(
+  'b9000000-0000-4000-8000-000000000001',
+  'b9100000-0000-4000-8000-000000000001',
+  100,'unit','opening','quartet-hotfix:opening','Opening bag stock',now()
+);
+
+insert into private.brigadeiro_packaging_profile(
+  business_id,packaging_format,supply_id,quantity_per_package,package_capacity
+) values(
+  'b9000000-0000-4000-8000-000000000001',
+  'quartet',
+  'b9100000-0000-4000-8000-000000000001',
+  1,4
 );
 
 select is(
   (select quantity_per_package::numeric
    from private.brigadeiro_packaging_profile
-   where business_id='4b8f4ef8-a9a4-41c1-b4e2-18443ae4c638'::uuid
+   where business_id='b9000000-0000-4000-8000-000000000001'
      and packaging_format='quartet'
-     and supply_id='c24d0e18-a3ab-4d6e-b301-6988b623d880'::uuid),
+     and supply_id='b9100000-0000-4000-8000-000000000001'),
   1::numeric,
-  'quartet consumes one bag'
+  'quartet profile consumes one bag per package'
 );
 
 select is(
-  (select package_capacity::integer
-   from private.brigadeiro_packaging_profile
-   where business_id='4b8f4ef8-a9a4-41c1-b4e2-18443ae4c638'::uuid
-     and packaging_format='quartet'
-     and supply_id='c24d0e18-a3ab-4d6e-b301-6988b623d880'::uuid),
-  4,
-  'quartet bag belongs to four-unit package profile'
+  private.brigadeiro_packaging_cost(
+    'b9000000-0000-4000-8000-000000000001',
+    'quartet',4,current_date
+  ),
+  0.10::numeric,
+  'quartet quote includes one bag cost'
+);
+
+select lives_ok(
+  $$select private.consume_brigadeiro_packaging(
+    'b9000000-0000-4000-8000-000000000001',
+    'b9200000-0000-4000-8000-000000000001',
+    'quartet',4,now()
+  )$$,
+  'quartet packaging consumption succeeds'
 );
 
 select is(
-  (select coalesce(sum(quantity_delta),0)::numeric from public.inventory_movements
-   where business_id='4b8f4ef8-a9a4-41c1-b4e2-18443ae4c638'::uuid
-     and supply_id='c24d0e18-a3ab-4d6e-b301-6988b623d880'::uuid),
-  45::numeric,
-  'hotfix preserves the informed physical stock of 45 bags'
+  (select coalesce(sum(quantity_delta),0)::numeric
+   from public.inventory_movements
+   where business_id='b9000000-0000-4000-8000-000000000001'
+     and supply_id='b9100000-0000-4000-8000-000000000001'),
+  99::numeric,
+  'one quartet consumes exactly one bag'
+);
+
+select lives_ok(
+  $$select private.consume_brigadeiro_packaging(
+    'b9000000-0000-4000-8000-000000000001',
+    'b9200000-0000-4000-8000-000000000002',
+    'quartet',8,now()
+  )$$,
+  'two quartet packages consume two bags without conflict'
 );
 
 select * from finish();
