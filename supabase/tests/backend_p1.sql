@@ -8,11 +8,11 @@ select has_column('public','sales','status','sales keep lifecycle status');
 select has_column('public','sales','cancelled_at','sales keep cancellation timestamp');
 select ok(
   (select p.prosecdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='save_sale_items'),
-  'multi-item sale RPC is SECURITY DEFINER'
+  'multi-item sale implementation remains SECURITY DEFINER'
 );
 select ok(
   (select p.prosecdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='cancel_sale'),
-  'cancel RPC is SECURITY DEFINER'
+  'cancel implementation remains SECURITY DEFINER'
 );
 select ok(not has_function_privilege('authenticated','private.dispatch_nat_push_slot(smallint)','execute'),'authenticated cannot invoke push scheduler helper');
 
@@ -35,14 +35,26 @@ select set_config('request.jwt.claim.sub','55555555-5555-4555-8555-555555555555'
 select set_config('request.jwt.claims','{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated","aal":"aal2"}',true);
 
 select lives_ok(
-  $$select public.save_sale_items('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-0000-4000-8000-000000000010','[{"productId":"eeeeeeee-0000-4000-8000-000000000002","quantity":2},{"productId":"eeeeeeee-0000-4000-8000-000000000003","quantity":3}]'::jsonb,30,'pix','2026-09-10 15:00:00-03')$$,
-  'one sale can contain multiple products'
+  $$select public.apply_nat_transition_v4(
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    'eeeeeeee-1000-4000-8000-000000000001',
+    '[{"type":"create_sale","payload":{"id":"eeeeeeee-0000-4000-8000-000000000010","items":[{"productId":"eeeeeeee-0000-4000-8000-000000000002","quantity":2},{"productId":"eeeeeeee-0000-4000-8000-000000000003","quantity":3}],"totalReceived":30,"saleValue":30,"paymentStatus":"paid","paymentMethod":"pix","soldAt":"2026-09-10T15:00:00-03:00","transactionType":"sale","saleChannel":"other","deliveryCost":0,"discountReason":null,"belowCostOverride":false,"marginOverride":false}}]'::jsonb
+  )$$,
+  'one sale can contain multiple products through current transition'
 );
 select is((select count(*)::bigint from public.sale_items where sale_id='eeeeeeee-0000-4000-8000-000000000010'),2::bigint,'multi-product order stores two sale lines');
 select is((select round(contribution_snapshot,2) from public.sales where id='eeeeeeee-0000-4000-8000-000000000010'),25.90::numeric,'order contribution is calculated from every line plus payment fee');
 select lives_ok(
-  $$select public.cancel_sale('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eeeeeeee-0000-4000-8000-000000000010','Cliente desistiu')$$,
-  'sale can be cancelled without deletion'
+  $$select public.apply_nat_transition_v4(
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    'eeeeeeee-1000-4000-8000-000000000002',
+    jsonb_build_array(jsonb_build_object(
+      'type','cancel_sale',
+      'expectedUpdatedAt',(select updated_at::text from public.sales where id='eeeeeeee-0000-4000-8000-000000000010'),
+      'payload',jsonb_build_object('id','eeeeeeee-0000-4000-8000-000000000010','reason','Cliente desistiu')
+    ))
+  )$$,
+  'sale can be cancelled without deletion through current transition'
 );
 select is((select status from public.sales where id='eeeeeeee-0000-4000-8000-000000000010'),'cancelled'::text,'cancelled sale remains in history');
 select is((select count(*)::bigint from public.sale_items where sale_id='eeeeeeee-0000-4000-8000-000000000010'),2::bigint,'cancellation preserves sale item history');
