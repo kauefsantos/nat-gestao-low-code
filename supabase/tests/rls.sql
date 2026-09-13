@@ -68,7 +68,7 @@ select throws_ok(
   '42501', null, 'cross-tenant/direct move is blocked'
 );
 select throws_ok(
-  $$select public.delete_supply('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-0000-4000-8000-000000000001')$$,
+  $$select public.apply_nat_transition_v4('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-1000-4000-8000-000000000001',jsonb_build_array(jsonb_build_object('type','delete_supply','expectedUpdatedAt',(select updated_at::text from public.supplies where id='aaaaaaaa-0000-4000-8000-000000000001'),'payload',jsonb_build_object('id','aaaaaaaa-0000-4000-8000-000000000001'))))$$,
   '23503', null, 'ingredient used by active recipe cannot be archived'
 );
 select throws_ok(
@@ -76,16 +76,16 @@ select throws_ok(
   '23514', null, 'sole admin cannot be demoted'
 );
 select lives_ok(
-  $$select public.save_supply('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-0000-4000-8000-000000000020','Farinha','ingredient',1000,'g',8,current_date)$$,
-  'validated supply RPC remains usable'
+  $$select public.apply_nat_transition_v4('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-1000-4000-8000-000000000002','[{"type":"save_supply","payload":{"id":"aaaaaaaa-0000-4000-8000-000000000020","name":"Farinha","category":"ingredient","packageQuantity":1000,"packageUnit":"g","packagePrice":8,"purchasedAt":"2026-09-13"}}]'::jsonb)$$,
+  'validated supply write remains usable through current transition'
 );
 select lives_ok(
-  $$select public.save_product('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-0000-4000-8000-000000000021','Teste CSV',10,4,0,0,35,50,'[{"id":"aaaaaaaa-0000-4000-8000-000000000022","supplyId":"aaaaaaaa-0000-4000-8000-000000000020","quantity":100,"unit":"g"}]'::jsonb,null)$$,
-  'validated product RPC remains usable'
+  $$select public.apply_nat_transition_v4('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-1000-4000-8000-000000000003','[{"type":"save_product","payload":{"id":"aaaaaaaa-0000-4000-8000-000000000021","name":"Teste CSV","batchYield":10,"sellingPrice":4,"lossPercent":0,"laborCostPerBatch":0,"productionCostPerBatch":0,"minimumMarginPercent":35,"targetMarginPercent":50,"recipe":[{"id":"aaaaaaaa-0000-4000-8000-000000000022","supplyId":"aaaaaaaa-0000-4000-8000-000000000020","quantity":100,"unit":"g"}],"portfolioKey":null}}]'::jsonb)$$,
+  'validated product write remains usable through current transition'
 );
 select lives_ok(
-  $$select public.save_sale_items('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-0000-4000-8000-000000000010','[{"productId":"aaaaaaaa-0000-4000-8000-000000000002","quantity":2}]'::jsonb,10,'pix',now())$$,
-  'server-authoritative order can be created'
+  $$select public.apply_nat_transition_v4('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-1000-4000-8000-000000000004',jsonb_build_array(jsonb_build_object('type','create_sale','payload',jsonb_build_object('id','aaaaaaaa-0000-4000-8000-000000000010','items','[{"productId":"aaaaaaaa-0000-4000-8000-000000000002","quantity":2}]'::jsonb,'totalReceived',10,'saleValue',10,'paymentStatus','paid','paymentMethod','pix','soldAt',now()::text,'transactionType','sale','saleChannel','other','deliveryCost',0,'belowCostOverride',false,'marginOverride',false))))$$,
+  'server-authoritative order can be created through current transition'
 );
 select is(
   (select round(si.unit_cost_snapshot,2) from public.sale_items si where sale_id='aaaaaaaa-0000-4000-8000-000000000010'),
@@ -98,8 +98,8 @@ select is(
   'server computes contribution snapshot (R$ 8.70)'
 );
 select lives_ok(
-  $$select public.save_sporadic_expense('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-0000-4000-8000-000000000030','Forma para airfryer',50,current_date)$$,
-  'sporadic expense RPC remains usable'
+  $$select public.apply_nat_transition_v4('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-1000-4000-8000-000000000005',jsonb_build_array(jsonb_build_object('type','save_sporadic_expense','payload',jsonb_build_object('id','aaaaaaaa-0000-4000-8000-000000000030','name','Forma para airfryer','amount',50,'spentAt',current_date::text,'fundingSource','owner'))))$$,
+  'sporadic expense remains usable through current transition'
 );
 select lives_ok(
   $$select public.configure_content_ai('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',repeat('x',32))$$,
