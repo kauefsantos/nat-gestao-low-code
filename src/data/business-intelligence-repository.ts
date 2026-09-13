@@ -24,7 +24,8 @@ function parseCustomer(value:unknown):BiCustomer{const row=record(value);return{
 function parseCohort(value:unknown):BiCohort{const row=record(value);return{cohort:String(row.cohort??""),customers:numberValue(row.customers),repurchased:numberValue(row.repurchased),repurchaseRate:numberValue(row.repurchaseRate)};}
 function parsePair(value:unknown):BiPair{const row=record(value);return{a:String(row.a??""),b:String(row.b??""),count:numberValue(row.count)};}
 
-export async function loadBusinessIntelligenceSnapshot(businessId:string):Promise<BusinessIntelligenceSnapshot>{
+const cache=new Map<string,Promise<BusinessIntelligenceSnapshot>>();
+async function fetchSnapshot(businessId:string):Promise<BusinessIntelligenceSnapshot>{
   const result=await supabase.rpc("get_business_intelligence_snapshot_v1" as never,{p_business_id:businessId} as never);
   if(result.error)throw new Error(`Não foi possível carregar a inteligência completa: ${result.error.message}`);
   const root=record(result.data);const readiness=record(root.readiness);const overview=record(root.overview);const second=record(root.secondPurchase);const promotions=record(root.promotions);
@@ -36,3 +37,9 @@ export async function loadBusinessIntelligenceSnapshot(businessId:string):Promis
     promotions:{discountedOrders:numberValue(promotions.discountedOrders),discountValue:numberValue(promotions.discountValue),contribution:numberValue(promotions.contribution)},
   };
 }
+export function loadBusinessIntelligenceSnapshot(businessId:string,{refresh=false}:{refresh?:boolean}={}):Promise<BusinessIntelligenceSnapshot>{
+  if(refresh)cache.delete(businessId);
+  const existing=cache.get(businessId);if(existing)return existing;
+  const request=fetchSnapshot(businessId).catch((error)=>{cache.delete(businessId);throw error;});cache.set(businessId,request);return request;
+}
+export function invalidateBusinessIntelligenceSnapshot(businessId:string){cache.delete(businessId);}
