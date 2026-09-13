@@ -5,6 +5,10 @@ begin;
 -- produced_at out of the idempotency hash lets a transport retry reuse the stored
 -- result without consuming the recipe again. Explicit production keeps its separate
 -- request contract and timestamp semantics.
+--
+-- The initial physical count is also timestamped and costed at p_produced_at instead
+-- of current_date/now(), so historical reconciliation is deterministic and uses the
+-- purchase history that actually existed on the informed business date.
 create or replace function public.set_product_stock_v2(
   p_business_id uuid,
   p_request_id uuid,
@@ -22,6 +26,7 @@ declare
   v_hash text;v_inserted integer;v_operation text;v_existing_hash text;v_result jsonb;
   v_product public.products%rowtype;v_tracking public.inventory_tracking%rowtype;
   v_previous numeric;v_final numeric;v_delta numeric;v_batches numeric;v_production_id uuid;v_first boolean:=false;
+  v_movement_id uuid;v_unit_cost numeric;v_unit_labor numeric;
 begin
   if not private.is_business_member(p_business_id) then raise exception 'Acesso negado.' using errcode='42501'; end if;
   if p_request_id is null or p_product_id is null or p_target_quantity is null or p_target_quantity<0
@@ -63,9 +68,35 @@ begin
   for update;
   if not found then
     v_first:=true;
-    perform public.set_inventory_balance(p_business_id,'product',p_product_id,p_target_quantity,p_minimum_quantity,coalesce(p_note,'Saldo inicial informado'));
     v_previous:=0;
     v_delta:=0;
+    insert into public.inventory_tracking(business_id,product_id,base_unit,minimum_quantity)
+    values(p_business_id,p_product_id,'unit',p_minimum_quantity);
+
+    if p_target_quantity<>0 then
+      v_movement_id:=gen_random_uuid();
+      insert into public.inventory_movements(
+        id,business_id,product_id,quantity_delta,base_unit,movement_type,note,occurred_at,created_by
+      ) values(
+        v_movement_id,p_business_id,p_product_id,p_target_quantity,'unit','opening',
+        nullif(left(btrim(coalesce(p_note,'Saldo inicial informado')),500),''),p_produced_at,auth.uid()
+      );
+
+      v_unit_cost:=private.product_production_unit_cost_at_date(
+        p_business_id,p_product_id,(p_produced_at at time zone 'America/Sao_Paulo')::date
+      );
+      select labor_cost_per_batch/nullif(batch_yield,0)
+      into v_unit_labor
+      from public.products
+      where business_id=p_business_id and id=p_product_id;
+      insert into public.inventory_product_cost_layers(
+        business_id,product_id,production_id,source_key,units_original,units_remaining,
+        unit_cost_snapshot,labor_unit_snapshot,produced_at
+      ) values(
+        p_business_id,p_product_id,null,'balance:'||v_movement_id::text,p_target_quantity,p_target_quantity,
+        v_unit_cost,coalesce(v_unit_labor,0),p_produced_at
+      );
+    end if;
   else
     v_previous:=private.inventory_balance(p_business_id,'product',p_product_id);
     v_delta:=p_target_quantity-v_previous;
