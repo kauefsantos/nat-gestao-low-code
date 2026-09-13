@@ -98,3 +98,17 @@ test("UX: scrollbar lateral é delicada, sem fundo e sem setas",()=>{
   assert.match(css,/::-webkit-scrollbar-thumb\s*\{[^}]*border-radius:999px/s);
   assert.match(css,/::-webkit-scrollbar-button\s*\{[^}]*display:none[^}]*width:0[^}]*height:0/s);
 });
+
+test("UX: identidade visual usa uma coluna, ícones compactos e hierarquia regular",()=>{
+  const source=read("src/components/nat/BrandGuideView.tsx");
+  const css=read("src/styles.css");
+  assert.doesNotMatch(source,/lg:grid-cols-2/);
+  assert.match(source,/brand-guide-panel-header/);
+  assert.match(source,/brand-guide-panel-description/);
+  assert.match(css,/\.brand-guide-panel-header[^}]*display:flex/s);
+  assert.match(css,/\.brand-guide-panel-icon[^}]*width:28px[^}]*height:28px/s);
+  assert.match(css,/\.brand-guide-panel-icon svg[^}]*width:11px[^}]*height:11px/s);
+  assert.match(css,/\.brand-guide-panel-title[^}]*font-size:clamp\(1\.35rem,1\.25rem \+ \.35vw,1\.65rem\)/s);
+  assert.match(css,/\.brand-guide-panel-description[^}]*text-align:justify/s);
+  assert.match(css,/\.brand-guide-panel-toggle[^}]*min-height:34px[^}]*font-size:12px/s);
+});
