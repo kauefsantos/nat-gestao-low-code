@@ -38,7 +38,7 @@ select lives_ok(
   $$select public.apply_nat_transition_v4(
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
     'eeeeeeee-1000-4000-8000-000000000001',
-    '[{"type":"create_sale","payload":{"id":"eeeeeeee-0000-4000-8000-000000000010","items":[{"productId":"eeeeeeee-0000-4000-8000-000000000002","quantity":2},{"productId":"eeeeeeee-0000-4000-8000-000000000003","quantity":3}],"totalReceived":30,"saleValue":30,"paymentStatus":"paid","paymentMethod":"pix","soldAt":"2026-09-10T15:00:00-03:00","transactionType":"sale","saleChannel":"other","deliveryCost":0,"discountReason":null,"belowCostOverride":false,"marginOverride":false}}]'::jsonb
+    '[{"type":"create_sale","payload":{"id":"eeeeeeee-0000-4000-8000-000000000010","items":[{"productId":"eeeeeeee-0000-4000-8000-000000000002","quantity":2},{"productId":"eeeeeeee-0000-4000-8000-000000000003","quantity":3}],"totalReceived":30,"saleValue":30,"paymentStatus":"paid","paymentMethod":"pix","soldAt":"2026-09-10T15:00:00-03:00","transactionType":"sale","saleChannel":"other","deliveryCost":0,"discountReason":"Desconto de teste multi-item","belowCostOverride":false,"marginOverride":false}}]'::jsonb
   )$$,
   'one sale can contain multiple products through current transition'
 );
