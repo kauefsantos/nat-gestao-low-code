@@ -24,7 +24,10 @@ function parseCustomer(value:unknown):BiCustomer{const row=record(value);return{
 function parseCohort(value:unknown):BiCohort{const row=record(value);return{cohort:String(row.cohort??""),customers:numberValue(row.customers),repurchased:numberValue(row.repurchased),repurchaseRate:numberValue(row.repurchaseRate)};}
 function parsePair(value:unknown):BiPair{const row=record(value);return{a:String(row.a??""),b:String(row.b??""),count:numberValue(row.count)};}
 
-const cache=new Map<string,Promise<BusinessIntelligenceSnapshot>>();
+// Only concurrent consumers share a request. Once it settles the entry disappears, so
+// a new sale, settlement, customer edit or product-price change can never be masked by
+// a long-lived browser cache.
+const inFlight=new Map<string,Promise<BusinessIntelligenceSnapshot>>();
 async function fetchSnapshot(businessId:string):Promise<BusinessIntelligenceSnapshot>{
   const result=await supabase.rpc("get_business_intelligence_snapshot_v1" as never,{p_business_id:businessId} as never);
   if(result.error)throw new Error(`Não foi possível carregar a inteligência completa: ${result.error.message}`);
@@ -38,8 +41,8 @@ async function fetchSnapshot(businessId:string):Promise<BusinessIntelligenceSnap
   };
 }
 export function loadBusinessIntelligenceSnapshot(businessId:string,{refresh=false}:{refresh?:boolean}={}):Promise<BusinessIntelligenceSnapshot>{
-  if(refresh)cache.delete(businessId);
-  const existing=cache.get(businessId);if(existing)return existing;
-  const request=fetchSnapshot(businessId).catch((error)=>{cache.delete(businessId);throw error;});cache.set(businessId,request);return request;
+  if(refresh)inFlight.delete(businessId);
+  const existing=inFlight.get(businessId);if(existing)return existing;
+  const request=fetchSnapshot(businessId).finally(()=>{if(inFlight.get(businessId)===request)inFlight.delete(businessId);});inFlight.set(businessId,request);return request;
 }
-export function invalidateBusinessIntelligenceSnapshot(businessId:string){cache.delete(businessId);}
+export function invalidateBusinessIntelligenceSnapshot(businessId:string){inFlight.delete(businessId);}
