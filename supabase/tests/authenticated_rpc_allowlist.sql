@@ -21,6 +21,7 @@ select is(
     'delete_push_subscription',
     'disconnect_content_ai',
     'erase_customer_privacy_v1',
+    'get_analysis_supply_groups_v1',
     'get_business_intelligence_drilldown_v1',
     'get_business_intelligence_snapshot_v1',
     'get_business_intelligence_snapshot_v2',
