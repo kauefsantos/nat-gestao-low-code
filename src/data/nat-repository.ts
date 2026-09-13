@@ -33,7 +33,7 @@ export async function persistNatTransition(businessId:string,previous:NatState,n
   const previousSupplies=new Map(previous.supplies.map((item)=>[item.id,item]));const nextSupplies=new Map(next.supplies.map((item)=>[item.id,item]));
   for(const supply of previous.supplies)if(!nextSupplies.has(supply.id))operations.push({type:"delete_supply",expectedUpdatedAt:versions.supplies[supply.id]??null,payload:{id:supply.id}});
   const previousExpenses=new Map(previous.expenses.map((item)=>[item.id,item]));const nextExpenses=new Map(next.expenses.map((item)=>[item.id,item]));
-  for(const expense of previous.expenses)if(!nextExpenses.has(expense.id))operations.push({type:"delete_sporadic_expense",expectedUpdatedAt:versions.expenses[supply.id]??null,payload:{id:expense.id}});
+  for(const expense of previous.expenses)if(!nextExpenses.has(expense.id))operations.push({type:"delete_sporadic_expense",expectedUpdatedAt:versions.expenses[expense.id]??null,payload:{id:expense.id}});
   const previousCustomers=new Map((previous.customers??[]).map((item)=>[item.id,item]));
   const previousOwnerCash=new Map((previous.ownerCashMovements??[]).map((item)=>[item.id,item]));const nextOwnerCash=new Map((next.ownerCashMovements??[]).map((item)=>[item.id,item]));
   for(const movement of previous.ownerCashMovements??[])if(!nextOwnerCash.has(movement.id))operations.push({type:"delete_owner_cash_movement",expectedUpdatedAt:null,payload:{id:movement.id}});
