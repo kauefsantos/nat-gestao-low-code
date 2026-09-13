@@ -69,6 +69,18 @@ article.opacity-55,article.opacity-70 { opacity:1!important; }
 .nat-input[aria-invalid="true"] { border-color:#B91C1C; box-shadow:0 0 0 2px rgba(185,28,28,.12); }
 .a11y-error { border:1px solid #FCA5A5; background:#FEF2F2; color:#991B1B; border-radius:12px; padding:12px; font-size:14px; line-height:1.5; }
 
+.brand-guide-panel { width:100%; }
+.brand-guide-panel-header { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:14px 18px; }
+.brand-guide-panel-lead { display:flex; min-width:0; flex:1 1 420px; align-items:flex-start; gap:10px; }
+.brand-guide-panel-icon { display:grid; width:28px; height:28px; flex:0 0 28px; place-items:center; border-radius:999px; margin-top:1px; }
+.brand-guide-panel-icon svg { width:11px; height:11px; stroke-width:2; }
+.brand-guide-panel-copy { display:flex; min-width:0; flex:1 1 auto; flex-direction:column; gap:3px; }
+.brand-guide-panel-title { margin:0; font-family:"GFS Didot", Georgia, serif; font-size:clamp(1.35rem,1.25rem + .35vw,1.65rem); font-weight:400; line-height:1.12; }
+.brand-guide-panel-description { max-width:78ch; margin:0; font-size:14px; line-height:1.65; text-align:justify; text-justify:inter-word; }
+.brand-guide-panel-toggle { display:inline-flex; min-height:34px; flex:0 0 auto; align-items:center; justify-content:center; gap:6px; border:1px solid rgba(122,73,57,.28); border-radius:12px; background:rgba(255,255,255,.28); color:#55281B; padding:0 11px; font-size:12px; font-weight:700; transition:.18s ease; -webkit-tap-highlight-color:transparent; }
+.brand-guide-panel-toggle-dark { border-color:rgba(255,255,255,.22); background:rgba(255,255,255,.06); color:white; }
+.brand-guide-panel-body p,.brand-guide-panel-body li { text-align:justify; text-justify:inter-word; }
+
 @media (pointer:coarse){
   .nat-input{font-size:16px;}
   button,summary{min-height:44px;}
@@ -79,6 +91,8 @@ article.opacity-55,article.opacity-70 { opacity:1!important; }
   .secondary-button:hover { border-color:#55281B; background:#FFF9F6; }
   .icon-button:hover { background:#F2C5B5; }
   .side-button:hover { background:#FFF9F6; color:#35150A; box-shadow:0 5px 16px rgba(53,21,10,.04); }
+  .brand-guide-panel-toggle:hover { border-color:rgba(122,73,57,.42); background:rgba(255,249,246,.72); }
+  .brand-guide-panel-toggle-dark:hover { border-color:rgba(255,255,255,.34); background:rgba(255,255,255,.12); }
 }
 @media (min-width:1024px){
   aside > nav[aria-label="Navegação principal"] {
