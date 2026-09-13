@@ -37,9 +37,9 @@ function parseOrigin(value:unknown):BiOrigin{const row=record(value);return{sour
 
 const inFlight=new Map<string,Promise<BusinessIntelligenceSnapshot>>();
 async function fetchSnapshot(businessId:string):Promise<BusinessIntelligenceSnapshot>{
-  const result=await rpcUntyped("get_business_intelligence_snapshot_v2",{p_business_id:businessId});
+  const result=await supabase.functions.invoke("nat-analysis-insights",{body:{businessId,mode:"snapshot"}});
   if(result.error)throw new Error(`Não foi possível carregar a inteligência completa: ${result.error.message}`);
-  const root=record(result.data);const readiness=record(root.readiness);const overview=record(root.overview);const second=record(root.secondPurchase);const promotions=record(root.promotions);const businessRoi=record(root.businessRoi);const context=record(root.metricContext);const ready=readiness.ready===true;
+  const payload=record(result.data);const root=record(payload.snapshot);const readiness=record(root.readiness);const overview=record(root.overview);const second=record(root.secondPurchase);const promotions=record(root.promotions);const businessRoi=record(root.businessRoi);const context=record(root.metricContext);const ready=readiness.ready===true;
   const customers=rows(root.customers).map(parseCustomer).map((customer)=>ready?customer:{...customer,rfmTotal:0,segment:"Base insuficiente" as const});
   return{
     readiness:{ready,salesCount:numberValue(readiness.salesCount),distinctSalesDays:numberValue(readiness.distinctSalesDays),minimumSales:numberValue(readiness.minimumSales)||10,minimumDays:numberValue(readiness.minimumDays)||7,missingSales:numberValue(readiness.missingSales),missingDays:numberValue(readiness.missingDays)},
