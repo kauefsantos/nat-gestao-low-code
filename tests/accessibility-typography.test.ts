@@ -112,3 +112,9 @@ test("UX: identidade visual usa uma coluna, ícones compactos e hierarquia regul
   assert.match(css,/\.brand-guide-panel-description[^}]*text-align:justify/s);
   assert.match(css,/\.brand-guide-panel-toggle[^}]*min-height:34px[^}]*font-size:12px/s);
 });
+
+test("UX: identidade visual não exibe criador de conteúdo",()=>{
+  const source=read("src/components/nat/BrandGuideView.tsx");
+  assert.doesNotMatch(source,/ContentStudio/);
+  assert.doesNotMatch(source,/Criar conteúdo|Monte seu conteúdo da NAT/);
+});
