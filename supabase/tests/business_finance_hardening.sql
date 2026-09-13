@@ -13,9 +13,11 @@ values ('c1111111-1111-4111-8111-111111111111','Finance test',0,0,0,0,10,20);
 insert into public.supplies(id,business_id,name,category,active) values
  ('c3333333-3333-4333-8333-333333333331','c1111111-1111-4111-8111-111111111111','Ingrediente','ingredient',true),
  ('c3333333-3333-4333-8333-333333333332','c1111111-1111-4111-8111-111111111111','Embalagem','packaging',true);
+-- Keep fixture purchases at or before the fixed sale date used below. Using current_date
+-- makes the regression test time-dependent once the CI date moves past 2026-09-12.
 insert into public.supply_purchases(id,business_id,supply_id,package_quantity,package_unit,package_price,purchased_at) values
- ('c4444444-4444-4444-8444-444444444441','c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333331',100,'g',10,current_date),
- ('c4444444-4444-4444-8444-444444444442','c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333332',10,'unit',5,current_date);
+ ('c4444444-4444-4444-8444-444444444441','c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333331',100,'g',10,date '2026-09-12'),
+ ('c4444444-4444-4444-8444-444444444442','c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333332',10,'unit',5,date '2026-09-12');
 insert into public.products(id,business_id,name,batch_yield,selling_price,loss_percent,labor_cost_per_batch,production_cost_per_batch,minimum_margin_percent,target_margin_percent,active,available)
 values ('c5555555-5555-4555-8555-555555555555','c1111111-1111-4111-8111-111111111111','Produto',10,6,10,20,10,10,20,true,true);
 insert into public.recipe_items(id,business_id,product_id,supply_id,quantity,unit) values
