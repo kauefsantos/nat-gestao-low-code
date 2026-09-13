@@ -30,5 +30,5 @@ test("Edge Function baixa o ingrediente proporcionalmente aos lotes",async({page
   await produce(page,2);
   await expect(card(page,"Ingrediente Edge E2E").getByText("700 g",{exact:true})).toBeVisible({timeout:30_000});
   await expect(card(page,"Produto Edge E2E").getByText("30 un",{exact:true})).toBeVisible({timeout:30_000});
-  await expect(page.getByText("Usado na produção",{exact:true})).toHaveCount(2);
+  await expect(page.getByText(/Usado na produção ·/)).toHaveCount(2);
 });
