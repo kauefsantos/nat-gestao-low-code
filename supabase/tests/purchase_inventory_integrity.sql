@@ -30,6 +30,11 @@ select is(
   'purchase movement keeps the business purchase date'
 );
 
+-- Test-only grants are rolled back with this pgTAP transaction. Production keeps
+-- private helpers inaccessible to authenticated users.
+grant usage on schema private to authenticated;
+grant execute on function private.inventory_balance(uuid,text,uuid) to authenticated;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"a2000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
