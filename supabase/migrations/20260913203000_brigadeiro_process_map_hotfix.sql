@@ -1,9 +1,5 @@
 begin;
 
-update private.nat_schema_release
-set version='2026-09-13.brigadeiro-production-flow.2', applied_at=now()
-where singleton=true;
-
 -- Correção do mapeamento físico informado em 13/09/2026:
 -- 1) o quarteto também utiliza uma sacola;
 -- 2) não existe saldo de massa pronta no momento da recontagem.
