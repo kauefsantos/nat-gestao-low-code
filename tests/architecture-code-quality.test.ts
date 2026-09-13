@@ -64,11 +64,12 @@ test("arquitetura: schema efetivo documenta drift do Lovable Cloud sem editar sn
   assert.match(client,/Lovable Cloud não está configurado/);
 });
 
-test("arquitetura: ROI usa fuso de negócio e oferece ajuda contextual",()=>{
+test("arquitetura: ROI usa fuso de negócio e explicação simples na interface",()=>{
   const roi=read("src/domain/roi.ts");
   const panel=read("src/components/nat/RoiOverview.tsx");
   assert.match(roi,/businessDate/);
   assert.doesNotMatch(roi,/getMonth\(/);
-  assert.match(panel,/symbol="i"/);
-  assert.match(panel,/Margem responde quanto da receita sobrou/);
+  assert.doesNotMatch(panel,/symbol="i"|HelpTip/);
+  assert.match(panel,/ROI mostra, de forma simples/);
+  assert.match(panel,/Total investido no mês/);
 });
