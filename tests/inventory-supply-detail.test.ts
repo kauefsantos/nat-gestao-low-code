@@ -6,8 +6,8 @@ const edge=readFileSync("supabase/functions/nat-inventory-production/index.ts","
 const migration=readFileSync("supabase/migrations/20260913021500_inventory_supply_detail.sql","utf8");
 
 test("edge function preserva contrato e identifica falta de estoque",()=>{
-  assert.match(edge,/error:\"PRODUCTION_REJECTED\"/);
-  assert.match(edge,/reason:\"INSUFFICIENT_STOCK\"/);
+  assert.match(edge,/error:"PRODUCTION_REJECTED"/);
+  assert.match(edge,/reason:"INSUFFICIENT_STOCK"/);
   assert.match(edge,/estoque insuficiente/i);
 });
 
