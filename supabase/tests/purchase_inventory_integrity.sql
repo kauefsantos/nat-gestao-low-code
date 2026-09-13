@@ -1,7 +1,7 @@
 -- Stage 3 regression: purchase correction, unit integrity, idempotency and product stock targets.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(29);
 
 insert into public.businesses(id,name) values ('a1000000-0000-4000-8000-000000000001','Purchase inventory integrity');
 insert into private.allowed_auth_emails(email,business_id,role) values ('purchase-integrity@example.invalid','a1000000-0000-4000-8000-000000000001','admin');
@@ -129,16 +129,24 @@ select throws_ok(
 
 select is((public.set_product_stock_v2('a1000000-0000-4000-8000-000000000001','a8000000-0000-4000-8000-000000000001','a5000000-0000-4000-8000-000000000001',10,0,'2026-09-16 12:00:00+00',null)->>'action'),'opening','first product balance is an opening, not synthetic production');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','supply','a3000000-0000-4000-8000-000000000001'),170::numeric,'opening finished stock does not consume current ingredients');
+select throws_ok(
+  $$select public.set_inventory_balance('a1000000-0000-4000-8000-000000000001','product','a5000000-0000-4000-8000-000000000001',20,0,null)$$,
+  '22023','Para aumentar produto acabado, registre produção para que os ingredientes sejam descontados.',
+  'direct positive finished-product adjustment cannot bypass recipe consumption'
+);
 
 select is((public.set_product_stock_v2('a1000000-0000-4000-8000-000000000001','a8000000-0000-4000-8000-000000000002','a5000000-0000-4000-8000-000000000001',20,0,'2026-09-16 13:00:00+00',null)->>'action'),'production','raising tracked product stock uses production');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','supply','a3000000-0000-4000-8000-000000000001'),70::numeric,'raising finished stock consumes the recipe exactly once');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','product','a5000000-0000-4000-8000-000000000001'),20::numeric,'atomic target reaches the requested finished-product stock');
 
--- Same request id is a retry, not a second production.
 select lives_ok($sql$
   select public.set_product_stock_v2('a1000000-0000-4000-8000-000000000001','a8000000-0000-4000-8000-000000000002','a5000000-0000-4000-8000-000000000001',20,0,'2026-09-16 13:00:00+00',null)
 $sql$,'retrying the same target request is idempotent');
 select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','supply','a3000000-0000-4000-8000-000000000001'),70::numeric,'idempotent retry does not consume ingredients twice');
+
+select is((public.set_product_stock_v2('a1000000-0000-4000-8000-000000000001','a8000000-0000-4000-8000-000000000003','a5000000-0000-4000-8000-000000000001',15,0,'2026-09-16 14:00:00+00','Ajuste de conferência')->>'action'),'adjustment','reducing finished stock remains an explicit adjustment');
+select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','product','a5000000-0000-4000-8000-000000000001'),15::numeric,'downward target reaches the requested product balance');
+select is(private.inventory_balance('a1000000-0000-4000-8000-000000000001','supply','a3000000-0000-4000-8000-000000000001'),70::numeric,'reducing finished stock does not alter ingredient stock');
 
 select * from finish();
 rollback;
