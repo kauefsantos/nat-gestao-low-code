@@ -35,9 +35,9 @@ insert into public.sales(id,business_id,customer_id,total_received,sale_value_sn
 values ('55000000-0000-4000-8000-000000000010','51000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000002',10,10,'pix','2026-06-01 10:00:00-03',0,0,7,'completed','sale','street','paid');
 
 -- Cancelled and non-commercial movements must not inflate BI commercial facts.
-insert into public.sales(id,business_id,customer_id,total_received,sale_value_snapshot,payment_method,sold_at,variable_fee_snapshot,delivery_cost_snapshot,contribution_snapshot,status,transaction_type,sale_channel,payment_status) values
- ('55000000-0000-4000-8000-000000000011','51000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',100,100,'pix','2026-09-07 16:00:00-03',0,0,97,'cancelled','sale','whatsapp','paid'),
- ('55000000-0000-4000-8000-000000000012','51000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',0,0,'cash','2026-09-07 17:00:00-03',0,0,-3,'completed','courtesy','in_person','paid');
+insert into public.sales(id,business_id,customer_id,total_received,sale_value_snapshot,payment_method,sold_at,variable_fee_snapshot,delivery_cost_snapshot,contribution_snapshot,status,transaction_type,sale_channel,payment_status,cancelled_at,cancel_reason) values
+ ('55000000-0000-4000-8000-000000000011','51000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',100,100,'pix','2026-09-07 16:00:00-03',0,0,97,'cancelled','sale','whatsapp','paid','2026-09-07 16:05:00-03','Truth-table cancellation'),
+ ('55000000-0000-4000-8000-000000000012','51000000-0000-4000-8000-000000000001','53000000-0000-4000-8000-000000000001',0,0,'cash','2026-09-07 17:00:00-03',0,0,-3,'completed','courtesy','in_person','paid',null,null);
 
 -- Product A: first 7 commercial sales (one promotion). Product B: last 3 lifetime sales.
 insert into public.sale_items(business_id,sale_id,product_id,product_name_snapshot,quantity,unit_cost_snapshot,labor_cost_snapshot,unit_price_snapshot)
