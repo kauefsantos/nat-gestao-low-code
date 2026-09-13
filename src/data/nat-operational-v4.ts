@@ -1,10 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { CustomerCreditStatus, PaymentStatus, Sale } from "@/domain/nat";
 import type { FundingSource } from "@/domain/funding";
+import { businessDate } from "@/lib/business-time";
 import { loadFundingSummary } from "@/data/funding-repository";
 import { loadNatHistoryPage, loadNatOperationalStateV2, type HistoryCursor, type HistoryPage } from "@/data/nat-operational-v2";
 
-const EXPECTED_SCHEMA_VERSION="2026-09-13.security-release-gate.1";
+const EXPECTED_SCHEMA_VERSION="2026-09-13.purchases-inventory-integrity.1";
 
 type ReceivableRow={id:string;sale_value_snapshot:number|string;payment_status:string;payment_promised_date:string|null;payment_promised_time:string|null;payment_due_at:string|null;paid_at:string|null;payment_critical_at:string|null;margin_override:boolean};
 function numberValue(value:number|string|null|undefined){const parsed=Number(value);return Number.isFinite(parsed)?parsed:0;}
@@ -36,15 +37,30 @@ async function initialCapitalIds(businessId:string){
   }));
 }
 
+async function latestPurchaseIds(businessId:string){
+  const monthStart=`${businessDate().slice(0,7)}-01`;
+  const result=await supabase.rpc("get_supply_purchase_snapshot",{p_business_id:businessId,p_month_start:monthStart});
+  if(result.error)throw new Error(`Não foi possível carregar a identidade das compras: ${result.error.message}`);
+  const payload=result.data&&typeof result.data==="object"&&!Array.isArray(result.data)?result.data as Record<string,unknown>:{};
+  const latest=Array.isArray(payload.latest)?payload.latest:[];
+  const ids=new Map<string,string>();
+  for(const value of latest){
+    if(!value||typeof value!=="object"||Array.isArray(value))continue;
+    const row=value as Record<string,unknown>;
+    if(row.supplyId&&row.purchaseId)ids.set(String(row.supplyId),String(row.purchaseId));
+  }
+  return ids;
+}
+
 export async function loadNatOperationalStateV4(){
   await assertSchemaVersion();
   const loaded=await loadNatOperationalStateV2();
-  const [funding,capitalIds]=await Promise.all([loadFundingSummary(loaded.businessId),initialCapitalIds(loaded.businessId)]);
+  const [funding,capitalIds,purchaseIds]=await Promise.all([loadFundingSummary(loaded.businessId),initialCapitalIds(loaded.businessId),latestPurchaseIds(loaded.businessId)]);
   const map=await receivables(loaded.businessId,loaded.state.sales.map((sale)=>sale.id));
   const customerIds=(loaded.state.customers??[]).map((customer)=>customer.id);let credit=new Map<string,CustomerCreditStatus>();
   if(customerIds.length){const result=await supabase.from("customers").select("id,credit_status").eq("business_id",loaded.businessId).in("id",customerIds);if(result.error)throw new Error(`Não foi possível carregar a situação dos clientes: ${result.error.message}`);credit=new Map((result.data??[]).map((row)=>[row.id,(row.credit_status==="critical"?"critical":"normal") as CustomerCreditStatus]));}
   return{...loaded,state:{...loaded.state,
-    supplies:loaded.state.supplies.map((item)=>({...item,fundingSource:funding.supplyFunding[item.id]??"owner" as FundingSource})),
+    supplies:loaded.state.supplies.map((item)=>({...item,fundingSource:funding.supplyFunding[item.id]??"owner" as FundingSource,latestPurchaseId:purchaseIds.get(item.id)??null})),
     expenses:loaded.state.expenses.map((item)=>({...item,fundingSource:funding.expenseFunding[item.id]??item.fundingSource??"owner" as FundingSource})),
     settings:{...loaded.state.settings,fixedCostFundingSource:funding.fixedCostFundingSource},
     sales:loaded.state.sales.map((sale)=>mergeReceivable(sale,map.get(sale.id))),
