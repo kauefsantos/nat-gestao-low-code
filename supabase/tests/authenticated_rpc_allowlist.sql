@@ -13,6 +13,7 @@ select is(
   ),
   array[
     'apply_nat_transition_v4',
+    'apply_nat_transition_v5',
     'bootstrap_nat_business',
     'cancel_calendar_event_v2',
     'configure_content_ai',
@@ -39,7 +40,10 @@ select is(
     'list_supply_purchases_page',
     'mark_sale_paid_v1',
     'quote_sale_v1',
+    'quote_sale_v2',
     'record_access_review_v1',
+    'record_brigadeiro_mass_production_v1',
+    'record_brigadeiro_production_v1',
     'record_inventory_production_v2',
     'save_calendar_event_v3',
     'save_push_subscription',
