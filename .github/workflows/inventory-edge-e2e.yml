@@ -43,7 +43,7 @@ jobs:
           insert into public.supplies(id,business_id,name,category,active)
           values ('b3000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','Ingrediente Edge E2E','ingredient',true);
           insert into public.supply_purchases(id,business_id,supply_id,package_quantity,package_unit,package_price,purchased_at,funding_source)
-          values ('b4000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','b3000000-0000-4000-8000-000000000001',100,'g',10,current_date,'owner');
+          values ('b4000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','b3000000-0000-4000-8000-000000000001',100,'g',10,(current_timestamp at time zone 'America/Sao_Paulo')::date,'owner');
           insert into public.products(id,business_id,name,batch_yield,selling_price,loss_percent,labor_cost_per_batch,production_cost_per_batch,minimum_margin_percent,target_margin_percent,active,available)
           values ('b5000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','Produto Edge E2E',10,5,0,0,0,10,20,true,true);
           insert into public.recipe_items(id,business_id,product_id,supply_id,quantity,unit)
