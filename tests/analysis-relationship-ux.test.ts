@@ -4,14 +4,18 @@ import fs from "node:fs";
 
 const read=(path:string)=>fs.readFileSync(path,"utf8");
 
-test("Análises usa linguagem amigável e reposição em colunas de até quatro itens",()=>{
+test("Análises usa linguagem amigável e agrupa reposição em até cinco itens por linha",()=>{
   const workbench=read("src/components/nat/IntelligenceWorkbench.tsx");
   const roi=read("src/components/nat/RoiOverview.tsx");
   assert.match(workbench,/Um resumo simples do que vale acompanhar agora/);
   assert.match(workbench,/itens precisam|item precisa/);
-  assert.match(workbench,/Math\.ceil\(lowStock\.length\/4\)/);
-  assert.match(workbench,/lowStock\.slice\(index\*4,index\*4\+4\)/);
-  assert.match(workbench,/repeat\(auto-fit,minmax\(11rem,1fr\)\)/);
+  assert.match(workbench,/label:"Massas"/);
+  assert.match(workbench,/label:"Insumos"/);
+  assert.match(workbench,/label:"Sabores"/);
+  assert.match(workbench,/item\.kind==="supply"/);
+  assert.match(workbench,/startsWith\("massa"\)/);
+  assert.match(workbench,/lg:grid-cols-5/);
+  assert.doesNotMatch(workbench,/lowStockColumns/);
   assert.doesNotMatch(workbench,/lowStock\.slice\(0,8\)/);
   assert.doesNotMatch(workbench,/HelpTip/);
   assert.doesNotMatch(roi,/HelpTip/);
