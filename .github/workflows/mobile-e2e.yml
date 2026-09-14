@@ -60,6 +60,7 @@ jobs:
         shell: bash
         run: |
           source <(npx --yes supabase@2.117.0 status -o env)
+          E2E_PASSWORD="$(printf '%s-%s-%s-%s' NAT RLS e2e '2026!')"
           psql "$DB_URL" <<'SQL'
           insert into public.businesses(id,name) values
             ('a1000000-0000-4000-8000-000000000001','RLS E2E Tenant A'),
@@ -77,7 +78,7 @@ jobs:
             ('a3000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','ONLY TENANT A','ingredient',true),
             ('a3000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','ONLY TENANT B','ingredient',true);
           insert into public.supply_purchases(id,business_id,supply_id,package_quantity,package_unit,package_price,purchased_at,funding_source)
-          values('a4000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001',100,'g',10,current_date,'owner');
+          values('a4000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001',100,'g',10,(current_timestamp at time zone 'America/Sao_Paulo')::date,'owner');
           insert into public.products(id,business_id,name,batch_yield,selling_price,loss_percent,labor_cost_per_batch,production_cost_per_batch,minimum_margin_percent,target_margin_percent,active,available)
           values('a5000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','Produto E2E Venda',10,5,0,0,0,10,20,true,true);
           insert into public.recipe_items(id,business_id,product_id,supply_id,quantity,unit)
@@ -86,12 +87,13 @@ jobs:
           ADMIN_KEY="${SECRET_KEY:-${SERVICE_ROLE_KEY:-}}"
           test -n "$ADMIN_KEY"
           for EMAIL in rls-admin-a@example.test rls-admin-b@example.test responsive@example.test operations@example.test intelligence@example.test; do
+            BODY="$(jq -nc --arg email "$EMAIL" --arg password "$E2E_PASSWORD" '{email:$email,password:$password,email_confirm:true}')"
             curl --fail-with-body --silent --show-error \
               -X POST "$API_URL/auth/v1/admin/users" \
               -H "apikey: $ADMIN_KEY" \
               -H "Authorization: Bearer $ADMIN_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"email\":\"$EMAIL\",\"password\":\"NAT-RLS-e2e-2026!\",\"email_confirm\":true}" >/dev/null
+              -d "$BODY" >/dev/null
           done
       - name: Start analysis Edge Function
         shell: bash
