@@ -2,18 +2,26 @@ import type { Customer, NatState, Sale } from "./types.js";
 
 export type ReceivableStage="none"|"pending"|"overdue"|"critical";
 export type PayerProfileStatus="no_credit_history"|"good"|"pending"|"overdue"|"critical"|"warning_history";
+export type PurchasePaymentState="paid"|"pending"|"overdue";
+export type ReceivableSale=Pick<Sale,"status"|"transactionType"|"paymentStatus"|"paymentDueAt"|"paymentCriticalAt">;
 
 export function saleValue(sale:Sale){
   return sale.saleValueSnapshot??sale.totalReceived;
 }
 
-export function receivableStage(sale:Sale,now=new Date()):ReceivableStage{
+export function receivableStage(sale:ReceivableSale,now=new Date()):ReceivableStage{
   if(sale.status==="cancelled"||(sale.transactionType??"sale")!=="sale"||sale.paymentStatus!=="pending"||!sale.paymentDueAt)return"none";
   if(sale.paymentCriticalAt)return"critical";
   const elapsed=now.getTime()-new Date(sale.paymentDueAt).getTime();
   if(elapsed>=48*60*60*1000)return"critical";
   if(elapsed>=5*60*60*1000)return"overdue";
   return"pending";
+}
+
+export function purchasePaymentState(sale:ReceivableSale,now=new Date()):PurchasePaymentState{
+  if(sale.paymentStatus!=="pending")return"paid";
+  const stage=receivableStage(sale,now);
+  return stage==="overdue"||stage==="critical"?"overdue":"pending";
 }
 
 export function paymentPromiseLabel(sale:Sale){
