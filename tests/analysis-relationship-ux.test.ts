@@ -44,6 +44,23 @@ test("Relacionamento apresenta Fichas de clientes com subtítulo amigável",()=>
   assert.doesNotMatch(customers,/Totais, recompra e RFM usam todo o histórico do Lovable Cloud/);
 });
 
+test("Fichas expandem compras completas e mantêm edição por duplo clique",()=>{
+  const customers=read("src/components/nat/CustomersView.tsx");
+  const repository=read("src/data/customer-history-repository.ts");
+  assert.match(customers,/aria-expanded=\{expanded\}/);
+  assert.match(customers,/onDoubleClick=\{\(\)=>editCustomer\(row\.customer\)\}/);
+  assert.match(customers,/>Data<\/th>/);
+  assert.match(customers,/>Pedido<\/th>/);
+  assert.match(customers,/>Valor<\/th>/);
+  assert.match(customers,/>Status<\/th>/);
+  assert.match(customers,/Não pago · em dia/);
+  assert.match(customers,/Não pago · atrasado/);
+  assert.doesNotMatch(customers,/Histórico recente carregado/);
+  assert.match(repository,/from\("sales"\)/);
+  assert.match(repository,/from\("sale_items"\)/);
+  assert.match(repository,/purchasePaymentState/);
+});
+
 test("ROI e compras usam interfaces do Lovable Cloud e Portfólio ativo",()=>{
   const repository=read("src/data/business-intelligence-repository.ts");
   const purchaseRepository=read("src/data/intelligence-repository.ts");
